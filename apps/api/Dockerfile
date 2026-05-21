@@ -13,6 +13,7 @@ RUN pnpm install --frozen-lockfile
 COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api
 
+RUN pnpm --filter @ama-midi/shared build
 RUN pnpm --filter @ama-midi/api build
 
 FROM node:20-alpine AS runner
@@ -22,6 +23,8 @@ WORKDIR /app
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 
 ENV NODE_ENV=production
 ENV PORT=3001
