@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '../../../store/auth.store'
+import { useEditorStore } from '../../../store/editor.store'
 import { apiClient } from '../../auth/api'
 import { useCreateNote } from '../../notes/useNotes'
-import { trackToX, timeToY } from '../engine/coordinate-mapper'
+import { trackToX, timeToY, trackWidth } from '../engine'
 import type { Note } from '@ama-midi/shared'
 
 interface NoteSuggestion {
@@ -27,6 +28,13 @@ export function AiSuggestions({ songId, notes, gridWidth, pxPerSecond, scrollTop
   const createNote = useCreateNote(songId)
 
   const canSuggest = notes.length >= 5
+  const { setTriggerAiSuggest } = useEditorStore()
+
+  useEffect(() => {
+    setTriggerAiSuggest(handleSuggest)
+    return () => setTriggerAiSuggest(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songId])
 
   async function handleSuggest() {
     setLoading(true)
@@ -56,39 +64,24 @@ export function AiSuggestions({ songId, notes, gridWidth, pxPerSecond, scrollTop
     })
   }
 
-  const colW = gridWidth / 8
+  const tw = trackWidth(gridWidth)
 
   return (
     <>
-      {/* Floating suggest button in top-right of the piano roll */}
-      <div className="absolute top-2 right-2 z-30 pointer-events-auto">
-        <button
-          onClick={handleSuggest}
-          disabled={!canSuggest || loading}
-          title={!canSuggest ? 'Place at least 5 notes to get AI suggestions' : 'Get AI note suggestions'}
-          className="px-3 py-1 text-xs bg-primary/20 text-primary border border-primary/30 rounded-md hover:bg-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? '…' : '✦ Suggest'}
-        </button>
-      </div>
-
       {/* Ghost notes overlaid on the grid */}
       {suggestions.map((s, i) => {
         const x = trackToX(s.track, gridWidth)
         const y = timeToY(s.time, pxPerSecond) - scrollTop
+        const cx = x + tw / 2 - 8
         return (
           <div
             key={i}
             className="absolute z-20 group pointer-events-auto"
-            style={{ left: x - colW / 2, top: y - 8, width: colW, height: 16 }}
+            style={{ left: cx, top: y - 8 }}
           >
             <div
-              className="w-4 h-4 rounded-full mx-auto note-ghost"
-              style={{
-                backgroundColor: s.color,
-                opacity: 0.4,
-                border: `2px dashed ${s.color}`,
-              }}
+              className="w-4 h-4 rounded-full border-2 border-primary/50 bg-primary/20 animate-ghost-pulse"
+              style={{ backgroundColor: `${s.color}33`, borderColor: s.color }}
             />
             <div className="absolute left-1/2 -translate-x-1/2 top-5 hidden group-hover:flex gap-1 z-30 whitespace-nowrap">
               <button

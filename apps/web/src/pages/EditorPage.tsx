@@ -1,16 +1,17 @@
 import { useRef, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { EditorShell } from '../components/layout'
+import { Toolbar }          from '../features/editor/components/Toolbar'
 import { TrackHeader }      from '../features/editor/components/TrackHeader'
 import { LiveContextStrip } from '../features/editor/components/LiveContextStrip'
 import { useNotes }         from '../features/notes/useNotes'
-import { Button, IconButton, ToggleGroup, Tabs, Badge } from '../components/ui'
+import { usePlayback }      from '../features/editor/hooks/usePlayback'
+import { Tabs } from '../components/ui'
 import { PianoRoll } from '../features/editor/components/PianoRoll'
 import { HistoryPanel } from '../features/editor/components/HistoryPanel'
 import { ValidationPanel } from '../features/editor/components/ValidationPanel'
 import { ShortcutLegend } from '../features/editor/components/ShortcutLegend'
-import { PresenceBar } from '../features/collaboration/PresenceBar'
 import { useSocket } from '../features/collaboration/useSocket'
 import { useEditorStore } from '../store/editor.store'
 import { useUndo } from '../features/notes/useNotes'
@@ -19,7 +20,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useAuthStore } from '../store/auth.store'
 import { apiClient } from '../features/auth/api'
 import { formatTime } from '../lib/utils'
-import type { Note } from '@ama-midi/shared'
+import type { Note, Song } from '@ama-midi/shared'
 
 interface ValidationResult {
   summary: { errors: number; warnings: number }
@@ -27,18 +28,28 @@ interface ValidationResult {
 
 export function EditorPage() {
   const { songId } = useParams<{ songId: string }>()
+  const navigate = useNavigate()
   const {
     viewMode, zoom, setViewMode, setZoom,
     rightPanelTab, setRightPanelTab,
     leftCollapsed, rightCollapsed,
     toggleLeftPanel, toggleRightPanel,
-    playheadTime, selectNote,
+    playheadTime, selectNote, triggerAiSuggest,
   } = useEditorStore()
+
+  usePlayback()
+
   const undo = useUndo(songId!)
   const { data: allNotes = [] } = useNotes(songId!)
   const { presenceList } = useSocket(songId!)
   const canEdit = useCanEdit()
   const token = useAuthStore((s) => s.token)
+
+  const { data: song } = useQuery<Song>({
+    queryKey: ['song', songId],
+    queryFn:  () => apiClient(token)<Song>(`/songs/${songId}`),
+    enabled:  !!token && !!songId,
+  })
 
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [mutedTracks, setMutedTracks] = useState<Set<number>>(new Set())
@@ -87,42 +98,14 @@ export function EditorPage() {
   const warnCount = validationData?.summary.warnings ?? 0
 
   const topBar = (
-    <div className="flex items-center justify-between w-full gap-4">
-      <div className="flex items-center gap-4">
-        <Link to="/" className="text-shell-muted hover:text-shell-text text-sm">
-          ← Songs
-        </Link>
-        <span className="text-shell-text font-medium text-sm">Editor</span>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <PresenceBar users={presenceList} />
-
-        <ToggleGroup
-          items={[
-            { value: 'composer', label: 'Composer' },
-            { value: 'developer', label: 'Developer' },
-            { value: 'qa', label: 'QA' },
-          ]}
-          value={viewMode}
-          onValueChange={(v) => setViewMode(v as typeof viewMode)}
-        />
-
-        {canEdit && (
-          <Button variant="secondary" size="sm" onClick={() => undo.mutate()} disabled={undo.isPending}>
-            Undo
-          </Button>
-        )}
-
-        <IconButton variant="outlined" size="sm" tooltip="Keyboard shortcuts (?)" onClick={() => setShowShortcuts(true)}>
-          ?
-        </IconButton>
-
-        {!canEdit && (
-          <Badge variant="muted" size="sm">Viewing only</Badge>
-        )}
-      </div>
-    </div>
+    <Toolbar
+      songId={songId!}
+      songName={song?.name ?? '…'}
+      presenceList={presenceList}
+      onSuggest={() => triggerAiSuggest?.()}
+      onShowShortcuts={() => setShowShortcuts(true)}
+      onBack={() => navigate('/')}
+    />
   )
 
   const maxNoteCount = Math.max(
@@ -195,16 +178,6 @@ export function EditorPage() {
   const bottomBar = (
     <>
       <span className="text-xs font-mono text-shell-muted">{formatTime(playheadTime)}</span>
-      <ToggleGroup
-        variant="canvas"
-        items={[
-          { value: '1', label: '1x' },
-          { value: '2', label: '2x' },
-          { value: '4', label: '4x' },
-        ]}
-        value={String(zoom)}
-        onValueChange={(v) => setZoom(Number(v) as 1 | 2 | 4)}
-      />
       <div className="ml-auto">
         {!validationData ? null : errCount === 0 && warnCount === 0 ? (
           <span className="text-xs text-green-500">✓ Valid</span>
