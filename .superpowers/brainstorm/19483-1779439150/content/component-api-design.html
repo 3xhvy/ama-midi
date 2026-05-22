@@ -1,0 +1,183 @@
+<h2>Section 2: Component API Design</h2>
+<p class="subtitle">Variant-driven primitives with consistent prop patterns</p>
+
+<div class="section">
+  <h3>Shared Pattern: Every component follows this contract</h3>
+  <div style="font-family: monospace; font-size: 12px; line-height: 1.6; background: #1a1a2e; color: #e2deff; padding: 20px; border-radius: 12px;">
+<pre style="margin:0"><span style="color:#EC4899">// Every UI component:</span>
+<span style="color:#06B6D4">1.</span> Accepts className for override/extension
+<span style="color:#06B6D4">2.</span> Forwards ref (React.forwardRef)
+<span style="color:#06B6D4">3.</span> Spreads remaining HTML props (...rest)
+<span style="color:#06B6D4">4.</span> Uses cn() helper for conditional class merging
+<span style="color:#06B6D4">5.</span> Uses design tokens (never hardcoded hex values)
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Button</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: #f8f7ff; padding: 16px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong>Props</strong>
+      <div style="font-family: monospace; font-size: 11px; margin-top: 8px; line-height: 1.8;">
+        variant: 'primary' | 'secondary' | 'ghost' | 'danger'<br>
+        size: 'sm' | 'md' | 'lg'<br>
+        rounded: boolean (pill shape)<br>
+        loading: boolean<br>
+        disabled: boolean<br>
+        icon: ReactNode (left icon slot)<br>
+      </div>
+    </div>
+    <div style="background: #f8f7ff; padding: 16px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong>Design.md Mapping</strong>
+      <div style="font-size: 12px; margin-top: 8px; line-height: 1.8;">
+        <span style="background:#6C63FF;color:white;padding:2px 8px;border-radius:99px;font-size:11px">▶ Preview</span> = primary, rounded<br>
+        <span style="background:#fff;color:#1a1635;padding:2px 8px;border-radius:99px;font-size:11px;border:1px solid #e8e6f0">✓ Save</span> = secondary, rounded<br>
+        <span style="background:transparent;color:#6B6585;padding:2px 8px;font-size:11px">Undo</span> = ghost, sm<br>
+        <span style="background:#fef2f2;color:#EF4444;padding:2px 8px;border-radius:8px;font-size:11px">Delete</span> = danger<br>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Badge / StatusBadge</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: #f8f7ff; padding: 16px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong>Badge Props</strong>
+      <div style="font-family: monospace; font-size: 11px; margin-top: 8px; line-height: 1.8;">
+        variant: 'default' | 'success' | 'warning' | 'error' | 'muted'<br>
+        size: 'sm' | 'md'<br>
+        icon: ReactNode<br>
+      </div>
+    </div>
+    <div style="background: #f8f7ff; padding: 16px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong>StatusBadge Props</strong>
+      <div style="font-family: monospace; font-size: 11px; margin-top: 8px; line-height: 1.8;">
+        status: 'synced' | 'needsReview' | 'outdated' | 'draft'<br>
+        <span style="color:#6B6585">// Auto-maps to colors from STATUS_COLORS</span><br>
+        <span style="color:#6B6585">// Auto-maps to icon (✓, ⚠, ✕, ○)</span>
+      </div>
+      <div style="margin-top: 8px;">
+        <span style="background:#ECFDF5;color:#10B981;padding:2px 8px;border-radius:99px;font-size:11px">✓ Synced</span>
+        <span style="background:#FFFBEB;color:#F59E0B;padding:2px 8px;border-radius:99px;font-size:11px">⚠ Needs Review</span>
+        <span style="background:#FEF2F2;color:#EF4444;padding:2px 8px;border-radius:99px;font-size:11px">✕ Outdated</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Avatar / AvatarStack</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: #f8f7ff; padding: 16px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong>Avatar Props</strong>
+      <div style="font-family: monospace; font-size: 11px; margin-top: 8px; line-height: 1.8;">
+        src?: string<br>
+        name: string (fallback → initials)<br>
+        size: 'xs' | 'sm' | 'md' | 'lg' (24/32/40/48px)<br>
+        showOnline?: boolean (green dot)<br>
+      </div>
+    </div>
+    <div style="background: #f8f7ff; padding: 16px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong>AvatarStack Props</strong>
+      <div style="font-family: monospace; font-size: 11px; margin-top: 8px; line-height: 1.8;">
+        users: { name, avatarUrl?, id }[]<br>
+        max: number (default 5)<br>
+        size: 'sm' | 'md'<br>
+        <span style="color:#6B6585">// Shows +N overflow pill automatically</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Modal (Radix Dialog)</h3>
+  <div style="background: #f8f7ff; padding: 16px; border-radius: 8px; border: 1px solid #e8e6f0;">
+    <div style="font-family: monospace; font-size: 11px; line-height: 1.8;">
+      Modal.Root — wraps Radix Dialog.Root<br>
+      Modal.Trigger — opens the modal<br>
+      Modal.Content — centered card (400px, rounded-xl, shadow-lg)<br>
+      Modal.Header — title + close button<br>
+      Modal.Body — content area<br>
+      Modal.Footer — action buttons row<br>
+      <br>
+      <span style="color:#6B6585">// Backdrop: rgba(26,22,53,0.6) per Design.md</span><br>
+      <span style="color:#6B6585">// Escape key closes, focus trapped, body scroll locked</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Tabs (Radix Tabs)</h3>
+  <div style="background: #f8f7ff; padding: 16px; border-radius: 8px; border: 1px solid #e8e6f0;">
+    <div style="font-family: monospace; font-size: 11px; line-height: 1.8;">
+      Tabs.Root — wraps Radix Tabs.Root<br>
+      Tabs.List — horizontal tab bar with bottom border<br>
+      Tabs.Trigger — tab button (active = purple underline)<br>
+      Tabs.Content — panel content<br>
+      <br>
+      <span style="color:#6B6585">// Used in: RightPanel (Details/Validation/History)</span><br>
+      <span style="color:#6B6585">// Keyboard: Tab key switches per Design.md shortcuts</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>ToggleGroup (Radix ToggleGroup)</h3>
+  <div style="background: #f8f7ff; padding: 16px; border-radius: 8px; border: 1px solid #e8e6f0;">
+    <div style="font-family: monospace; font-size: 11px; line-height: 1.8;">
+      variant: 'default' | 'editor' (light vs dark bg)<br>
+      items: { value, label }[]<br>
+      value: string<br>
+      onValueChange: (value) => void<br>
+      <br>
+      <span style="color:#6B6585">// Used for: View mode (Composer/Developer/QA), Zoom (1x/2x/4x)</span><br>
+      <span style="color:#6B6585">// Active item: bg-primary text-white</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Other Primitives</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>Input</strong><br>
+      size: 'sm' | 'md'<br>
+      error?: string<br>
+      icon?: ReactNode
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>Tooltip</strong><br>
+      content: ReactNode<br>
+      side: 'top'|'bottom'<br>
+      <span style="color:#6B6585">Radix Tooltip</span>
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>Skeleton</strong><br>
+      width/height/rounded<br>
+      animate: boolean<br>
+      <span style="color:#6B6585">Loading placeholders</span>
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>ColorPicker</strong><br>
+      colors: string[]<br>
+      value: string<br>
+      onChange: (c) => void<br>
+      <span style="color:#6B6585">8 preset circles</span>
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>IconButton</strong><br>
+      icon: ReactNode<br>
+      size: 'sm' | 'md'<br>
+      variant: 'ghost'|'outlined'<br>
+      tooltip?: string
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>Textarea</strong><br>
+      rows: number<br>
+      resize: boolean<br>
+      <span style="color:#6B6585">Same styling as Input</span>
+    </div>
+  </div>
+</div>

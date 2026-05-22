@@ -1,0 +1,171 @@
+<h2>Section 4: Layout Shells</h2>
+<p class="subtitle">EditorShell (5-zone) + AppShell (light pages) — pixel-precise from Design.md</p>
+
+<div class="section">
+  <h3>EditorShell — 5-Zone Layout</h3>
+  <div style="background: #13111E; border-radius: 12px; padding: 4px; font-family: monospace; font-size: 11px;">
+    <!-- TopBar -->
+    <div style="background: #FFFFFF; height: 48px; border-radius: 8px 8px 0 0; display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid #E8E6F0;">
+      <span style="color: #1A1635; font-size: 11px; font-weight: 600;">TopBar</span>
+      <span style="color: #6B6585; font-size: 10px; margin-left: 8px;">h-16 (64px) · light surface · border-bottom</span>
+      <span style="color: #A09BB5; font-size: 10px; margin-left: auto;">children: left / center / right slots</span>
+    </div>
+    <!-- Middle zone -->
+    <div style="display: flex; height: 280px;">
+      <!-- LeftPanel -->
+      <div style="width: 180px; background: #FFFFFF; border-right: 1px solid #E8E6F0; padding: 8px; display: flex; flex-direction: column;">
+        <span style="color: #1A1635; font-size: 10px; font-weight: 600;">LeftPanel</span>
+        <span style="color: #6B6585; font-size: 9px; margin-top: 4px;">w-60 (240px)</span>
+        <span style="color: #6B6585; font-size: 9px;">light surface</span>
+        <span style="color: #6B6585; font-size: 9px;">border-right</span>
+        <span style="color: #6B6585; font-size: 9px; margin-top: 4px;">flex-shrink-0</span>
+        <div style="margin-top: auto; font-size: 9px; color: #A09BB5;">children prop</div>
+      </div>
+      <!-- Center -->
+      <div style="flex: 1; background: #13111E; display: flex; align-items: center; justify-content: center; border: 1px dashed #2D2847;">
+        <div style="text-align: center;">
+          <span style="color: #6C63FF; font-size: 12px; font-weight: 600;">Center (flex-1)</span><br>
+          <span style="color: #6B6585; font-size: 10px;">dark editor bg</span><br>
+          <span style="color: #6B6585; font-size: 10px;">overflow: hidden</span><br>
+          <span style="color: #A09BB5; font-size: 9px; margin-top: 8px; display: block;">← PianoRoll goes here →</span>
+        </div>
+      </div>
+      <!-- RightPanel -->
+      <div style="width: 200px; background: #FFFFFF; border-left: 1px solid #E8E6F0; padding: 8px; display: flex; flex-direction: column;">
+        <span style="color: #1A1635; font-size: 10px; font-weight: 600;">RightPanel</span>
+        <span style="color: #6B6585; font-size: 9px; margin-top: 4px;">w-70 (280px)</span>
+        <span style="color: #6B6585; font-size: 9px;">light surface</span>
+        <span style="color: #6B6585; font-size: 9px;">border-left</span>
+        <span style="color: #6B6585; font-size: 9px;">collapsible</span>
+        <span style="color: #6B6585; font-size: 9px; margin-top: 4px;">flex-shrink-0</span>
+        <div style="margin-top: auto; font-size: 9px; color: #A09BB5;">children prop</div>
+      </div>
+    </div>
+    <!-- BottomBar -->
+    <div style="background: #FFFFFF; height: 36px; border-radius: 0 0 8px 8px; display: flex; align-items: center; padding: 0 16px; border-top: 1px solid #E8E6F0;">
+      <span style="color: #1A1635; font-size: 11px; font-weight: 600;">BottomBar</span>
+      <span style="color: #6B6585; font-size: 10px; margin-left: 8px;">h-12 (48px) · light surface · border-top</span>
+      <span style="color: #A09BB5; font-size: 10px; margin-left: auto;">children: left / center / right slots</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>EditorShell Component API</h3>
+  <div style="font-family: monospace; font-size: 11px; line-height: 1.8; background: #1a1a2e; color: #e2deff; padding: 20px; border-radius: 12px;">
+<pre style="margin:0">
+<span style="color:#EC4899">interface</span> EditorShellProps {
+  topBar: ReactNode          <span style="color:#6B6585">// 64px fixed header</span>
+  leftPanel: ReactNode       <span style="color:#6B6585">// 240px, collapsible</span>
+  rightPanel: ReactNode      <span style="color:#6B6585">// 280px, collapsible</span>
+  bottomBar: ReactNode       <span style="color:#6B6585">// 48px fixed footer</span>
+  children: ReactNode        <span style="color:#6B6585">// center zone (PianoRoll)</span>
+  leftCollapsed?: boolean    <span style="color:#6B6585">// hide left panel</span>
+  rightCollapsed?: boolean   <span style="color:#6B6585">// hide right panel</span>
+}
+
+<span style="color:#6B6585">// Usage in EditorPage:</span>
+&lt;EditorShell
+  topBar={&lt;TopBarContent /&gt;}
+  leftPanel={&lt;LayerPanel /&gt;}
+  rightPanel={&lt;DetailsTabs /&gt;}
+  bottomBar={&lt;PlaybackBar /&gt;}
+&gt;
+  &lt;PianoRoll songId={songId} /&gt;
+&lt;/EditorShell&gt;
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>AppShell — Light Pages (Login, SongList)</h3>
+  <div style="background: #F8F7FF; border-radius: 12px; padding: 4px; font-family: monospace; font-size: 11px; border: 1px solid #E8E6F0;">
+    <!-- Header -->
+    <div style="background: #FFFFFF; height: 44px; border-radius: 8px 8px 0 0; display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid #E8E6F0;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #ff3177, #5b00e3); border-radius: 4px;"></div>
+        <span style="color: #1A1635; font-size: 11px; font-weight: 600;">AMA-MIDI</span>
+      </div>
+      <span style="color: #A09BB5; font-size: 10px; margin-left: auto;">avatar + dropdown</span>
+    </div>
+    <!-- Content -->
+    <div style="padding: 24px; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+      <div style="text-align: center;">
+        <span style="color: #6C63FF; font-size: 12px; font-weight: 600;">Content (max-w-[1100px], centered)</span><br>
+        <span style="color: #6B6585; font-size: 10px;">Page title + body</span>
+      </div>
+    </div>
+  </div>
+  <div style="font-family: monospace; font-size: 11px; line-height: 1.8; background: #1a1a2e; color: #e2deff; padding: 16px; border-radius: 12px; margin-top: 12px;">
+<pre style="margin:0">
+<span style="color:#EC4899">interface</span> AppShellProps {
+  children: ReactNode       <span style="color:#6B6585">// main content</span>
+  maxWidth?: string         <span style="color:#6B6585">// default "1100px"</span>
+  showHeader?: boolean      <span style="color:#6B6585">// default true (false for login)</span>
+}
+
+<span style="color:#6B6585">// Usage in SongListPage:</span>
+&lt;AppShell&gt;
+  &lt;PageTitle action={&lt;Button&gt;+ New Song&lt;/Button&gt;}&gt;
+    Your Songs
+  &lt;/PageTitle&gt;
+  &lt;SongGrid songs={songs} /&gt;
+&lt;/AppShell&gt;
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>TopBar Slot Architecture</h3>
+  <div style="background: #FFFFFF; border-radius: 12px; padding: 16px; border: 1px solid #E8E6F0;">
+    <div style="display: flex; align-items: center; justify-content: space-between; height: 40px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 11px; color: #1A1635; font-weight: 600;">Song name <span style="color: #A09BB5; font-size: 9px;">(editable)</span></span>
+        <span style="background: #f3f0f9; color: #6B6585; font-size: 9px; padding: 2px 6px; border-radius: 99px;">v4</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="background: #6C63FF; color: white; padding: 4px 10px; border-radius: 99px; font-size: 10px;">▶ Preview</span>
+        <span style="background: white; border: 1px solid #E8E6F0; color: #1A1635; padding: 4px 10px; border-radius: 99px; font-size: 10px;">✓ Save</span>
+        <span style="background: white; border: 1px solid #E8E6F0; color: #1A1635; padding: 4px 10px; border-radius: 99px; font-size: 10px;">↑ Export</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex;">
+          <div style="width: 24px; height: 24px; background: #6C63FF; border-radius: 50%; border: 2px solid white; font-size: 8px; color: white; display: flex; align-items: center; justify-content: center;">HH</div>
+          <div style="width: 24px; height: 24px; background: #10B981; border-radius: 50%; border: 2px solid white; margin-left: -6px; font-size: 8px; color: white; display: flex; align-items: center; justify-content: center;">AB</div>
+        </div>
+        <div style="display: flex; border: 1px solid #E8E6F0; border-radius: 6px; overflow: hidden;">
+          <span style="background: #6C63FF; color: white; padding: 3px 8px; font-size: 9px;">Composer</span>
+          <span style="padding: 3px 8px; font-size: 9px; color: #6B6585;">Developer</span>
+          <span style="padding: 3px 8px; font-size: 9px; color: #6B6585;">QA</span>
+        </div>
+        <span style="width: 24px; height: 24px; border: 1px solid #E8E6F0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #6B6585;">?</span>
+      </div>
+    </div>
+  </div>
+  <div style="font-size: 11px; color: #6B6585; margin-top: 8px;">
+    TopBar uses 3 slots: <strong>left</strong> (song name + version), <strong>center</strong> (action buttons), <strong>right</strong> (presence + view mode + help)
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Key Layout Rules (from Design.md)</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>100vh, no outer scroll</strong><br>
+      Only the PianoRoll timeline scrolls internally. The shell fills the viewport exactly.
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>Light shell / Dark center</strong><br>
+      Panels = --color-surface (white)<br>
+      Center = --color-editor-bg (#13111E)
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>Collapsible panels</strong><br>
+      Left/Right can collapse with animation (slide-in-right). Toggle via keyboard or button.
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0; font-size: 11px;">
+      <strong>History panel overlay</strong><br>
+      Slides in from right (320px), overlays RightPanel. Uses panel-right animation class.
+    </div>
+  </div>
+</div>

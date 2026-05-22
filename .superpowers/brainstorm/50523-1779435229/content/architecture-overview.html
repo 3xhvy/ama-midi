@@ -1,0 +1,101 @@
+<h2>AMA-MIDI Frontend Architecture — Component Map</h2>
+<p class="subtitle">How the layers connect: primitives → layout → features → pages</p>
+
+<div class="section">
+  <h3>Layer Architecture</h3>
+  <div style="font-family: monospace; font-size: 13px; line-height: 1.8; background: #1a1a2e; color: #e2deff; padding: 24px; border-radius: 12px; overflow-x: auto;">
+<pre style="margin:0">
+┌─────────────────────────────────────────────────────────────────┐
+│  <span style="color:#6C63FF">PAGES</span> (thin wrappers — compose layouts + features)             │
+│  LoginPage · SongListPage · EditorPage · AuthCallbackPage       │
+├─────────────────────────────────────────────────────────────────┤
+│  <span style="color:#10B981">LAYOUTS</span> (structural shells — handle zones + responsive)         │
+│  AppShell · EditorShell (TopBar + Left + Center + Right + Bot)  │
+├─────────────────────────────────────────────────────────────────┤
+│  <span style="color:#F59E0B">FEATURES</span> (domain components — use primitives + hooks)           │
+│  PianoRoll · SongCard · NotePopup · HistoryPanel ·              │
+│  ValidationPanel · PresenceBar · AiSuggestions · NoteBlock      │
+├─────────────────────────────────────────────────────────────────┤
+│  <span style="color:#EC4899">COMPONENTS/UI</span> (reusable primitives — zero domain logic)         │
+│  Button · Badge · Avatar · AvatarStack · Input · Textarea ·    │
+│  Modal · Tabs · Tooltip · ColorPicker · ToggleGroup ·           │
+│  Skeleton · IconButton · StatusBadge                            │
+├─────────────────────────────────────────────────────────────────┤
+│  <span style="color:#06B6D4">LIB</span> (utilities + hooks + stores + API)                          │
+│  utils.ts · auth.store · editor.store · apiClient ·             │
+│  useNotes · useSongs · useSocket · useCanEdit                   │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>File Structure</h3>
+  <div style="font-family: monospace; font-size: 12px; line-height: 1.7; background: #f8f7ff; color: #1a1635; padding: 20px; border-radius: 12px; border: 1px solid #e8e6f0;">
+<pre style="margin:0">
+src/
+├── components/
+│   ├── ui/                    ← <span style="color:#EC4899">Radix + Tailwind primitives</span>
+│   │   ├── Button.tsx
+│   │   ├── Badge.tsx
+│   │   ├── Avatar.tsx
+│   │   ├── AvatarStack.tsx
+│   │   ├── Input.tsx
+│   │   ├── Modal.tsx
+│   │   ├── Tabs.tsx
+│   │   ├── Tooltip.tsx
+│   │   ├── ToggleGroup.tsx
+│   │   ├── ColorPicker.tsx
+│   │   ├── Skeleton.tsx
+│   │   ├── IconButton.tsx
+│   │   ├── StatusBadge.tsx
+│   │   └── index.ts           ← barrel export
+│   └── layout/                ← <span style="color:#10B981">Structural shells</span>
+│       ├── AppShell.tsx        (header + centered content)
+│       ├── EditorShell.tsx     (5-zone grid)
+│       ├── TopBar.tsx
+│       ├── LeftPanel.tsx
+│       ├── RightPanel.tsx
+│       ├── BottomBar.tsx
+│       └── index.ts
+├── features/                  ← <span style="color:#F59E0B">Domain components + hooks</span>
+│   ├── auth/       (api.ts, useMe.ts)
+│   ├── songs/      (useSongs.ts, SongCard.tsx, SongGrid.tsx)
+│   ├── editor/
+│   │   ├── components/  (PianoRoll, NoteBlock, NotePopup, GhostNote)
+│   │   └── engine/      (coordinate-mapper, viewport-calculator)
+│   ├── collaboration/  (useSocket, PresenceBar)
+│   ├── history/    (HistoryPanel)
+│   └── validation/ (ValidationPanel)
+├── hooks/          (useCanEdit, useKeyboardShortcuts)
+├── store/          (auth.store, editor.store)
+├── lib/            (utils.ts — timeAgo, getInitials, cn helper)
+├── pages/          (LoginPage, SongListPage, EditorPage, AuthCallback)
+└── styles/         (globals.css)
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Key Principle: Each Layer Only Imports Downward</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="background: #ecfdf5; padding: 16px; border-radius: 8px; border: 1px solid #10B981;">
+      <strong style="color: #10B981;">✓ Allowed</strong>
+      <ul style="margin: 8px 0 0; padding-left: 16px; font-size: 13px;">
+        <li>Page → Layout, Feature, UI</li>
+        <li>Feature → UI, Lib</li>
+        <li>Layout → UI</li>
+        <li>UI → Lib (cn helper only)</li>
+      </ul>
+    </div>
+    <div style="background: #fef2f2; padding: 16px; border-radius: 8px; border: 1px solid #EF4444;">
+      <strong style="color: #EF4444;">✕ Forbidden</strong>
+      <ul style="margin: 8px 0 0; padding-left: 16px; font-size: 13px;">
+        <li>UI → Feature (no domain in primitives)</li>
+        <li>Layout → Feature (shell doesn't know content)</li>
+        <li>Lib → anything above it</li>
+        <li>Feature → Feature (use events/store)</li>
+      </ul>
+    </div>
+  </div>
+</div>

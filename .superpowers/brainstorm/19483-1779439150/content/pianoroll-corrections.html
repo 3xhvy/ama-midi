@@ -1,0 +1,163 @@
+<h2>Section 3: PianoRoll — Design.md Corrections</h2>
+<p class="subtitle">What must change vs. current implementation</p>
+
+<div class="section">
+  <h3>Note Shape: Circle, Not Rectangle</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div style="background: #fef2f2; padding: 20px; border-radius: 12px; border: 1px solid #EF4444; text-align: center;">
+      <strong style="color: #EF4444;">✕ Current (Wrong)</strong>
+      <div style="margin-top: 16px; position: relative; height: 60px; background: #13111E; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+        <div style="width: 80px; height: 20px; background: #6C63FF; border-radius: 3px; display: flex; align-items: center; padding: 0 4px;">
+          <span style="color: white; font-size: 10px;">Note title</span>
+        </div>
+      </div>
+      <p style="font-size: 11px; color: #6B6585; margin-top: 8px;">20px-tall rectangle spanning track width</p>
+    </div>
+    <div style="background: #ecfdf5; padding: 20px; border-radius: 12px; border: 1px solid #10B981; text-align: center;">
+      <strong style="color: #10B981;">✓ Design.md (Correct)</strong>
+      <div style="margin-top: 16px; position: relative; height: 60px; background: #13111E; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+        <div style="width: 16px; height: 16px; background: #6C63FF; border-radius: 50%;"></div>
+      </div>
+      <p style="font-size: 11px; color: #6B6585; margin-top: 8px;">16px diameter filled circle at (track, time)</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Note States</h3>
+  <div style="display: flex; gap: 24px; align-items: center; justify-content: center; padding: 20px; background: #13111E; border-radius: 12px;">
+    <div style="text-align: center;">
+      <div style="width: 16px; height: 16px; background: #3B82F6; border-radius: 50%; margin: 0 auto;"></div>
+      <span style="color: #6B6585; font-size: 10px; margin-top: 6px; display: block;">Default</span>
+    </div>
+    <div style="text-align: center;">
+      <div style="width: 16px; height: 16px; background: #10B981; border-radius: 50%; margin: 0 auto; box-shadow: 0 0 0 2px white;"></div>
+      <span style="color: #6B6585; font-size: 10px; margin-top: 6px; display: block;">Selected</span>
+    </div>
+    <div style="text-align: center;">
+      <div style="width: 16px; height: 16px; background: transparent; border: 2px dashed #EC4899; border-radius: 50%; margin: 0 auto; opacity: 0.6;"></div>
+      <span style="color: #6B6585; font-size: 10px; margin-top: 6px; display: block;">AI Ghost</span>
+    </div>
+    <div style="text-align: center;">
+      <div style="width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.5); background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto;"></div>
+      <span style="color: #6B6585; font-size: 10px; margin-top: 6px; display: block;">Ghost Snap</span>
+    </div>
+    <div style="text-align: center;">
+      <div style="width: 16px; height: 16px; background: #F59E0B; border-radius: 50%; margin: 0 auto; box-shadow: 0 0 0 2px #f97316;"></div>
+      <span style="color: #6B6585; font-size: 10px; margin-top: 6px; display: block;">QA Boundary</span>
+    </div>
+    <div style="text-align: center;">
+      <div style="width: 16px; height: 16px; background: #EF4444; border-radius: 50%; margin: 0 auto; box-shadow: 0 0 0 2px #eab308;"></div>
+      <span style="color: #6B6585; font-size: 10px; margin-top: 6px; display: block;">QA Neighbor</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Corrected PianoRoll Anatomy</h3>
+  <div style="font-family: monospace; font-size: 11px; line-height: 1.6; background: #13111E; color: #e2deff; padding: 20px; border-radius: 12px; overflow-x: auto;">
+<pre style="margin:0">
+┌──────────────────────────────────────────────────────────────┐
+│ <span style="color:#6C63FF">TRACK HEADERS</span> (40px height, dark surface)                      │
+│ ┌─────────┬─────────┬─────────┬─────────┬── ... ──┬────────┐│
+│ │● Track 1│● Track 2│● Track 3│● Track 4│         │Track 8 ││
+│ │ 🔇  S   │ 🔇  S   │ 🔇  S   │ 🔇  S   │         │ 🔇  S  ││
+│ └─────────┴─────────┴─────────┴─────────┴── ... ──┴────────┘│
+├────┬─────────────────────────────────────────────────────────┤
+│<span style="color:#6B6585">TIME</span>│ <span style="color:#F59E0B">SCROLLABLE GRID</span>                                         │
+│<span style="color:#6B6585">AXIS</span>│                                                           │
+│    │    ●         ●                   ●                      │
+│ 0s │         ●              ●                                │
+│    │                   ●         ●         ●                 │
+│    │──────────────────────────────────────────────── (1s line)│
+│    │              ●                                          │
+│    │    ●                        ●              ●            │
+│    │                                                         │
+│    │──────────────────────────────────────────────── (2s line)│
+│10s │                                                         │
+│    │ <span style="color:#6C63FF">══════════════════════════════════▶</span> PLAYHEAD (2px purple)  │
+│    │◀ triangle                                               │
+│    │                                                         │
+├────┴─────────────────────────────────────────────────────────┤
+│ ● = 16px circle note   ◐ = ghost snap circle                 │
+│ Layer color dot in header = from LAYER_COLORS                 │
+│ Time axis = fixed left column, not inside grid                │
+└──────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Hover Tooltip (Floating Card)</h3>
+  <div style="display: flex; gap: 20px; align-items: flex-start;">
+    <div style="background: #fef2f2; padding: 16px; border-radius: 8px; border: 1px solid #EF4444; flex: 1;">
+      <strong style="color: #EF4444; font-size: 12px;">✕ Current: HTML title attr</strong>
+      <div style="font-family: monospace; font-size: 11px; margin-top: 8px; color: #6B6585;">
+        title="Note 3:42.5 | Track 3 | 42.5s"<br>
+        → browser default tooltip, ugly, delayed
+      </div>
+    </div>
+    <div style="background: #ecfdf5; padding: 16px; border-radius: 8px; border: 1px solid #10B981; flex: 1;">
+      <strong style="color: #10B981; font-size: 12px;">✓ Correct: Floating card</strong>
+      <div style="background: white; border-radius: 8px; padding: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); margin-top: 8px; font-size: 11px;">
+        <div style="font-weight: 600; color: #1A1635;">Chorus melody A</div>
+        <div style="color: #6B6585; margin-top: 4px;">Track 3 · 42.5s</div>
+        <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px;">
+          <div style="width: 16px; height: 16px; background: #6C63FF; border-radius: 50%; font-size: 8px; color: white; display: flex; align-items: center; justify-content: center;">HH</div>
+          <span style="color: #6B6585; font-size: 10px;">Huy Ho</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Track Header (Corrected)</h3>
+  <div style="display: flex; gap: 20px; align-items: flex-start;">
+    <div style="background: #fef2f2; padding: 16px; border-radius: 8px; border: 1px solid #EF4444; flex: 1;">
+      <strong style="color: #EF4444; font-size: 12px;">✕ Current</strong>
+      <div style="background: #1E1B2E; padding: 8px 16px; border-radius: 6px; margin-top: 8px; text-align: center;">
+        <span style="color: #6B6585; font-size: 12px;">T1</span>
+      </div>
+    </div>
+    <div style="background: #ecfdf5; padding: 16px; border-radius: 8px; border: 1px solid #10B981; flex: 1;">
+      <strong style="color: #10B981; font-size: 12px;">✓ Design.md</strong>
+      <div style="background: #1E1B2E; padding: 8px 12px; border-radius: 6px; margin-top: 8px; display: flex; align-items: center; gap: 6px;">
+        <span style="color: #E2DEFF; font-size: 11px;">Track 1</span>
+        <div style="width: 6px; height: 6px; background: #3B82F6; border-radius: 50%;"></div>
+        <span style="color: #6B6585; font-size: 10px; margin-left: auto;">🔇</span>
+        <span style="color: #6B6585; font-size: 10px;">S</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>New Components Needed</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong style="font-size: 12px;">NoteCircle</strong> (replaces NoteBlock)
+      <div style="font-size: 11px; color: #6B6585; margin-top: 4px;">16px circle, color prop, selected ring, QA highlight variants</div>
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong style="font-size: 12px;">GhostCircle</strong> (new)
+      <div style="font-size: 11px; color: #6B6585; margin-top: 4px;">16px snap preview circle, semi-transparent</div>
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong style="font-size: 12px;">Playhead</strong> (new)
+      <div style="font-size: 11px; color: #6B6585; margin-top: 4px;">2px purple line + left triangle, CSS transition 100ms</div>
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong style="font-size: 12px;">NoteTooltip</strong> (new)
+      <div style="font-size: 11px; color: #6B6585; margin-top: 4px;">Floating card on hover: title, time, creator avatar</div>
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong style="font-size: 12px;">TrackHeader</strong> (new)
+      <div style="font-size: 11px; color: #6B6585; margin-top: 4px;">Track N + layer dot + mute/solo icons</div>
+    </div>
+    <div style="background: #f8f7ff; padding: 12px; border-radius: 8px; border: 1px solid #e8e6f0;">
+      <strong style="font-size: 12px;">TimeAxis</strong> (new)
+      <div style="font-size: 11px; color: #6B6585; margin-top: 4px;">Fixed left column with time labels, syncs with scroll</div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,208 @@
+<h2>Section 4b: Theme System + Responsive Layout</h2>
+<p class="subtitle">Editor syncs with app theme. Panels adapt to viewport.</p>
+
+<div class="section">
+  <h3>Theme Architecture</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div style="border-radius: 12px; overflow: hidden; border: 1px solid #e8e6f0;">
+      <div style="background: #1a1a2e; padding: 8px 12px; text-align: center;">
+        <span style="color: #6C63FF; font-size: 11px; font-weight: 600;">DARK MODE</span>
+      </div>
+      <div style="background: #13111E; padding: 4px;">
+        <div style="background: #1E1B2E; height: 28px; border-radius: 4px 4px 0 0; display: flex; align-items: center; padding: 0 8px; border-bottom: 1px solid #2D2847;">
+          <span style="color: #E2DEFF; font-size: 9px;">TopBar</span>
+        </div>
+        <div style="display: flex; height: 120px;">
+          <div style="width: 50px; background: #1E1B2E; border-right: 1px solid #2D2847;"></div>
+          <div style="flex: 1; background: #0F0D1A; display: flex; align-items: center; justify-content: center;">
+            <div style="display: flex; gap: 8px;">
+              <div style="width: 8px; height: 8px; background: #6C63FF; border-radius: 50%;"></div>
+              <div style="width: 8px; height: 8px; background: #10B981; border-radius: 50%;"></div>
+              <div style="width: 8px; height: 8px; background: #F59E0B; border-radius: 50%;"></div>
+            </div>
+          </div>
+          <div style="width: 60px; background: #1E1B2E; border-left: 1px solid #2D2847;"></div>
+        </div>
+        <div style="background: #1E1B2E; height: 24px; border-radius: 0 0 4px 4px; border-top: 1px solid #2D2847;"></div>
+      </div>
+    </div>
+    <div style="border-radius: 12px; overflow: hidden; border: 1px solid #e8e6f0;">
+      <div style="background: #f8f7ff; padding: 8px 12px; text-align: center;">
+        <span style="color: #6C63FF; font-size: 11px; font-weight: 600;">LIGHT MODE</span>
+      </div>
+      <div style="background: #F8F7FF; padding: 4px;">
+        <div style="background: #FFFFFF; height: 28px; border-radius: 4px 4px 0 0; display: flex; align-items: center; padding: 0 8px; border-bottom: 1px solid #E8E6F0;">
+          <span style="color: #1A1635; font-size: 9px;">TopBar</span>
+        </div>
+        <div style="display: flex; height: 120px;">
+          <div style="width: 50px; background: #FFFFFF; border-right: 1px solid #E8E6F0;"></div>
+          <div style="flex: 1; background: #F0EEF8; display: flex; align-items: center; justify-content: center;">
+            <div style="display: flex; gap: 8px;">
+              <div style="width: 8px; height: 8px; background: #6C63FF; border-radius: 50%;"></div>
+              <div style="width: 8px; height: 8px; background: #10B981; border-radius: 50%;"></div>
+              <div style="width: 8px; height: 8px; background: #F59E0B; border-radius: 50%;"></div>
+            </div>
+          </div>
+          <div style="width: 60px; background: #FFFFFF; border-left: 1px solid #E8E6F0;"></div>
+        </div>
+        <div style="background: #FFFFFF; height: 24px; border-radius: 0 0 4px 4px; border-top: 1px solid #E8E6F0;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>CSS Variable Strategy — Two Token Sets</h3>
+  <div style="font-family: monospace; font-size: 11px; line-height: 1.8; background: #1a1a2e; color: #e2deff; padding: 20px; border-radius: 12px;">
+<pre style="margin:0">
+<span style="color:#6B6585">/* Semantic tokens that flip with theme */</span>
+:root {
+  --shell-bg: #F8F7FF;         <span style="color:#6B6585">/* panels, topbar, bottombar */</span>
+  --shell-surface: #FFFFFF;
+  --shell-border: #E8E6F0;
+  --shell-text: #1A1635;
+  --shell-muted: #6B6585;
+
+  --canvas-bg: #F0EEF8;        <span style="color:#6B6585">/* editor grid area */</span>
+  --canvas-surface: #E8E6F0;
+  --canvas-border: #D4D0E4;
+  --canvas-text: #1A1635;
+  --canvas-grid: rgba(0,0,0,0.06);
+  --canvas-grid-bold: rgba(0,0,0,0.12);
+}
+
+<span style="color:#EC4899">.dark</span> {
+  --shell-bg: #13111E;
+  --shell-surface: #1E1B2E;
+  --shell-border: #2D2847;
+  --shell-text: #E2DEFF;
+  --shell-muted: #6B6585;
+
+  --canvas-bg: #0F0D1A;
+  --canvas-surface: #1A1729;
+  --canvas-border: #2D2847;
+  --canvas-text: #E2DEFF;
+  --canvas-grid: rgba(255,255,255,0.06);
+  --canvas-grid-bold: rgba(255,255,255,0.12);
+}
+
+<span style="color:#6B6585">/* Brand colors stay constant regardless of theme */</span>
+--color-primary: #6C63FF;      <span style="color:#6B6585">/* always */</span>
+--color-success: #10B981;
+--color-warning: #F59E0B;
+--color-error: #EF4444;
+</pre>
+  </div>
+  <div style="margin-top: 12px; font-size: 12px; color: #6B6585;">
+    <strong>Key insight:</strong> Split tokens into <code>--shell-*</code> (panels/bars) and <code>--canvas-*</code> (grid area). Both flip together via <code>.dark</code> class on <code>&lt;html&gt;</code>. Note colors and brand colors are theme-independent — they always pop against any background.
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Theme Store</h3>
+  <div style="font-family: monospace; font-size: 11px; line-height: 1.8; background: #1a1a2e; color: #e2deff; padding: 16px; border-radius: 12px;">
+<pre style="margin:0">
+<span style="color:#EC4899">interface</span> ThemeStore {
+  mode: 'light' | 'dark' | 'system'
+  resolved: 'light' | 'dark'  <span style="color:#6B6585">// computed from mode + prefers-color-scheme</span>
+  setMode: (mode) => void
+}
+
+<span style="color:#6B6585">// Persisted to localStorage</span>
+<span style="color:#6B6585">// Applies .dark class to document.documentElement</span>
+<span style="color:#6B6585">// Listens to prefers-color-scheme media query when mode='system'</span>
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Responsive Breakpoints</h3>
+  <div style="font-family: monospace; font-size: 11px; background: #f8f7ff; padding: 16px; border-radius: 12px; border: 1px solid #e8e6f0; line-height: 1.8;">
+<pre style="margin:0">
+<span style="color:#6C63FF">Desktop (≥1280px)</span>    Full 5-zone: Left 240px + Center + Right 280px
+<span style="color:#F59E0B">Tablet (768–1279px)</span>  Left collapses to icons-only (48px) or hidden
+                     Right becomes slide-over overlay (280px)
+                     TopBar compact: hide center buttons, use overflow menu
+<span style="color:#EF4444">Mobile (< 768px)</span>    Single column: Canvas fills viewport
+                     TopBar → minimal (song name + menu hamburger)
+                     Left/Right → full-screen sheets (slide from edge)
+                     BottomBar → sticky with essential controls only
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Responsive Layout Wireframes</h3>
+  <div style="display: grid; grid-template-columns: 2fr 1.5fr 1fr; gap: 12px; align-items: start;">
+    <!-- Desktop -->
+    <div style="border: 1px solid #e8e6f0; border-radius: 8px; overflow: hidden;">
+      <div style="background: #f8f7ff; padding: 4px 8px; text-align: center; font-size: 10px; font-weight: 600; color: #6C63FF;">Desktop ≥1280</div>
+      <div style="padding: 4px; background: #13111E;">
+        <div style="background: #1E1B2E; height: 16px; border-radius: 2px 2px 0 0; margin-bottom: 1px;"></div>
+        <div style="display: flex; height: 80px; gap: 1px;">
+          <div style="width: 30px; background: #1E1B2E;"></div>
+          <div style="flex: 1; background: #0F0D1A;"></div>
+          <div style="width: 36px; background: #1E1B2E;"></div>
+        </div>
+        <div style="background: #1E1B2E; height: 12px; border-radius: 0 0 2px 2px; margin-top: 1px;"></div>
+      </div>
+    </div>
+    <!-- Tablet -->
+    <div style="border: 1px solid #e8e6f0; border-radius: 8px; overflow: hidden;">
+      <div style="background: #f8f7ff; padding: 4px 8px; text-align: center; font-size: 10px; font-weight: 600; color: #F59E0B;">Tablet 768–1279</div>
+      <div style="padding: 4px; background: #13111E;">
+        <div style="background: #1E1B2E; height: 16px; border-radius: 2px 2px 0 0; margin-bottom: 1px;"></div>
+        <div style="display: flex; height: 80px; gap: 1px;">
+          <div style="width: 12px; background: #1E1B2E;"></div>
+          <div style="flex: 1; background: #0F0D1A;"></div>
+        </div>
+        <div style="background: #1E1B2E; height: 12px; border-radius: 0 0 2px 2px; margin-top: 1px;"></div>
+      </div>
+      <div style="font-size: 9px; color: #6B6585; padding: 4px; text-align: center;">Right = overlay on demand</div>
+    </div>
+    <!-- Mobile -->
+    <div style="border: 1px solid #e8e6f0; border-radius: 8px; overflow: hidden;">
+      <div style="background: #f8f7ff; padding: 4px 8px; text-align: center; font-size: 10px; font-weight: 600; color: #EF4444;">Mobile <768</div>
+      <div style="padding: 4px; background: #13111E;">
+        <div style="background: #1E1B2E; height: 14px; border-radius: 2px 2px 0 0; margin-bottom: 1px;"></div>
+        <div style="height: 80px; background: #0F0D1A;"></div>
+        <div style="background: #1E1B2E; height: 12px; border-radius: 0 0 2px 2px; margin-top: 1px;"></div>
+      </div>
+      <div style="font-size: 9px; color: #6B6585; padding: 4px; text-align: center;">Panels = full-screen sheets</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>EditorShell Updated API</h3>
+  <div style="font-family: monospace; font-size: 11px; line-height: 1.8; background: #1a1a2e; color: #e2deff; padding: 16px; border-radius: 12px;">
+<pre style="margin:0">
+<span style="color:#EC4899">interface</span> EditorShellProps {
+  topBar: ReactNode
+  leftPanel: ReactNode
+  rightPanel: ReactNode
+  bottomBar: ReactNode
+  children: ReactNode           <span style="color:#6B6585">// canvas zone</span>
+  leftCollapsed?: boolean
+  rightCollapsed?: boolean
+  <span style="color:#10B981">// NEW: responsive behavior is internal</span>
+  <span style="color:#10B981">// Shell auto-collapses panels at breakpoints</span>
+  <span style="color:#10B981">// Uses useMediaQuery() hook internally</span>
+  <span style="color:#10B981">// Panels become sheet overlays on mobile</span>
+}
+
+<span style="color:#6B6585">// Shell handles:</span>
+<span style="color:#6B6585">// - Responsive panel collapse</span>
+<span style="color:#6B6585">// - Theme class application</span>
+<span style="color:#6B6585">// - Keyboard panel toggles</span>
+<span style="color:#6B6585">// - Focus management</span>
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Grid area contrast (light vs dark)</h3>
+  <div style="font-size: 12px; color: #6B6585;">
+    <strong>Important:</strong> Note circles (preset colors like #6C63FF, #3B82F6, #10B981) are high-contrast against both light and dark canvas backgrounds. The grid line tokens (<code>--canvas-grid</code>) auto-flip between <code>rgba(0,0,0,0.06)</code> (light) and <code>rgba(255,255,255,0.06)</code> (dark). No note color changes needed per theme.
+  </div>
+</div>
