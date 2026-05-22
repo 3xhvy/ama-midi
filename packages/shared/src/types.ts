@@ -2,11 +2,15 @@ export type UserRole = 'ADMIN' | 'COMPOSER' | 'VIEWER'
 export type NoteEventType = 'NOTE_CREATED' | 'NOTE_UPDATED' | 'NOTE_DELETED'
 
 export interface AuthUser {
-  id: string
-  email: string
-  name: string
-  avatarUrl?: string
-  role: UserRole
+  id:              string
+  email:           string
+  name:            string
+  avatarUrl?:      string
+  role:            UserRole
+  title?:          string
+  department?:     string
+  profileComplete: boolean
+  tourComplete:    boolean
 }
 
 export interface Song {
