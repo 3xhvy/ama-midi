@@ -10,13 +10,14 @@ export interface AuthUser {
 }
 
 export interface Song {
-  id: string
-  name: string
-  createdBy: string
-  creatorName: string
-  noteCount: number
-  createdAt: string
-  updatedAt: string
+  id:               string
+  name:             string
+  createdBy:        string
+  creatorName:      string
+  creatorAvatarUrl?: string
+  noteCount:        number
+  createdAt:        string
+  updatedAt:        string
 }
 
 export interface Note {

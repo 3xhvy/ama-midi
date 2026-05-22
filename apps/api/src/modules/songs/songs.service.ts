@@ -9,7 +9,7 @@ export class SongsService {
   async findAll(user: AuthUser): Promise<Song[]> {
     const songs = await this.prisma.song.findMany({
       include: {
-        creator: { select: { name: true } },
+        creator: { select: { name: true, avatarUrl: true } },
         _count: { select: { notes: { where: { deletedAt: null } } } },
       },
       orderBy: { updatedAt: 'desc' },
@@ -20,6 +20,7 @@ export class SongsService {
       name: s.name,
       createdBy: s.createdBy,
       creatorName: s.creator.name,
+      creatorAvatarUrl: s.creator.avatarUrl ?? undefined,
       noteCount: s._count.notes,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
@@ -30,7 +31,7 @@ export class SongsService {
     const s = await this.prisma.song.findUnique({
       where: { id },
       include: {
-        creator: { select: { name: true } },
+        creator: { select: { name: true, avatarUrl: true } },
         _count: { select: { notes: { where: { deletedAt: null } } } },
       },
     })
@@ -40,6 +41,7 @@ export class SongsService {
       name: s.name,
       createdBy: s.createdBy,
       creatorName: s.creator.name,
+      creatorAvatarUrl: s.creator.avatarUrl ?? undefined,
       noteCount: s._count.notes,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
@@ -50,7 +52,7 @@ export class SongsService {
     const s = await this.prisma.song.create({
       data: { name, createdBy: user.id },
       include: {
-        creator: { select: { name: true } },
+        creator: { select: { name: true, avatarUrl: true } },
         _count: { select: { notes: { where: { deletedAt: null } } } },
       },
     })
@@ -59,6 +61,7 @@ export class SongsService {
       name: s.name,
       createdBy: s.createdBy,
       creatorName: s.creator.name,
+      creatorAvatarUrl: s.creator.avatarUrl ?? undefined,
       noteCount: s._count.notes,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
@@ -74,7 +77,7 @@ export class SongsService {
       where: { id },
       data: { name },
       include: {
-        creator: { select: { name: true } },
+        creator: { select: { name: true, avatarUrl: true } },
         _count: { select: { notes: { where: { deletedAt: null } } } },
       },
     })
@@ -83,6 +86,7 @@ export class SongsService {
       name: s.name,
       createdBy: s.createdBy,
       creatorName: s.creator.name,
+      creatorAvatarUrl: s.creator.avatarUrl ?? undefined,
       noteCount: s._count.notes,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
