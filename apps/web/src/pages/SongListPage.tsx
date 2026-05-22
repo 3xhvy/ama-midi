@@ -1,13 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AppShell } from '../components/layout'
 import { Button, Input } from '../components/ui'
 import { SongGrid } from '../features/songs/SongGrid'
 import { useSongs, useCreateSong } from '../features/songs/useSongs'
+import { useAppTour }  from '../features/onboarding/useAppTour'
+import { TourOverlay } from '../features/onboarding/TourOverlay'
 
 export function SongListPage() {
   const { data: songs = [], isLoading } = useSongs()
   const createSong = useCreateSong()
   const [newName, setNewName] = useState('')
+  const { active, steps, start, complete, skip, shouldAutoStart } = useAppTour()
+
+  useEffect(() => {
+    if (shouldAutoStart) start()
+  }, [shouldAutoStart, start])
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -27,6 +34,7 @@ export function SongListPage() {
         </form>
       </div>
       <SongGrid songs={songs} isLoading={isLoading} />
+      {active && <TourOverlay steps={steps} onComplete={complete} onSkip={skip} />}
     </AppShell>
   )
 }

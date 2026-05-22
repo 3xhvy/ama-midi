@@ -20,7 +20,7 @@ const ZOOM_MODES = [
 interface ToolbarProps {
   songId:          string
   songName:        string
-  presenceList:    { id: string; name: string; avatarUrl?: string }[]
+  presenceList:    { id: string; name: string; avatarUrl?: string; title?: string | null; department?: string | null }[]
   onSuggest:       () => void
   onShowShortcuts: () => void
   onBack:          () => void
@@ -101,12 +101,14 @@ export function Toolbar({
         />
 
         {/* View mode */}
-        <ToggleGroup
-          items={VIEW_MODES}
-          value={viewMode}
-          onValueChange={(v) => setViewMode(v as typeof viewMode)}
-          variant="canvas"
-        />
+        <div data-tour="view-mode">
+          <ToggleGroup
+            items={VIEW_MODES}
+            value={viewMode}
+            onValueChange={(v) => setViewMode(v as typeof viewMode)}
+            variant="canvas"
+          />
+        </div>
       </div>
 
       {/* RIGHT */}

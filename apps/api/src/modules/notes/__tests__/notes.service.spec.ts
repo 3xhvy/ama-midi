@@ -6,10 +6,12 @@ import { PrismaService } from '../../prisma/prisma.service'
 import type { AuthUser } from '@ama-midi/shared'
 
 const mockUser: AuthUser = {
-  id: 'user-1',
-  email: 'test@test.com',
-  name: 'Test User',
-  role: 'COMPOSER',
+  id:              'user-1',
+  email:           'test@test.com',
+  name:            'Test User',
+  role:            'COMPOSER',
+  profileComplete: true,
+  tourComplete:    false,
 }
 
 describe('NotesService', () => {

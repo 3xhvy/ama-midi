@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useSongTour }  from '../features/onboarding/useSongTour'
+import { TourOverlay }  from '../features/onboarding/TourOverlay'
 import { useQuery } from '@tanstack/react-query'
 import { EditorShell } from '../components/layout'
 import { Toolbar }          from '../features/editor/components/Toolbar'
@@ -39,9 +41,10 @@ export function EditorPage() {
 
   usePlayback()
 
+  const songTour = useSongTour()
   const undo = useUndo(songId!)
   const { data: allNotes = [] } = useNotes(songId!)
-  const { presenceList } = useSocket(songId!)
+  const { presenceList, cursors, emitCursorMove } = useSocket(songId!)
   const canEdit = useCanEdit()
   const token = useAuthStore((s) => s.token)
 
@@ -154,7 +157,7 @@ export function EditorPage() {
               </span>
             )}
           </Tabs.Trigger>
-          <Tabs.Trigger value="history">history</Tabs.Trigger>
+          <Tabs.Trigger value="history" data-tour="history-tab">history</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="details">
           <DetailsTab note={selectedNote} />
@@ -203,12 +206,16 @@ export function EditorPage() {
         onLeftToggle={toggleLeftPanel}
         onRightToggle={toggleRightPanel}
       >
-        <PianoRoll
-          songId={songId}
-          canEdit={canEdit}
-          mutedTracks={mutedTracks}
-          onNoteSelected={handleNoteSelected}
-        />
+        <div data-tour="piano-roll" className="flex-1 overflow-hidden flex flex-col h-full">
+          <PianoRoll
+            songId={songId}
+            canEdit={canEdit}
+            mutedTracks={mutedTracks}
+            onNoteSelected={handleNoteSelected}
+            cursors={cursors}
+            onCursorMove={emitCursorMove}
+          />
+        </div>
       </EditorShell>
 
       {viewMode !== 'composer' && (
@@ -218,6 +225,9 @@ export function EditorPage() {
       )}
 
       {showShortcuts && <ShortcutLegend onClose={() => setShowShortcuts(false)} />}
+      {songTour.active && (
+        <TourOverlay steps={songTour.steps} onComplete={songTour.complete} onSkip={songTour.skip} />
+      )}
     </div>
   )
 }

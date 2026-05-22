@@ -2,10 +2,15 @@ import { Avatar, type AvatarProps } from './Avatar'
 import { cn } from '../../lib/utils'
 
 export interface AvatarStackProps {
-  users: { id: string; name: string; avatarUrl?: string }[]
+  users: { id: string; name: string; avatarUrl?: string; title?: string | null; department?: string | null }[]
   max?: number
   size?: AvatarProps['size']
   className?: string
+}
+
+function buildTooltip(user: AvatarStackProps['users'][number]): string {
+  const parts = [user.name, user.title, user.department].filter(Boolean)
+  return parts.join(' · ')
 }
 
 export function AvatarStack({ users, max = 5, size = 'sm', className }: AvatarStackProps) {
@@ -19,7 +24,7 @@ export function AvatarStack({ users, max = 5, size = 'sm', className }: AvatarSt
           className="border-2 border-shell-surface rounded-full"
           style={{ marginLeft: i > 0 ? -8 : 0, zIndex: visible.length - i, position: 'relative' }}
         >
-          <Avatar src={user.avatarUrl} name={user.name} size={size} showOnline />
+          <Avatar src={user.avatarUrl} name={user.name} size={size} showOnline title={buildTooltip(user)} />
         </div>
       ))}
       {overflow > 0 && (

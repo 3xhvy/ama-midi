@@ -11,7 +11,10 @@ import { GridLines   } from './GridLines'
 import { Playhead    } from './Playhead'
 import { NotePopup   } from './NotePopup'
 import { AiSuggestions } from './AiSuggestions'
+import { CollaboratorCursors } from '../../collaboration/CollaboratorCursors'
+import { useThrottle } from '../../../hooks/useThrottle'
 import type { Note } from '@ama-midi/shared'
+import type { CursorData } from '../../collaboration/useSocket'
 
 type CreateMode = 'fast' | 'popup'
 type PopupState =
@@ -24,9 +27,11 @@ interface Props {
   canEdit?:         boolean
   mutedTracks?:     Set<number>
   onNoteSelected?:  (note: Note | null) => void
+  cursors?:         Map<string, CursorData>
+  onCursorMove?:    (track: number, time: number) => void
 }
 
-export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onNoteSelected }: Props) {
+export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove }: Props) {
   const containerRef   = useRef<HTMLDivElement>(null)
   const pxPerSecondRef = useRef(3)
 
@@ -38,6 +43,11 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
 
   const { pxPerSecond, viewMode, playheadTime } = useEditorStore()
   pxPerSecondRef.current = pxPerSecond
+
+  const throttledCursorEmit = useThrottle(
+    useCallback((track: number, time: number) => { onCursorMove?.(track, time) }, [onCursorMove]),
+    66,
+  )
 
   const viewportHeight = containerRef.current?.clientHeight ?? 600
   const gridWidth      = containerRef.current?.clientWidth  ?? 800
@@ -64,14 +74,16 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   }, [])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!canEdit || !containerRef.current) return
+    if (!containerRef.current) return
     const rect  = containerRef.current.getBoundingClientRect()
     const x     = e.clientX - rect.left
     const y     = e.clientY - rect.top + scrollTop
     const track = xToTrack(x, gridWidth)
     const time  = yToTime(y, pxPerSecond)
+    throttledCursorEmit(track, time)
+    if (!canEdit) return
     setGhost({ track, time })
-  }, [canEdit, gridWidth, pxPerSecond, scrollTop])
+  }, [canEdit, gridWidth, pxPerSecond, scrollTop, throttledCursorEmit])
 
   const handleGridClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!canEdit || !ghost) return
@@ -153,6 +165,7 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
       {canEdit && (
         <div className="absolute top-9 left-2 z-30">
           <button
+            data-tour="fast-mode"
             onClick={() => setCreateMode((m) => (m === 'fast' ? 'popup' : 'fast'))}
             className={`px-2 py-0.5 text-[10px] border rounded transition-colors ${createMode === 'popup' ? 'bg-primary text-white border-primary' : 'text-canvas-muted border-canvas-border hover:text-canvas-text'}`}
           >
@@ -176,6 +189,15 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
           />
 
           <Playhead time={playheadTime} pxPerSecond={pxPerSecond} scrollTop={scrollTop} />
+
+          {cursors && cursors.size > 0 && (
+            <CollaboratorCursors
+              cursors={cursors}
+              gridWidth={gridWidth}
+              pxPerSecond={pxPerSecond}
+              scrollTop={scrollTop}
+            />
+          )}
 
           {visibleNotes.map((note) => (
             <NoteCircle
