@@ -46,10 +46,12 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       }
       const payload = this.jwtService.verify(token)
       client.data.user = {
-        id: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        role: payload.role,
+        id:         payload.sub,
+        email:      payload.email,
+        name:       payload.name,
+        role:       payload.role,
+        title:      payload.title ?? null,
+        department: payload.department ?? null,
       }
     } catch {
       client.disconnect()
@@ -86,15 +88,17 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     const sessions = await this.prisma.editorSession.findMany({
       where: { songId: data.songId },
       include: {
-        user: { select: { id: true, name: true, avatarUrl: true, email: true, role: true } },
+        user: { select: { id: true, name: true, avatarUrl: true, email: true, role: true, title: true, department: true } },
       },
     })
     const users = sessions.map((s) => ({
-      id: s.user.id,
-      name: s.user.name,
-      avatarUrl: s.user.avatarUrl,
-      email: s.user.email,
-      role: s.user.role,
+      id:         s.user.id,
+      name:       s.user.name,
+      avatarUrl:  s.user.avatarUrl,
+      email:      s.user.email,
+      role:       s.user.role,
+      title:      s.user.title,
+      department: s.user.department,
     }))
 
     client.to(`song:${data.songId}`).emit('user-joined', client.data.user)
@@ -112,6 +116,21 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       where: { songId: data.songId, userId: client.data.user.id },
     })
     this.server.to(`song:${data.songId}`).emit('user-left', { userId: client.data.user.id })
+  }
+
+  @SubscribeMessage('cursor-move')
+  handleCursorMove(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { songId: string; track: number; time: number },
+  ) {
+    if (!client.data.user) return
+    client.to(`song:${data.songId}`).emit('cursor-moved', {
+      userId: client.data.user.id,
+      name:   client.data.user.name,
+      title:  client.data.user.title ?? null,
+      track:  data.track,
+      time:   data.time,
+    })
   }
 
   broadcastToSong(songId: string, event: string, data: unknown) {
