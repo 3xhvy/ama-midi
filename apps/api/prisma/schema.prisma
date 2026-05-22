@@ -26,13 +26,17 @@ enum OutboxStatus {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  avatarUrl String?
-  role      UserRole @default(COMPOSER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(uuid())
+  email           String   @unique
+  name            String
+  avatarUrl       String?
+  role            UserRole @default(COMPOSER)
+  title           String?
+  department      String?
+  profileComplete Boolean  @default(false)
+  tourComplete    Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   songs          Song[]
   notes          Note[]
