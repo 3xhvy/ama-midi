@@ -8,6 +8,10 @@
   --color-primary-light: #EEF0FF;
   --color-primary-dark: #4B44CC;
 
+  /* Amanotes corporate (login accents only) */
+  --amanotes-pink: #ff3177;
+  --amanotes-purple: #5b00e3;
+
   /* Editor surface (piano roll dark zone) */
   --color-editor-bg: #13111E;
   --color-editor-surface: #1E1B2E;

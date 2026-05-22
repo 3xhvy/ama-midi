@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  COMPOSER
+  VIEWER
+}
+
+enum NoteEventType {
+  NOTE_CREATED
+  NOTE_UPDATED
+  NOTE_DELETED
+}
+
+enum OutboxStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  role      UserRole @default(COMPOSER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  songs          Song[]
+  notes          Note[]
+  noteEvents     NoteEvent[]
+  editorSessions EditorSession[]
+
+  @@map("users")
+}
+
+model Song {
+  id        String   @id @default(uuid())
+  name      String
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator      User            @relation(fields: [createdBy], references: [id])
+  notes        Note[]
+  noteEvents   NoteEvent[]
+  versions     SongVersion[]
+  sessions     EditorSession[]
+  outboxEvents OutboxEvent[]
+
+  @@map("songs")
+}
+
+model Note {
+  id          String    @id @default(uuid())
+  songId      String
+  track       Int       // 1–8
+  time        Float     // 0.0–300.0, 0.1s resolution
+  title       String
+  description String    @default("")
+  color       String    @default("#6C63FF")
+  createdBy   String
+  version     Int       @default(1)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  song    Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([songId, time])
+  @@index([songId, track])
+  @@map("notes")
+}
+
+model NoteEvent {
+  id          String        @id @default(uuid())
+  songId      String
+  noteId      String?
+  eventType   NoteEventType
+  userId      String
+  beforeState Json?
+  afterState  Json?
+  createdAt   DateTime      @default(now())
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("note_events")
+}
+
+model EditorSession {
+  id        String   @id @default(uuid())
+  songId    String
+  userId    String
+  socketId  String
+  joinedAt  DateTime @default(now())
+  leftAt    DateTime?
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("editor_sessions")
+}
+
+model SongVersion {
+  id          String   @id @default(uuid())
+  songId      String
+  versionNum  Int
+  snapshot    Json
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([songId, versionNum])
+  @@map("song_versions")
+}
+
+model OutboxEvent {
+  id        String       @id @default(uuid())
+  songId    String
+  eventType String
+  payload   Json
+  status    OutboxStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  sentAt    DateTime?
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@map("outbox_events")
+}

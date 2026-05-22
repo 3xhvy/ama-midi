@@ -17,10 +17,27 @@ export default {
           text: '#E2DEFF',
           muted: '#6B6585',
         },
-        app: {
-          bg: '#F8F7FF',
-          surface: '#FFFFFF',
-          border: '#E8E6F0',
+        // App surface (light zones)
+        bg: '#F8F7FF',
+        surface: '#FFFFFF',
+        border: {
+          DEFAULT: '#E8E6F0',
+          strong: '#C4BFD8',
+        },
+        // Text tokens
+        text: {
+          primary: '#1A1635',
+          secondary: '#6B6585',
+          tertiary: '#A09BB5',
+        },
+        // Semantic
+        success: '#10B981',
+        warning: '#F59E0B',
+        error: '#EF4444',
+        info: '#3B82F6',
+        amanotes: {
+          pink: '#ff3177',
+          purple: '#5b00e3',
         },
       },
       borderRadius: {
@@ -33,6 +50,8 @@ export default {
       },
       boxShadow: {
         brand: '0 4px 16px rgba(108,99,255,0.12), 0 2px 4px rgba(0,0,0,0.06)',
+        amanotes:
+          '0 8px 32px rgba(255, 49, 119, 0.12), 0 4px 16px rgba(91, 0, 227, 0.1)',
       },
     },
   },
