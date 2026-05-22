@@ -13,6 +13,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module'
 import { ValidationModule } from './modules/validation/validation.module'
 import { AiModule } from './modules/ai/ai.module'
 import { VersionsModule } from './modules/versions/versions.module'
+import { UsersModule } from './modules/users/users.module'
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { VersionsModule } from './modules/versions/versions.module'
     ThrottlerModule.forRoot([{ name: 'global', ttl: 60000, limit: 100 }]),
     PrismaModule,
     AuthModule,
+    UsersModule,
     SongsModule,
     NotesModule,
     LedgerModule,
