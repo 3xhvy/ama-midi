@@ -2,8 +2,9 @@ import { useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { EditorShell } from '../components/layout'
-import { TrackHeader } from '../features/editor/components/TrackHeader'
-import { useNotes }    from '../features/notes/useNotes'
+import { TrackHeader }      from '../features/editor/components/TrackHeader'
+import { LiveContextStrip } from '../features/editor/components/LiveContextStrip'
+import { useNotes }         from '../features/notes/useNotes'
 import { Button, IconButton, ToggleGroup, Tabs, Badge } from '../components/ui'
 import { PianoRoll } from '../features/editor/components/PianoRoll'
 import { HistoryPanel } from '../features/editor/components/HistoryPanel'
@@ -150,35 +151,45 @@ export function EditorPage() {
   )
 
   const rightPanel = (
-    <Tabs.Root value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as typeof rightPanelTab)} className="flex flex-col h-full">
-      <Tabs.List>
-        <Tabs.Trigger value="details">details</Tabs.Trigger>
-        <Tabs.Trigger value="validation">
-          validation
-          {(errCount > 0 || warnCount > 0) && (
-            <span className={`ml-1 text-[10px] ${errCount > 0 ? 'text-red-400' : 'text-yellow-400'}`}>
-              {errCount > 0 ? errCount : warnCount}
-            </span>
-          )}
-        </Tabs.Trigger>
-        <Tabs.Trigger value="history">history</Tabs.Trigger>
-      </Tabs.List>
-      <Tabs.Content value="details">
-        <DetailsTab note={selectedNote} />
-      </Tabs.Content>
-      <Tabs.Content value="validation">
-        <ValidationPanel
-          songId={songId}
-          onJumpTo={(time, track) => {
-            jumpToRef.current = (t) => console.log('jump to', t, track)
-            jumpToRef.current(time)
-          }}
-        />
-      </Tabs.Content>
-      <Tabs.Content value="history">
-        <HistoryPanel songId={songId} inline />
-      </Tabs.Content>
-    </Tabs.Root>
+    <div className="flex flex-col h-full">
+      {/* Live context — always visible */}
+      <LiveContextStrip playheadTime={playheadTime} notes={allNotes} />
+
+      {/* Tabs */}
+      <Tabs.Root
+        value={rightPanelTab}
+        onValueChange={(v) => setRightPanelTab(v as typeof rightPanelTab)}
+        className="flex flex-col flex-1 min-h-0"
+      >
+        <Tabs.List>
+          <Tabs.Trigger value="details">details</Tabs.Trigger>
+          <Tabs.Trigger value="validation">
+            val
+            {(errCount > 0 || warnCount > 0) && (
+              <span className={`ml-1 text-[10px] ${errCount > 0 ? 'text-red-400' : 'text-yellow-400'}`}>
+                {errCount > 0 ? errCount : warnCount}
+              </span>
+            )}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="history">history</Tabs.Trigger>
+        </Tabs.List>
+        <Tabs.Content value="details">
+          <DetailsTab note={selectedNote} />
+        </Tabs.Content>
+        <Tabs.Content value="validation">
+          <ValidationPanel
+            songId={songId}
+            onJumpTo={(time, track) => {
+              jumpToRef.current = (t) => console.log('jump to', t, track)
+              jumpToRef.current(time)
+            }}
+          />
+        </Tabs.Content>
+        <Tabs.Content value="history">
+          <HistoryPanel songId={songId} inline />
+        </Tabs.Content>
+      </Tabs.Root>
+    </div>
   )
 
   const bottomBar = (
