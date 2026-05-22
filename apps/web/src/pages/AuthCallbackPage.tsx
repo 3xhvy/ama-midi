@@ -10,19 +10,23 @@ export function AuthCallbackPage() {
 
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get('token')
-    if (!token) { navigate('/'); return }
+    if (!token) { navigate('/login'); return }
 
     apiClient(token)<AuthUser>('/auth/me')
       .then((user) => {
         setAuth(user, token)
-        navigate('/')
+        if (!user.profileComplete) {
+          navigate('/profile-setup', { replace: true })
+        } else {
+          navigate('/', { replace: true })
+        }
       })
-      .catch(() => navigate('/'))
+      .catch(() => navigate('/login'))
   }, [navigate, setAuth])
 
   return (
-    <div className="flex items-center justify-center h-screen bg-bg">
-      <p className="text-text-secondary">Signing in…</p>
+    <div className="flex items-center justify-center h-screen bg-shell-bg">
+      <p className="text-shell-muted text-sm">Signing in…</p>
     </div>
   )
 }

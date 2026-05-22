@@ -5,8 +5,9 @@ import { useAuthStore } from './store/auth.store'
 import { useThemeStore } from './store/theme.store'
 import { SongListPage } from './pages/SongListPage'
 import { EditorPage } from './pages/EditorPage'
-import { AuthCallbackPage } from './pages/AuthCallbackPage'
-import { LoginPage } from './pages/LoginPage'
+import { AuthCallbackPage }  from './pages/AuthCallbackPage'
+import { ProfileSetupPage }  from './pages/ProfileSetupPage'
+import { LoginPage }         from './pages/LoginPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +30,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/profile-setup" element={<ProfileSetupPage />} />
           <Route path="/" element={<RequireAuth><SongListPage /></RequireAuth>} />
           <Route path="/songs/:songId" element={<RequireAuth><EditorPage /></RequireAuth>} />
         </Routes>
