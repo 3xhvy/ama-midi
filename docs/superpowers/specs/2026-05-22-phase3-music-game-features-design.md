@@ -786,3 +786,23 @@ apps/web/src/pages/EditorPage.tsx                          (BottomBar combo/diff
 - Multi-undo (existing single-step undo unchanged)
 - Heatmap export / PNG snapshot
 - BPM ramp / tempo changes mid-song (single constant BPM)
+- **Multiple difficulty charts per song** — deferred to Phase 4
+- **Level-designer-specific tools** — deferred to Phase 4
+
+---
+
+## Phase 4 Preview — Level Designer Toolkit (not in this spec)
+
+Phase 3 ships composer-focused features. Level designers (who tune difficulty) will get a dedicated phase. Captured here so the data model in Phase 3 doesn't paint Phase 4 into a corner.
+
+**Anticipated Phase 4 scope** (own brainstorm cycle, own spec):
+
+1. **Chart entity** — `Song` has many `Chart` (Easy/Normal/Hard/Expert). Notes attach to Chart, not Song. Existing notes auto-migrate to "NORMAL" chart on a per-song basis.
+2. **Diff view** — side-by-side comparison of two charts on same song (highlight added/removed notes between difficulties).
+3. **Reference ghost** — while editing chart X, render chart Y notes at low opacity for spacing guidance.
+4. **Bulk thinning** — operations like "delete every Nth note", "keep only on beats", "remove HOLD notes" to derive Easy from Hard.
+5. **Per-difficulty validation rules** — Easy avg NPS ≤ 2, Expert ≥ 7, etc. Surfaced in ValidationPanel per chart.
+6. **Game-export format** — `GET /charts/:id/export` returns JSON binary the game engine consumes. Versioned schema.
+7. **Approval workflow** — chart status `DRAFT → IN_REVIEW → APPROVED`. Only approved charts exportable.
+
+**Phase 3 compatibility note:** Phase 3 keeps `Note.songId` (current shape). Phase 4 will migrate to `Note.chartId` and add a backfill migration that creates a default `NORMAL` chart per song. Patterns and Sections stay attached to `Song` (musical context shared across charts).
