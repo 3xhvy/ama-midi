@@ -1,4 +1,5 @@
 import { AmanotesLogo } from '../components/AmanotesLogo'
+import { AppShell } from '../components/layout'
 
 const GOOGLE_AUTH_URL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/auth/google`
@@ -47,26 +48,26 @@ function GoogleIcon() {
 
 export function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-bg px-6 py-12">
+    <AppShell showHeader={false} maxWidth="480px" className="flex min-h-screen items-center justify-center">
       <main
-        className="flex w-full max-w-sm flex-col items-center gap-8"
+        className="flex w-full flex-col items-center gap-8 py-12"
         aria-labelledby="login-title"
       >
         <AmanotesLogo className="h-10 w-auto max-w-[min(100%,280px)]" />
 
         <GradientRim className="w-full shadow-amanotes" rounded="rounded-2xl">
-          <div className="flex flex-col gap-6 rounded-2xl bg-surface px-8 py-8 text-center">
+          <div className="flex flex-col gap-6 rounded-2xl bg-shell-surface px-8 py-8 text-center">
             <div className="flex flex-col gap-2">
-              <h1 id="login-title" className="text-2xl font-semibold text-text-primary">
+              <h1 id="login-title" className="text-2xl font-semibold text-shell-text">
                 AMA-MIDI
               </h1>
-              <p className="text-sm text-text-secondary">Collaborative MIDI note editor</p>
+              <p className="text-sm text-shell-muted">Collaborative MIDI note editor</p>
             </div>
 
             <GradientRim rounded="rounded-lg">
               <a
                 href={GOOGLE_AUTH_URL}
-                className="flex w-full items-center justify-center gap-3 rounded-lg bg-surface px-6 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+                className="flex w-full items-center justify-center gap-3 rounded-lg bg-shell-surface px-6 py-3 text-sm font-medium text-shell-text transition-colors hover:bg-shell-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
               >
                 <GoogleIcon />
                 Sign in with Google
@@ -75,6 +76,6 @@ export function LoginPage() {
           </div>
         </GradientRim>
       </main>
-    </div>
+    </AppShell>
   )
 }

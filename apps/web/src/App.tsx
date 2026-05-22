@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { useAuthStore } from './store/auth.store'
+import { useThemeStore } from './store/theme.store'
 import { SongListPage } from './pages/SongListPage'
 import { EditorPage } from './pages/EditorPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
@@ -20,6 +21,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useThemeStore.getState()
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

@@ -56,6 +56,32 @@
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
+
+  /* Shell tokens — alias to existing light-zone vars */
+  --shell-bg: var(--color-bg);
+  --shell-surface: var(--color-surface);
+  --shell-border: var(--color-border);
+  --shell-text: var(--color-text-primary);
+  --shell-muted: var(--color-text-secondary);
+  --shell-tertiary: var(--color-text-tertiary);
+
+  /* Canvas tokens — alias to existing editor dark-zone vars */
+  --canvas-bg: var(--color-editor-bg);
+  --canvas-surface: var(--color-editor-surface);
+  --canvas-border: var(--color-editor-border);
+  --canvas-text: var(--color-editor-text);
+  --canvas-muted: var(--color-editor-muted);
+  --canvas-grid: var(--color-grid-line);
+  --canvas-grid-bold: var(--color-grid-line-bold);
+}
+
+.dark {
+  --shell-bg: #13111E;
+  --shell-surface: #1E1B2E;
+  --shell-border: #2D2847;
+  --shell-text: #E2DEFF;
+  --shell-muted: #6B6585;
+  --shell-tertiary: #4A4560;
 }
 
 body {
@@ -92,3 +118,6 @@ body {
 .note-circle  { animation: note-appear 150ms cubic-bezier(0.34, 1.56, 0.64, 1); }
 .note-ghost   { animation: ghost-pulse 1.5s ease-in-out infinite; }
 .panel-right  { animation: slide-in-right 250ms ease; }
+.animate-note-appear  { animation: note-appear 150ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.animate-ghost-pulse  { animation: ghost-pulse 1.5s ease-in-out infinite; }
+.animate-slide-in-right { animation: slide-in-right 250ms ease; }

@@ -5,7 +5,6 @@ import { useEditorStore } from '../../../store/editor.store'
 import { apiClient } from '../../auth/api'
 import { useCreateNote } from '../../notes/useNotes'
 import { trackToX, timeToY, trackWidth } from '../engine'
-import type { Note } from '@ama-midi/shared'
 
 interface NoteSuggestion {
   track: number
@@ -14,20 +13,16 @@ interface NoteSuggestion {
 }
 
 interface Props {
-  songId: string
-  notes: Note[]
-  gridWidth: number
+  songId:      string
+  gridWidth:   number
   pxPerSecond: number
-  scrollTop: number
+  scrollTop:   number
 }
 
-export function AiSuggestions({ songId, notes, gridWidth, pxPerSecond, scrollTop }: Props) {
+export function AiSuggestions({ songId, gridWidth, pxPerSecond, scrollTop }: Props) {
   const [suggestions, setSuggestions] = useState<NoteSuggestion[]>([])
-  const [loading, setLoading] = useState(false)
   const token = useAuthStore(s => s.token)
   const createNote = useCreateNote(songId)
-
-  const canSuggest = notes.length >= 5
   const { setTriggerAiSuggest } = useEditorStore()
 
   useEffect(() => {
@@ -37,15 +32,17 @@ export function AiSuggestions({ songId, notes, gridWidth, pxPerSecond, scrollTop
   }, [songId])
 
   async function handleSuggest() {
-    setLoading(true)
     try {
-      const result = await apiClient(token)<{ suggestions: NoteSuggestion[] }>(`/songs/${songId}/suggest-notes`, { method: 'POST' })
+      const result = await apiClient(token)<{ suggestions: NoteSuggestion[] }>(
+        `/songs/${songId}/suggest-notes`,
+        { method: 'POST' },
+      )
       setSuggestions(result.suggestions)
-      if (result.suggestions.length === 0) toast.info('No suggestions available — add more notes first')
+      if (result.suggestions.length === 0) {
+        toast.info('No suggestions available — add more notes first')
+      }
     } catch {
       toast.error('Failed to get suggestions')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -55,23 +52,23 @@ export function AiSuggestions({ songId, notes, gridWidth, pxPerSecond, scrollTop
 
   async function accept(s: NoteSuggestion, idx: number) {
     dismiss(idx)
-    createNote.mutate({
-      track: s.track, time: s.time, color: s.color, title: 'AI Suggestion',
-    }, {
-      onError: (err: Error & { status?: number }) => {
-        if (err.status === 409) toast.error('That spot was just taken — try another suggestion')
+    createNote.mutate(
+      { track: s.track, time: s.time, color: s.color, title: 'AI Suggestion' },
+      {
+        onError: (err: Error & { status?: number }) => {
+          if (err.status === 409) toast.error('That spot was just taken — try another suggestion')
+        },
       },
-    })
+    )
   }
 
   const tw = trackWidth(gridWidth)
 
   return (
     <>
-      {/* Ghost notes overlaid on the grid */}
       {suggestions.map((s, i) => {
-        const x = trackToX(s.track, gridWidth)
-        const y = timeToY(s.time, pxPerSecond) - scrollTop
+        const x  = trackToX(s.track, gridWidth)
+        const y  = timeToY(s.time, pxPerSecond) - scrollTop
         const cx = x + tw / 2 - 8
         return (
           <div
@@ -80,7 +77,7 @@ export function AiSuggestions({ songId, notes, gridWidth, pxPerSecond, scrollTop
             style={{ left: cx, top: y - 8 }}
           >
             <div
-              className="w-4 h-4 rounded-full border-2 border-primary/50 bg-primary/20 animate-ghost-pulse"
+              className="w-4 h-4 rounded-full border-2 animate-ghost-pulse"
               style={{ backgroundColor: `${s.color}33`, borderColor: s.color }}
             />
             <div className="absolute left-1/2 -translate-x-1/2 top-5 hidden group-hover:flex gap-1 z-30 whitespace-nowrap">

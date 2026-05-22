@@ -30,7 +30,7 @@ export function EditorPage() {
   const { songId } = useParams<{ songId: string }>()
   const navigate = useNavigate()
   const {
-    viewMode, zoom, setViewMode, setZoom,
+    viewMode,
     rightPanelTab, setRightPanelTab,
     leftCollapsed, rightCollapsed,
     toggleLeftPanel, toggleRightPanel,

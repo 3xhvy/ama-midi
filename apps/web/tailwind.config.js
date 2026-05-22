@@ -39,6 +39,21 @@ export default {
           pink: '#ff3177',
           purple: '#5b00e3',
         },
+        shell: {
+          bg:       'var(--shell-bg)',
+          surface:  'var(--shell-surface)',
+          border:   'var(--shell-border)',
+          text:     'var(--shell-text)',
+          muted:    'var(--shell-muted)',
+          tertiary: 'var(--shell-tertiary)',
+        },
+        canvas: {
+          bg:      'var(--canvas-bg)',
+          surface: 'var(--canvas-surface)',
+          border:  'var(--canvas-border)',
+          text:    'var(--canvas-text)',
+          muted:   'var(--canvas-muted)',
+        },
       },
       borderRadius: {
         xl: '16px',
