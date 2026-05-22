@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
@@ -22,7 +23,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  useThemeStore.getState()
+  const { resolved } = useThemeStore()
+
+  useEffect(() => {
+    if (resolved === 'dark') document.documentElement.classList.add('dark')
+    else                     document.documentElement.classList.remove('dark')
+  }, [resolved])
 
   return (
     <QueryClientProvider client={queryClient}>

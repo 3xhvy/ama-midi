@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NOTE_PRESET_COLORS } from '@ama-midi/shared'
 import { useCreateNote, useDeleteNote, useUpdateNote } from '../../notes/useNotes'
 import { Modal, Button, Input, ColorPicker } from '../../../components/ui'
-import type { Note } from '@ama-midi/shared'
+import type { Note, NoteType } from '@ama-midi/shared'
 
 interface Props {
   mode: 'create' | 'edit'
@@ -29,21 +29,35 @@ export function NotePopup({
   const deleteNote = useDeleteNote(songId)
   const updateNote = useUpdateNote(songId)
 
-  const [title, setTitle] = useState(note?.title ?? '')
+  const [title,       setTitle]       = useState(note?.title ?? '')
   const [description, setDescription] = useState(note?.description ?? '')
-  const [color, setColor] = useState<string>(note?.color ?? NOTE_PRESET_COLORS[0])
+  const [color,       setColor]       = useState<string>(note?.color ?? NOTE_PRESET_COLORS[0])
+  const [noteType,    setNoteType]    = useState<NoteType>(
+    mode === 'edit' ? (note?.noteType ?? 'TAP') : 'TAP',
+  )
+  const [duration, setDuration] = useState<number>(
+    mode === 'edit' ? (note?.duration ?? 1) : 1,
+  )
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
     if (mode === 'create') {
       createNote.mutate(
-        { track: initialTrack!, time: initialTime!, title: title.trim(), description, color },
+        {
+          track: initialTrack!, time: initialTime!, title: title.trim(), description, color,
+          noteType,
+          duration: noteType === 'HOLD' ? duration : undefined,
+        },
         { onSuccess: () => { onCreated?.(); onClose() } },
       )
     } else if (mode === 'edit' && note) {
       updateNote.mutate(
-        { noteId: note.id, title: title.trim(), description, color },
+        {
+          noteId: note.id, title: title.trim(), description, color,
+          noteType,
+          duration: noteType === 'HOLD' ? duration : undefined,
+        },
         { onSuccess: () => onClose() },
       )
     }
@@ -104,6 +118,42 @@ export function NotePopup({
                 onChange={setColor}
               />
             </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-shell-muted">Type</label>
+              <div className="flex gap-1">
+                {(['TAP', 'HOLD', 'SWIPE'] as const).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setNoteType(t)}
+                    className={
+                      'px-2 py-1 text-xs rounded border ' +
+                      (noteType === t
+                        ? 'bg-primary text-white border-primary'
+                        : 'border-shell-border text-shell-muted hover:text-shell-text')
+                    }
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {noteType === 'HOLD' && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-shell-muted">Duration (seconds)</label>
+                <input
+                  type="number"
+                  min={0.1}
+                  max={30}
+                  step={0.1}
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  className="px-2 py-1 text-xs bg-shell-bg border border-shell-border rounded text-shell-text"
+                />
+              </div>
+            )}
           </form>
         </Modal.Body>
         <Modal.Footer>

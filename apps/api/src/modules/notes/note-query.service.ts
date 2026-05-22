@@ -45,6 +45,8 @@ export class NoteQueryService {
       creatorName: n.creator.name,
       createdAt: n.createdAt.toISOString(),
       updatedAt: n.updatedAt.toISOString(),
+      noteType: n.noteType as 'TAP' | 'HOLD' | 'SWIPE',
+      duration: n.duration ?? undefined,
     }))
   }
 }

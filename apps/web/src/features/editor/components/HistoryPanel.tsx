@@ -70,12 +70,12 @@ export function HistoryPanel({ songId, onClose, inline = false }: Props) {
     <div
       className={
         inline
-          ? 'flex flex-col h-full'
-          : 'panel-right fixed top-0 right-0 h-full w-80 bg-editor-surface border-l border-editor-border flex flex-col z-40 shadow-lg'
+          ? 'flex flex-col flex-1 min-h-0'
+          : 'panel-right fixed top-0 right-0 h-full w-80 bg-shell-surface border-l border-shell-border flex flex-col z-40 shadow-lg'
       }
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-editor-border">
-        <span className="text-sm font-medium text-editor-text">History</span>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-shell-border">
+        <span className="text-sm font-medium text-shell-text">History</span>
         <div className="flex items-center gap-2">
           <button
             onClick={handleUndo}
@@ -85,7 +85,7 @@ export function HistoryPanel({ songId, onClose, inline = false }: Props) {
             Undo
           </button>
           {!inline && onClose && (
-            <button onClick={onClose} className="text-editor-muted hover:text-editor-text text-lg leading-none">
+            <button onClick={onClose} className="text-shell-muted hover:text-shell-text text-lg leading-none">
               ×
             </button>
           )}
@@ -97,10 +97,10 @@ export function HistoryPanel({ songId, onClose, inline = false }: Props) {
           <div className="p-4 space-y-3">
             {[1, 2, 3].map(i => (
               <div key={i} className="flex gap-3 animate-pulse">
-                <div className="w-8 h-8 rounded-full bg-editor-border flex-shrink-0" />
+                <div className="w-8 h-8 rounded-full bg-shell-border flex-shrink-0" />
                 <div className="flex-1 space-y-1">
-                  <div className="h-3 bg-editor-border rounded w-3/4" />
-                  <div className="h-2 bg-editor-border rounded w-1/4" />
+                  <div className="h-3 bg-shell-border rounded w-3/4" />
+                  <div className="h-2 bg-shell-border rounded w-1/4" />
                 </div>
               </div>
             ))}
@@ -108,7 +108,7 @@ export function HistoryPanel({ songId, onClose, inline = false }: Props) {
         )}
 
         {events.length === 0 && !isLoading && (
-          <p className="p-4 text-sm text-editor-muted text-center">No history yet</p>
+          <p className="p-4 text-sm text-shell-muted text-center">No history yet</p>
         )}
 
         <div className="p-3 space-y-2">
@@ -118,8 +118,8 @@ export function HistoryPanel({ songId, onClose, inline = false }: Props) {
                 {event.user ? getInitials(event.user.name) : '?'}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-editor-text leading-relaxed">{eventLabel(event)}</p>
-                <p className="text-xs text-editor-muted mt-0.5">{timeAgo(event.createdAt)}</p>
+                <p className="text-xs text-shell-text leading-relaxed">{eventLabel(event)}</p>
+                <p className="text-xs text-shell-muted mt-0.5">{timeAgo(event.createdAt)}</p>
               </div>
               <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
                 event.eventType === 'NOTE_CREATED' ? 'bg-green-400' :
@@ -130,11 +130,11 @@ export function HistoryPanel({ songId, onClose, inline = false }: Props) {
         </div>
 
         {hasNextPage && (
-          <div className="p-3 border-t border-editor-border">
+          <div className="p-3 border-t border-shell-border">
             <button
               onClick={() => fetchNextPage()}
               disabled={isFetchingNextPage}
-              className="w-full text-xs text-editor-muted hover:text-editor-text py-1"
+              className="w-full text-xs text-shell-muted hover:text-shell-text py-1"
             >
               {isFetchingNextPage ? 'Loading...' : 'Load more'}
             </button>

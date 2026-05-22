@@ -125,6 +125,16 @@ export function useSocket(songId: string) {
       )
     })
 
+    socket.on('section-created', () => {
+      queryClient.invalidateQueries({ queryKey: ['sections', songId] })
+    })
+    socket.on('section-updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['sections', songId] })
+    })
+    socket.on('section-deleted', () => {
+      queryClient.invalidateQueries({ queryKey: ['sections', songId] })
+    })
+
     return () => {
       socket.emit('leave-song', { songId })
       socket.disconnect()

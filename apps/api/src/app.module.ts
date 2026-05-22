@@ -14,6 +14,8 @@ import { ValidationModule } from './modules/validation/validation.module'
 import { AiModule } from './modules/ai/ai.module'
 import { VersionsModule } from './modules/versions/versions.module'
 import { UsersModule } from './modules/users/users.module'
+import { PatternsModule } from './modules/patterns/patterns.module'
+import { SectionsModule } from './modules/sections/sections.module'
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { UsersModule } from './modules/users/users.module'
     ValidationModule,
     AiModule,
     VersionsModule,
+    PatternsModule,
+    SectionsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

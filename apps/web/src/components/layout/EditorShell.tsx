@@ -42,13 +42,13 @@ export function EditorShell({
         </main>
 
         {showRightInline && (
-          <aside className="shrink-0 border-l border-shell-border bg-shell-surface overflow-y-auto transition-all duration-[250ms]" style={{ width: PANEL_WIDTHS.right }}>
+          <aside className="shrink-0 flex flex-col border-l border-shell-border bg-shell-surface overflow-hidden transition-all duration-[250ms]" style={{ width: PANEL_WIDTHS.right }}>
             {rightPanel}
           </aside>
         )}
 
         {isTablet && !rightCollapsed && (
-          <aside className="absolute top-0 right-0 h-full border-l border-shell-border bg-shell-surface overflow-y-auto shadow-lg z-40 animate-slide-in-right" style={{ width: PANEL_WIDTHS.right }}>
+          <aside className="absolute top-0 right-0 h-full flex flex-col border-l border-shell-border bg-shell-surface overflow-hidden shadow-lg z-40 animate-slide-in-right" style={{ width: PANEL_WIDTHS.right }}>
             {rightPanel}
           </aside>
         )}

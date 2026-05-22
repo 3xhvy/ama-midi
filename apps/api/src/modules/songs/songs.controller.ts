@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { SongsService } from './songs.service'
+import { UpdateSongDto } from './dto/update-song.dto'
 import type { Request } from 'express'
 import type { AuthUser } from '@ama-midi/shared'
 
@@ -25,8 +26,8 @@ export class SongsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body('name') name: string, @Req() req: Request) {
-    return this.songs.update(id, name, req.user as AuthUser)
+  update(@Param('id') id: string, @Body() dto: UpdateSongDto, @Req() req: Request) {
+    return this.songs.update(id, dto, req.user as AuthUser)
   }
 
   @Delete(':id')

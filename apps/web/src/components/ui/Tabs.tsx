@@ -29,7 +29,7 @@ function Trigger({ children, className, ...props }: RadixTabs.TabsTriggerProps) 
 
 function Content({ children, className, ...props }: RadixTabs.TabsContentProps) {
   return (
-    <RadixTabs.Content className={cn('flex-1 overflow-hidden flex flex-col', className)} {...props}>
+    <RadixTabs.Content className={cn('flex-1 min-h-0 overflow-hidden flex flex-col', className)} {...props}>
       {children}
     </RadixTabs.Content>
   )

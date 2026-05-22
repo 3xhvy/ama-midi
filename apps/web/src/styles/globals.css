@@ -86,8 +86,9 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-bg);
-  color: var(--color-text-primary);
+  background-color: var(--shell-bg);
+  color: var(--shell-text);
+  transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
 @keyframes note-appear {

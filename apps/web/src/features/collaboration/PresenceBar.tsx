@@ -46,7 +46,7 @@ export function PresenceBar({ users }: Props) {
         </div>
       ))}
       {overflow > 0 && (
-        <div className="w-8 h-8 rounded-full bg-editor-surface border border-editor-border flex items-center justify-center text-xs text-editor-muted" style={{ marginLeft: '-8px', position: 'relative', zIndex: 0 }}>
+        <div className="w-8 h-8 rounded-full bg-shell-surface border border-shell-border flex items-center justify-center text-xs text-shell-muted" style={{ marginLeft: '-8px', position: 'relative', zIndex: 0 }}>
           +{overflow}
         </div>
       )}

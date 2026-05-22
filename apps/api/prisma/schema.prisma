@@ -19,6 +19,12 @@ enum NoteEventType {
   NOTE_DELETED
 }
 
+enum NoteType {
+  TAP
+  HOLD
+  SWIPE
+}
+
 enum OutboxStatus {
   PENDING
   SENT
@@ -42,23 +48,29 @@ model User {
   notes          Note[]
   noteEvents     NoteEvent[]
   editorSessions EditorSession[]
+  sectionMarkers SectionMarker[]
+  patterns       NotePattern[]
 
   @@map("users")
 }
 
 model Song {
-  id        String   @id @default(uuid())
-  name      String
-  createdBy String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  name          String
+  createdBy     String
+  bpm           Int      @default(120)
+  timeSignature String   @default("4/4")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  creator      User            @relation(fields: [createdBy], references: [id])
-  notes        Note[]
-  noteEvents   NoteEvent[]
-  versions     SongVersion[]
-  sessions     EditorSession[]
-  outboxEvents OutboxEvent[]
+  creator        User            @relation(fields: [createdBy], references: [id])
+  notes          Note[]
+  noteEvents     NoteEvent[]
+  versions       SongVersion[]
+  sessions       EditorSession[]
+  outboxEvents   OutboxEvent[]
+  sectionMarkers SectionMarker[]
+  patterns       NotePattern[]
 
   @@map("songs")
 }
@@ -71,6 +83,8 @@ model Note {
   title       String
   description String    @default("")
   color       String    @default("#6C63FF")
+  noteType    NoteType  @default(TAP)
+  duration    Float?
   createdBy   String
   version     Int       @default(1)
   deletedAt   DateTime?
@@ -141,4 +155,34 @@ model OutboxEvent {
   song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
 
   @@map("outbox_events")
+}
+
+model SectionMarker {
+  id        String   @id @default(uuid())
+  songId    String
+  time      Float
+  label     String
+  color     String   @default("#6C63FF")
+  createdBy String
+  createdAt DateTime @default(now())
+
+  song    Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([songId, time])
+  @@map("section_markers")
+}
+
+model NotePattern {
+  id        String   @id @default(uuid())
+  name      String
+  notes     Json
+  createdBy String
+  songId    String?
+  createdAt DateTime @default(now())
+
+  creator User  @relation(fields: [createdBy], references: [id])
+  song    Song? @relation(fields: [songId], references: [id], onDelete: SetNull)
+
+  @@map("note_patterns")
 }

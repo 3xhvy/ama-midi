@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "songs" ADD COLUMN     "bpm" INTEGER NOT NULL DEFAULT 120,
+ADD COLUMN     "timeSignature" TEXT NOT NULL DEFAULT '4/4';

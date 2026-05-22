@@ -90,6 +90,12 @@ describe('NotesService', () => {
       }))
     })
 
+    it('rejects HOLD note without duration', async () => {
+      await expect(service.create('s1', {
+        track: 1, time: 0, title: 'x', noteType: 'HOLD',
+      } as any, mockUser)).rejects.toThrow('HOLD notes require duration')
+    })
+
     it('emits note.deleted event with beforeState on delete', async () => {
       const mockNote = {
         id: 'n1', songId: 's1', track: 1, time: 5.0, title: 'T',

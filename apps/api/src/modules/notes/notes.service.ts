@@ -12,8 +12,9 @@ function snapTime(time: number): number {
 function toNote(n: {
   id: string; songId: string; track: number; time: number
   title: string; description: string; color: string; createdBy: string
+  noteType?: string; duration?: number | null
   createdAt: Date; updatedAt: Date
-  creator: { name: string }
+  creator?: { name: string }
 }): Note {
   return {
     id: n.id,
@@ -24,9 +25,11 @@ function toNote(n: {
     description: n.description,
     color: n.color,
     createdBy: n.createdBy,
-    creatorName: n.creator.name,
+    creatorName: n.creator?.name ?? '',
     createdAt: n.createdAt.toISOString(),
     updatedAt: n.updatedAt.toISOString(),
+    noteType: (n.noteType as Note['noteType']) ?? 'TAP',
+    duration: n.duration ?? undefined,
   }
 }
 
@@ -39,10 +42,14 @@ export class NotesService {
 
   async create(
     songId: string,
-    body: { track: number; time: number; title: string; description?: string; color?: string },
+    body: { track: number; time: number; title: string; description?: string; color?: string; noteType?: string; duration?: number },
     user: AuthUser,
   ): Promise<Note> {
     const time = snapTime(body.time)
+
+    if (body.noteType === 'HOLD' && (body.duration == null || body.duration <= 0)) {
+      throw new BadRequestException('HOLD notes require duration > 0')
+    }
 
     try {
       const n = await this.prisma.note.create({
@@ -53,6 +60,8 @@ export class NotesService {
           title: body.title,
           description: body.description ?? '',
           color: body.color ?? '#6C63FF',
+          noteType: (body.noteType as any) ?? 'TAP',
+          duration: body.duration ?? null,
           createdBy: user.id,
         },
         include: { creator: { select: { name: true } } },
@@ -116,6 +125,10 @@ export class NotesService {
   }
 
   async update(noteId: string, dto: UpdateNoteDto, user: AuthUser): Promise<Note> {
+    if (dto.noteType === 'HOLD' && (dto.duration == null || dto.duration <= 0)) {
+      throw new BadRequestException('HOLD notes require duration > 0')
+    }
+
     const existing = await this.prisma.note.findFirst({
       where: { id: noteId, deletedAt: null },
       include: { creator: { select: { name: true } } },

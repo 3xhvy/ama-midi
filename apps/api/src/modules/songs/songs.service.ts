@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { UpdateSongDto } from './dto/update-song.dto'
 import type { AuthUser, Song } from '@ama-midi/shared'
 
 @Injectable()
@@ -24,6 +25,8 @@ export class SongsService {
       noteCount: s._count.notes,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
+      bpm: s.bpm,
+      timeSignature: s.timeSignature,
     }))
   }
 
@@ -45,6 +48,8 @@ export class SongsService {
       noteCount: s._count.notes,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
+      bpm: s.bpm,
+      timeSignature: s.timeSignature,
     }
   }
 
@@ -65,17 +70,19 @@ export class SongsService {
       noteCount: s._count.notes,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
+      bpm: s.bpm,
+      timeSignature: s.timeSignature,
     }
   }
 
-  async update(id: string, name: string, user: AuthUser): Promise<Song> {
+  async update(id: string, dto: UpdateSongDto, user: AuthUser): Promise<Song> {
     const existing = await this.prisma.song.findUnique({ where: { id } })
     if (!existing) throw new NotFoundException('Song not found')
     if (existing.createdBy !== user.id && user.role !== 'ADMIN') throw new ForbiddenException()
 
     const s = await this.prisma.song.update({
       where: { id },
-      data: { name },
+      data: { ...dto },
       include: {
         creator: { select: { name: true, avatarUrl: true } },
         _count: { select: { notes: { where: { deletedAt: null } } } },
@@ -90,6 +97,8 @@ export class SongsService {
       noteCount: s._count.notes,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
+      bpm: s.bpm,
+      timeSignature: s.timeSignature,
     }
   }
 

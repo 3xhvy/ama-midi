@@ -1,7 +1,9 @@
 import { create } from 'zustand'
+import type { SnapMode } from '../features/editor/engine/beat-calculator'
+import type { NoteType } from '@ama-midi/shared'
 
-type ViewMode = 'composer' | 'developer' | 'qa'
-type Zoom = 1 | 2 | 4
+type ViewMode = 'composer' | 'developer' | 'qa' | 'preview'
+type Zoom = 1 | 2 | 4 | 8
 
 interface EditorStore {
   viewMode: ViewMode
@@ -9,26 +11,37 @@ interface EditorStore {
   pxPerSecond: number
   setViewMode: (mode: ViewMode) => void
   setZoom: (zoom: Zoom) => void
-  editorMode:     'fast' | 'popup'
-  selectedNoteId: string | null
-  rightPanelTab:  'details' | 'validation' | 'history'
+  createMode:      'fast' | 'popup'
+  editorMode:      'fast' | 'popup'
+  selectedNoteId:  string | null
+  selectedNoteIds: Set<string>
+  rightPanelTab:   'details' | 'validation' | 'history'
   leftCollapsed:  boolean
   rightCollapsed: boolean
   playheadTime:   number
   isPlaying:      boolean
   triggerAiSuggest: (() => void) | null
-  setEditorMode:     (mode: 'fast' | 'popup') => void
-  selectNote:        (id: string | null) => void
-  setRightPanelTab:  (tab: 'details' | 'validation' | 'history') => void
-  toggleLeftPanel:   () => void
-  toggleRightPanel:  () => void
-  setPlayheadTime:   (time: number) => void
-  setPlaying:        (playing: boolean) => void
+  snapMode:           SnapMode
+  activeNoteType:     NoteType
+  heatmapEnabled:     boolean
+  setCreateMode:        (mode: 'fast' | 'popup') => void
+  setEditorMode:        (mode: 'fast' | 'popup') => void
+  selectNote:           (id: string | null) => void
+  toggleNoteSelection:  (id: string) => void
+  clearSelection:       () => void
+  setRightPanelTab:     (tab: 'details' | 'validation' | 'history') => void
+  toggleLeftPanel:     () => void
+  toggleRightPanel:    () => void
+  setPlayheadTime:     (time: number) => void
+  setPlaying:          (playing: boolean) => void
   setTriggerAiSuggest: (fn: (() => void) | null) => void
+  setSnapMode:         (mode: SnapMode) => void
+  setActiveNoteType:   (type: NoteType) => void
+  setHeatmapEnabled:   (enabled: boolean) => void
 }
 
 function calcPxPerSecond(zoom: Zoom) {
-  return 3 * zoom
+  return 30 * zoom
 }
 
 export const useEditorStore = create<EditorStore>((set) => ({
@@ -37,20 +50,36 @@ export const useEditorStore = create<EditorStore>((set) => ({
   pxPerSecond: calcPxPerSecond(1),
   setViewMode: (viewMode) => set({ viewMode }),
   setZoom: (zoom) => set({ zoom, pxPerSecond: calcPxPerSecond(zoom) }),
+  createMode:       'fast',
   editorMode:       'fast',
   selectedNoteId:   null,
+  selectedNoteIds:  new Set<string>(),
   rightPanelTab:    'details',
   leftCollapsed:    false,
   rightCollapsed:   false,
   playheadTime:     0,
   isPlaying:        false,
   triggerAiSuggest: null,
-  setEditorMode:    (editorMode) => set({ editorMode }),
-  selectNote:       (selectedNoteId) => set({ selectedNoteId }),
-  setRightPanelTab: (rightPanelTab) => set({ rightPanelTab }),
-  toggleLeftPanel:  () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
-  toggleRightPanel: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
-  setPlayheadTime:  (playheadTime) => set({ playheadTime }),
-  setPlaying:       (isPlaying) => set({ isPlaying }),
+  snapMode:         '0.1s',
+  activeNoteType:   'TAP',
+  heatmapEnabled:   false,
+  setCreateMode:        (createMode) => set({ createMode }),
+  setEditorMode:        (editorMode) => set({ editorMode }),
+  selectNote:           (id) => set({ selectedNoteId: id, selectedNoteIds: id ? new Set([id]) : new Set() }),
+  toggleNoteSelection:  (id) => set((s) => {
+    const next = new Set(s.selectedNoteIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return { selectedNoteIds: next, selectedNoteId: next.size === 1 ? [...next][0] : null }
+  }),
+  clearSelection:       () => set({ selectedNoteIds: new Set(), selectedNoteId: null }),
+  setRightPanelTab:     (rightPanelTab) => set({ rightPanelTab }),
+  toggleLeftPanel:     () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
+  toggleRightPanel:    () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
+  setPlayheadTime:     (playheadTime) => set({ playheadTime }),
+  setPlaying:          (isPlaying) => set({ isPlaying }),
   setTriggerAiSuggest: (triggerAiSuggest) => set({ triggerAiSuggest }),
+  setSnapMode:         (snapMode) => set({ snapMode }),
+  setActiveNoteType:   (activeNoteType) => set({ activeNoteType }),
+  setHeatmapEnabled:   (heatmapEnabled) => set({ heatmapEnabled }),
 }))
