@@ -25,6 +25,9 @@ WORKDIR /app
 
 RUN apk add --no-cache wget
 
+# Install prisma CLI at build time — pnpm doesn't hoist workspace-dep binaries to root .bin/
+RUN npm install -g prisma@7.8.0 --ignore-scripts
+
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/package.json ./
 COPY --from=builder /app/apps/api/prisma ./prisma
