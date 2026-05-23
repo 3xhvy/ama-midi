@@ -318,10 +318,11 @@ Repository → Settings → Actions → General → Workflow permissions → **R
 
 **Secrets**
 
-
-| Name         | Description                               |
-| ------------ | ----------------------------------------- |
+| Name | Description |
+| --- | --- |
 | `VM_SSH_KEY` | Private SSH key for deploy user (ed25519) |
+| `TELEGRAM_BOT_TOKEN` | Bot token for deploy notifications (same as Owen) |
+| `TELEGRAM_CHAT_ID` | Chat ID for deploy notifications |
 
 
 **Variables**
@@ -345,13 +346,14 @@ cat ~/.ssh/ama-midi-deploy.pub >> ~/.ssh/authorized_keys   # on VPS
 
 ### 3.4 Workflow behavior
 
+Workflow file: `.github/workflows/deploy.yml` — **Deploy to VM** (same pattern as Owen).
+
 On every push to `main`:
 
-1. **build-api** — `ghcr.io/3xhvy/ama-midi-api:latest`
-2. **build-web** — `ghcr.io/3xhvy/ama-midi-web:latest` with `VITE_WS_URL=$APP_URL`
-3. **deploy** — SSH to VPS, `docker compose pull && up -d`, poll API health (180s)
+1. **build-and-push** — builds `ama-midi-api` + `ama-midi-web`, pushes to GHCR, Telegram notify on start/result
+2. **deploy** — SSH to `/opt/ama-midi`, `docker compose pull && up -d`, poll `ama-midi-api` health (180s), Telegram notify on start/result
 
-Manual trigger: Actions → Deploy to VPS → Run workflow.
+Manual trigger: Actions → **Deploy to VM** → Run workflow.
 
 ---
 

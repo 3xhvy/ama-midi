@@ -1,6 +1,5 @@
 # Production compose for a single VPS.
 # Host nginx (outside Docker) terminates TLS and proxies to api/web.
-# PostgreSQL and Redis run in Docker — not exposed to the public internet.
 
 services:
   redis:
@@ -32,8 +31,6 @@ services:
     env_file:
       - .env.prod
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
