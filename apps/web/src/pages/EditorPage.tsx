@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, useEffect, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSongTour }  from '../features/onboarding/useSongTour'
 import { TourOverlay }  from '../features/onboarding/TourOverlay'
@@ -16,7 +16,7 @@ import { useNotes }           from '../features/notes/useNotes'
 import { useDeleteNote, useUpdateNote } from '../features/notes/useNotes'
 import { useSections }        from '../features/sections/useSections'
 import { usePlayback }        from '../features/editor/hooks/usePlayback'
-import { Button, ColorPicker, Tabs, ToggleGroup } from '../components/ui'
+import { Button, Tabs, ToggleGroup } from '../components/ui'
 import { PianoRoll } from '../features/editor/components/PianoRoll'
 import { HistoryPanel } from '../features/editor/components/HistoryPanel'
 import { ValidationPanel } from '../features/editor/components/ValidationPanel'
@@ -29,7 +29,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useIsMobile } from '../hooks/useMediaQuery'
 import { useAuthStore } from '../store/auth.store'
 import { apiClient } from '../features/auth/api'
-import { NOTE_PRESET_COLORS, type Note, type NoteType, type Song } from '@ama-midi/shared'
+import { type Note, type NoteType, type Song, trackColor } from '@ama-midi/shared'
 import type { SnapMode } from '../features/editor/engine/beat-calculator'
 
 interface ValidationResult {
@@ -37,7 +37,7 @@ interface ValidationResult {
 }
 
 export function EditorPage() {
-  const { songId } = useParams<{ songId: string }>()
+  const { projectId, songId } = useParams<{ projectId?: string; songId: string }>()
   const navigate = useNavigate()
   const {
     viewMode,
@@ -47,6 +47,7 @@ export function EditorPage() {
     setLeftCollapsed, setRightCollapsed,
     playheadTime, selectNote, triggerAiSuggest,
     selectedNoteIds, clearSelection,
+    activeTrack,
   } = useEditorStore()
 
   const isMobile = useIsMobile()
@@ -78,6 +79,12 @@ export function EditorPage() {
     queryFn:  () => apiClient(token)<Song>(`/songs/${songId}`),
     enabled:  !!token && !!songId,
   })
+
+  useEffect(() => {
+    if (!projectId && song?.projectId && songId) {
+      navigate(`/projects/${song.projectId}/songs/${song.id}`, { replace: true })
+    }
+  }, [projectId, song, songId, navigate])
 
   const [mutedTracks,         setMutedTracks]         = useState<Set<number>>(new Set())
   const [showShortcuts,       setShowShortcuts]       = useState(false)
@@ -134,7 +141,7 @@ export function EditorPage() {
       presenceList={presenceList}
       onSuggest={() => triggerAiSuggest?.()}
       onShowShortcuts={() => setShowShortcuts(true)}
-      onBack={() => navigate('/')}
+      onBack={() => navigate(projectId ? `/projects/${projectId}` : '/projects')}
       leftCollapsed={leftCollapsed}
       rightCollapsed={rightCollapsed}
       onToggleLeft={handleToggleLeft}
@@ -161,6 +168,7 @@ export function EditorPage() {
             isMuted={mutedTracks.has(track)}
             noteCount={allNotes.filter(n => n.track === track).length}
             maxCount={maxNoteCount}
+            isActive={activeTrack === track}
             onToggleMute={() => toggleMute(track, false)}
           />
         ))}
@@ -321,7 +329,7 @@ interface ToolsTabProps {
   onSavePattern: () => void
   onDelete: () => void
   onDeselect: () => void
-  onUpdateSelected: (patch: { color?: string; noteType?: NoteType }) => void
+  onUpdateSelected: (patch: { noteType?: NoteType }) => void
 }
 
 const VIEW_MODES = [
@@ -349,6 +357,43 @@ const TYPE_MODES: { value: NoteType; label: string }[] = [
   { value: 'HOLD', label: 'Hold' },
 ]
 
+function SingleNoteDetail({ note }: { note: Note }) {
+  const color = trackColor(note.track)
+  const typeLabel = note.noteType === 'HOLD' ? 'Hold' : note.noteType === 'SWIPE' ? 'Swipe' : 'Tap'
+  return (
+    <div className="flex flex-col gap-0.5 text-[11px] text-shell-muted">
+      <div className="flex items-center gap-1.5">
+        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+        <span>Track {note.track} · {typeLabel}</span>
+      </div>
+      <span>{note.time}s{note.noteType === 'HOLD' && note.duration ? ` · ${note.duration}s hold` : ''}</span>
+    </div>
+  )
+}
+
+function MultiNoteDetail({ notes }: { notes: Note[] }) {
+  const uniqueTracks = [...new Set(notes.map(n => n.track))].sort((a, b) => a - b)
+  const minTime = Math.min(...notes.map(n => n.time))
+  const maxTime = Math.max(...notes.map(n => n.time + (n.duration ?? 0)))
+  return (
+    <div className="flex flex-col gap-0.5 text-[11px] text-shell-muted">
+      <div className="flex items-center gap-1">
+        <span>{notes.length} notes</span>
+        <div className="flex items-center gap-0.5 ml-1">
+          {uniqueTracks.map(t => (
+            <div
+              key={t}
+              className="w-1.5 h-1.5 rounded-full shrink-0"
+              style={{ backgroundColor: trackColor(t) }}
+            />
+          ))}
+        </div>
+      </div>
+      <span>{Math.round(minTime * 10) / 10}s – {Math.round(maxTime * 10) / 10}s</span>
+    </div>
+  )
+}
+
 function ToolsTab({
   notes, selectedNotes, canEdit,
   onSavePattern, onDelete, onDeselect, onUpdateSelected,
@@ -363,7 +408,6 @@ function ToolsTab({
   } = useEditorStore()
 
   const selectedCount = selectedNotes.length
-  const selectedColor = selectedCount === 1 ? selectedNotes[0].color : NOTE_PRESET_COLORS[0]
   const selectedType = selectedCount === 1 ? selectedNotes[0].noteType : activeNoteType
 
   return (
@@ -440,30 +484,24 @@ function ToolsTab({
 
         {selectedCount === 0 ? (
           <p className="text-xs text-shell-muted leading-relaxed">
-            Select notes on the canvas to edit groups here. Single-note details stay in the note popup.
+            Select notes on the canvas to edit groups here.
           </p>
         ) : (
           <>
-            {canEdit && (
-              <>
-                <ToolRow label="Type">
-                  <ToggleGroup
-                    items={TYPE_MODES}
-                    value={selectedType}
-                    onValueChange={(v) => onUpdateSelected({ noteType: v as NoteType })}
-                    className="w-full"
-                  />
-                </ToolRow>
+            {selectedCount === 1
+              ? <SingleNoteDetail note={selectedNotes[0]} />
+              : <MultiNoteDetail notes={selectedNotes} />
+            }
 
-                <div className="space-y-2">
-                  <span className="text-xs text-shell-muted">Color</span>
-                  <ColorPicker
-                    colors={NOTE_PRESET_COLORS}
-                    value={selectedColor}
-                    onChange={(color) => onUpdateSelected({ color })}
-                  />
-                </div>
-              </>
+            {canEdit && (
+              <ToolRow label="Type">
+                <ToggleGroup
+                  items={TYPE_MODES}
+                  value={selectedType}
+                  onValueChange={(v) => onUpdateSelected({ noteType: v as NoteType })}
+                  className="w-full"
+                />
+              </ToolRow>
             )}
 
             <div className="grid grid-cols-2 gap-2">
