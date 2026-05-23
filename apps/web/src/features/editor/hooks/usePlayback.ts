@@ -7,6 +7,15 @@ export function usePlayback() {
   const rafRef      = useRef<number | null>(null)
   const lastTimeRef = useRef<number | null>(null)
 
+  // Reset clock when tab regains focus — prevents playhead jumping forward
+  useEffect(() => {
+    function onVisibility() {
+      if (document.visibilityState === 'visible') lastTimeRef.current = null
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
   useEffect(() => {
     if (!isPlaying) {
       if (rafRef.current !== null) {
@@ -20,8 +29,11 @@ export function usePlayback() {
     function tick(timestamp: number) {
       if (lastTimeRef.current === null) {
         lastTimeRef.current = timestamp
+        rafRef.current = requestAnimationFrame(tick)
+        return
       }
-      const delta = (timestamp - lastTimeRef.current) / 1000
+      // Cap delta at 100ms to absorb any remaining stale frames
+      const delta = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1)
       lastTimeRef.current = timestamp
 
       const next = useEditorStore.getState().playheadTime + delta
@@ -30,7 +42,7 @@ export function usePlayback() {
         setPlaying(false)
         return
       }
-      setPlayheadTime(Math.round(next * 10) / 10)
+      setPlayheadTime(Math.round(next * 100) / 100)
       rafRef.current = requestAnimationFrame(tick)
     }
 

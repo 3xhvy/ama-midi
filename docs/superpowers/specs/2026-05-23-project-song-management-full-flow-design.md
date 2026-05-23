@@ -16,21 +16,24 @@
 | Permission unit | Project membership is the source of truth. Song access is a scope inside project membership. |
 | Add-member requirements | Admin must choose both permission and song scope when adding a user to a project. |
 | Dynamic full access | `All songs now and future` includes current songs and future songs created in the project. |
-| Create entry point | `+ New Song` opens a create-song wizard. The inline song-name input is removed. |
+| Create entry point | `+ New Song` opens a create-song wizard OR a quick-create shortcut. The inline song-name input is removed. |
+| Composer flow state | The project layer must not add friction to the creative path. Quick-create and recent-songs shortcuts ensure composers reach the editor in 2 clicks or fewer. |
 
 ---
 
 ## Product Model
 
-AMA-MIDI should behave like a game production asset tool, not a generic song file list.
+AMA-MIDI is a shared workspace where music composition and game production happen simultaneously. It bridges composers, game developers, product owners, and QA engineers around the same data with different lenses.
+
+The system is single-tenant: one Amanotes organization is implied. Multi-tenancy is not in scope.
 
 ```txt
-Organization
-→ Project
-→ ProjectMember
-→ Song
-→ Version
-→ Notes / Sections / Patterns / Validation / History
+[Amanotes — single tenant]
+→ Project (production workspace)
+  → ProjectMember (access + scope)
+  → Song (gameplay chart asset)
+    → Version (future: song snapshots)
+    → Notes / Sections / Patterns / Validation / History
 ```
 
 The project is the production workspace. It contains songs, members, assignment, and workflow state.
@@ -38,6 +41,72 @@ The project is the production workspace. It contains songs, members, assignment,
 The song is a project-owned gameplay chart asset. It contains musical/gameplay data and can be edited in the existing editor.
 
 If another project needs similar content, the user creates a new song in that project and imports settings, structure, patterns, or notes from the source song. The new song is independent after creation.
+
+---
+
+## Per-Persona Experience
+
+The original product insight: four users need one product with different presentations. The project layer must serve all four, not just admins.
+
+### Composer
+
+Primary job: place notes quickly in a flow state.
+
+```txt
+Login → Dashboard → Recently Edited Songs → click → Editor (2 clicks)
+Login → Dashboard → My Projects → project → + Quick Create → Editor (3 clicks)
+```
+
+The project layer is invisible during active composition. The composer sees:
+- Recent songs across projects on the dashboard (jump straight to editor)
+- Quick-create button that skips the wizard with sensible defaults
+- Project context only in the editor breadcrumb ("Back to project")
+- AI Suggest button works identically regardless of project context
+
+The composer must never feel the project layer is between them and their notes.
+
+### Game Developer
+
+Primary job: verify timing alignment and inspect note data for game integration.
+
+```txt
+Login → Dashboard → My Projects → project → song table (filtered by status: Approved) → Editor (Developer View)
+```
+
+The project layer helps developers by:
+- Filtering songs by status (only look at APPROVED or PUBLISHED songs)
+- Developer View in editor shows raw IDs, precise timestamps, track data on hover
+- Read-only access by default (cannot accidentally edit production charts)
+- Future: export endpoint for game-engine-ready JSON
+
+### Product Owner / Producer
+
+Primary job: review song structure, approve direction, track production progress.
+
+```txt
+Login → Dashboard → Needs My Review → click → Editor (read-only with status controls)
+Login → Dashboard → My Projects → project overview (song count, status breakdown, member count)
+```
+
+The project layer helps producers by:
+- Project dashboard with production health at a glance (% drafted, % approved, % published)
+- "Needs My Review" shortcut on home dashboard
+- Song table with status/category/assignment columns for production tracking
+- Status transition controls visible to project admins (move to APPROVED, etc.)
+
+### QA Engineer
+
+Primary job: catch boundary violations, duplicates, and timing errors before release.
+
+```txt
+Login → Dashboard → Needs My Review (QA-assigned songs in IN_REVIEW status) → Editor (QA View)
+```
+
+The project layer helps QA by:
+- "Needs My Review" automatically surfaces songs assigned to them as QA
+- QA View in editor highlights boundary notes, density warnings, validation errors
+- Validation tab in right panel shows project-wide validation summary
+- Status can be moved to NEEDS_FIX with a note explaining the issue
 
 ---
 
@@ -73,13 +142,17 @@ Each project membership also has a required song scope:
 |---|---|
 | `ALL_SONGS` | Access to all current and future songs in the project. |
 | `SELECTED_SONGS` | Access only to explicitly selected songs in the project. |
-| `NO_SONGS` | Project membership exists, but no song access yet. |
 
 `ALL_SONGS` is dynamic. When new songs are created in the project, these members automatically gain access.
 
-`SELECTED_SONGS` is explicit. Admin must choose one or more songs when assigning access. If no songs should be assigned yet, admin must choose `NO_SONGS`.
+`SELECTED_SONGS` is explicit. Admin must choose one or more songs when assigning access.
 
-`NO_SONGS` is useful for adding someone to a project before work is assigned.
+**Implementation phases:**
+
+- **Phase 1 (MVP):** All project members get `ALL_SONGS`. The song scope column exists in the DB but defaults to `ALL_SONGS` for every membership. This keeps the permission model simple while the project structure matures.
+- **Phase 2 (Full):** Enable `SELECTED_SONGS` in the member management UI. Admins can then restrict access per song.
+
+This phasing avoids premature complexity. The `NO_SONGS` scope from earlier brainstorming is removed — it adds UI complexity (confirmation dialogs, confusing empty states) without a clear production use case. If a user shouldn't access any songs yet, the admin simply does not add them to the project until work is ready.
 
 ### Access Rules
 
@@ -266,17 +339,14 @@ Required fields:
 ```txt
 User
 Permission: Read / Edit / Admin
-Song scope: All songs now and future / Selected songs only / No songs yet
+Song scope: All songs now and future / Selected songs only
 ```
 
 Conditional fields:
 
 ```txt
 If Selected songs only:
-  require selected songs from this project
-
-If No songs yet:
-  show confirmation that the user can view project metadata but no songs
+  require at least one song selected from this project
 ```
 
 Validation:
@@ -285,8 +355,8 @@ Validation:
 User is required.
 Permission is required.
 Song scope is required.
-Selected songs are required when scope is Selected songs only.
-Only Admin can add members.
+Selected songs are required and non-empty when scope is Selected songs only.
+Only project ADMIN or platform ADMIN can add members.
 ```
 
 ### Edit Project Member
@@ -299,7 +369,7 @@ Song scope
 Selected song allowlist
 ```
 
-When changing from `ALL_SONGS` to `SELECTED_SONGS`, admin must choose at least one song or explicitly choose `NO_SONGS`.
+When changing from `ALL_SONGS` to `SELECTED_SONGS`, admin must choose at least one song.
 
 When changing from `EDIT` to `READ`, user loses edit access immediately.
 
@@ -386,15 +456,34 @@ For dense production work, a table view is preferred. Cards can remain useful fo
 
 ## Create Song Wizard
 
-### Entry Point
+### Entry Points
 
-Inside a project:
+**Full wizard** (project admins, batch production):
 
 ```txt
-Project → Songs → + New Song
+Project → Songs → + New Song → Wizard (Start → Setup → Assignment → Review)
 ```
 
-The inline `New song name` input is removed.
+**Quick-create** (composers in flow state):
+
+```txt
+Project → Songs → Quick Create (or keyboard shortcut Cmd+N inside project)
+```
+
+Quick-create skips the wizard entirely. It creates a blank DRAFT song with:
+- Name: "Untitled" (editable in editor header inline)
+- Category: project default or PROTOTYPE
+- Difficulty: NORMAL
+- BPM: 120
+- Time signature: 4/4
+- Assigned composer: current user
+- No QA assigned
+
+The song opens in the editor immediately. This is the composer's fast path: one click to start charting.
+
+The inline `New song name` input from the old UI is removed, but the quick-create button preserves the same speed.
+
+**From home dashboard:**
 
 If the user starts song creation outside a project, the wizard begins with a project-selection step. If launched inside a project, project is preselected and hidden or shown as read-only.
 
@@ -691,6 +780,129 @@ Single-note detail/edit remains in the note popup.
 
 ---
 
+## Integration with Existing Features
+
+The project layer must not break or orphan existing editor features. This section maps each current feature to the new authorization model.
+
+### AI Note Suggester
+
+| Aspect | Behavior |
+|---|---|
+| Who can trigger | Users with EDIT or ADMIN permission for the song (same as note creation). |
+| Cross-project context | AI suggestions are scoped to the current song only. The AI does not access notes from other projects. |
+| Accepting a suggestion | Goes through the same POST /notes flow with the same conflict handling, WebSocket broadcast, and ledger event. |
+| Global role requirement | COMPOSER or ADMIN global role (unchanged from current). |
+
+### View Modes (Composer / Developer / QA)
+
+View modes are a presentation preference, not a permission layer.
+
+| Mode | Who typically uses it | Authorization requirement |
+|---|---|---|
+| Composer View | Composers (EDIT permission) | Can view song |
+| Developer View | Game developers (READ permission) | Can view song |
+| QA View | QA engineers (READ permission) | Can view song |
+
+Any user who can view a song can switch between view modes. The mode does not grant additional access. A READ-permission user in Composer View still cannot create or edit notes.
+
+### Heatmap and Validation
+
+- Heatmap renders based on the loaded notes for the current song. No cross-project data.
+- Validation warnings (boundary notes, density issues) run client-side on loaded data. No permission change needed.
+- The Validation tab in the right panel can optionally show a project-level summary (count of songs with validation errors) fetched via `GET /projects/:projectId/validation-summary`. This requires project READ access.
+
+### Real-time Collaboration and Presence
+
+- WebSocket room authorization: when a client emits `join-song`, the gateway must verify project membership and song scope before admitting the client to the room. This replaces the current global-role-only check.
+- Presence indicators show users currently in the same song room (unchanged behavior).
+- Permission change events (`project.member.updated`, `project.song.access.updated`) are broadcast to the project's WebSocket channel. Clients react by invalidating queries and, if access was revoked, exiting the editor gracefully.
+
+### Real-time Permission Revocation in Editor
+
+When a user loses access to the song they are currently editing:
+
+```txt
+1. Server emits `project.song.access.updated` to the project channel.
+2. Client receives event, checks if current song is affected.
+3. If access revoked:
+   a. Disable all mutation controls immediately (optimistic lock).
+   b. Show non-blocking banner: "Your access to this song has changed."
+   c. After 3 seconds, navigate to project page.
+4. If permission downgraded (EDIT → READ):
+   a. Disable mutation controls.
+   b. Show banner: "You now have read-only access to this song."
+   c. Remain in editor in read-only mode.
+```
+
+The existing `useCanEdit` hook evolves to check:
+
+```txt
+1. User's project membership for song.projectId
+2. Membership permission is EDIT or ADMIN
+3. Song is within membership song scope
+4. Song status is not PUBLISHED or ARCHIVED (unless admin override)
+```
+
+### Change History / Ledger
+
+- Note-level ledger (NoteEvent) remains unchanged. Every note mutation still writes an event.
+- Project-level audit (member changes, status transitions, assignments) uses a separate `ProjectEvent` table. This keeps the note ledger focused and performant.
+- History panel in the editor shows note events only (unchanged).
+- Project activity tab (future) shows project-level audit events.
+
+### Keyboard Shortcuts
+
+All existing shortcuts (E to edit, Delete to remove, Cmd+Z to undo) work identically within the editor. The project layer does not intercept keyboard shortcuts.
+
+New shortcut: `Cmd+N` inside a project page triggers quick-create.
+
+---
+
+## Performance Considerations
+
+### Project and Song List Pages
+
+- Project list and song list use TanStack Query with pagination (cursor-based, 20 items per page).
+- Song table with filters: the API must support combined filtering (`status + category + difficulty + assignedComposerId`) with a single query. Indexes on `[projectId, status]` and `[projectId, category]` already cover the common cases.
+- Member table is typically small (< 50 members per project). No pagination needed initially.
+
+### Editor Load Path
+
+The nested route `/projects/:projectId/songs/:songId` requires resolving project access before loading the editor. To avoid adding latency:
+
+```txt
+1. Frontend fetches song detail (GET /projects/:projectId/songs/:songId).
+   This single endpoint validates project membership, song scope, and returns song + permission level in one response.
+2. Note fetching begins immediately after song detail resolves (parallel with UI mount).
+3. No extra "check permission" API call — authorization is bundled into the song detail response.
+```
+
+Response shape includes permission context:
+
+```ts
+interface SongDetailResponse {
+  song: Song
+  permissions: {
+    canEdit: boolean
+    canManageWorkflow: boolean
+    viewMode: 'full' | 'readonly'
+  }
+}
+```
+
+### WebSocket Authorization
+
+Room join authorization adds one DB query (check project membership). This is cached per connection session — not re-checked on every event. If permissions change, the server actively evicts the client from the room via the permission-change event flow.
+
+### Large Projects (1000+ Songs)
+
+For projects with many songs:
+- Song list uses server-side pagination and filtering (not client-side).
+- Song search uses a simple `ILIKE` query on name with the project filter. Full-text search is a future enhancement.
+- The "Recently Edited Songs" dashboard widget queries across projects with `ORDER BY updatedAt DESC LIMIT 10` using the existing `[projectId, status]` index.
+
+---
+
 ## Backend Data Model
 
 ### Prisma Sketch
@@ -711,7 +923,6 @@ enum ProjectPermission {
 enum SongScope {
   ALL_SONGS
   SELECTED_SONGS
-  NO_SONGS
 }
 
 enum SongStatus {
@@ -867,7 +1078,7 @@ Create payload:
 interface AddProjectMemberDto {
   userId: string
   permission: 'READ' | 'EDIT' | 'ADMIN'
-  songScope: 'ALL_SONGS' | 'SELECTED_SONGS' | 'NO_SONGS'
+  songScope: 'ALL_SONGS' | 'SELECTED_SONGS'
   songIds?: string[]
 }
 ```
@@ -877,7 +1088,9 @@ Validation:
 ```txt
 songIds required and non-empty when songScope is SELECTED_SONGS.
 songIds must belong to projectId.
+songIds are ignored when songScope is ALL_SONGS.
 Only project ADMIN or platform ADMIN can mutate members.
+Cannot add a user who is already a member (returns 409).
 ```
 
 ### Project Songs
@@ -934,20 +1147,27 @@ Do not rely on frontend hiding controls for security.
 When project member permissions or song scopes change, emit events:
 
 ```txt
-project.member.updated
-project.member.removed
-project.song.access.updated
+project.member.updated   → { memberId, projectId, changes }
+project.member.removed   → { userId, projectId }
+project.song.access.updated → { memberId, projectId, songIds }
 ```
 
 Clients in that project should invalidate project/member/song queries.
 
-If a user loses access to the song currently open, the UI should show:
+Permission revocation while a user is in the editor is handled by the flow described in "Integration with Existing Features > Real-time Permission Revocation in Editor" above.
+
+### Song Status Events
+
+When a song's status changes (e.g., DRAFT → IN_REVIEW):
 
 ```txt
-Your access to this song changed.
+song.status.changed → { songId, projectId, oldStatus, newStatus, changedBy }
 ```
 
-Then navigate to the project page or read-only fallback if still viewable.
+This enables:
+- Dashboard widgets to update in real-time
+- QA engineers to see new review assignments immediately
+- Composers to see when their song needs fixes
 
 ### Audit Trail
 
@@ -961,9 +1181,22 @@ song status changed
 song assignment changed
 ```
 
-Existing note ledger remains focused on note mutations.
+Existing note ledger (`NoteEvent` table) remains focused on note mutations. It is not modified by the project layer.
 
-Project/song workflow audit can be separate from note ledger.
+Project/song workflow audit uses a separate `ProjectEvent` table:
+
+```ts
+interface ProjectEvent {
+  id: string
+  projectId: string
+  eventType: string
+  actorId: string
+  metadata: Record<string, unknown>
+  createdAt: string
+}
+```
+
+This separation keeps the note ledger performant (high write volume from note edits) and the project audit clean (low write volume from admin actions).
 
 ---
 
@@ -1045,19 +1278,30 @@ Use local component state for wizard. Use Zustand for editor.
 
 ### Home Dashboard
 
-First screen after login:
+First screen after login. The dashboard adapts its emphasis by role:
 
 ```txt
-My Projects
-Needs My Review
-Recently Edited Songs
+┌─────────────────────────────────────────────────────┐
+│ Recently Edited Songs (max 10, cross-project)       │  ← Composer fast path
+│ [song card] [song card] [song card] ...             │
+├─────────────────────────────────────────────────────┤
+│ Needs My Review (songs assigned to me as QA)        │  ← QA / Producer fast path
+│ [song] [song] ...                                   │
+├─────────────────────────────────────────────────────┤
+│ My Projects                                         │  ← Everyone
+│ [project card] [project card] ...                   │
+└─────────────────────────────────────────────────────┘
 ```
 
 Primary action:
 
 ```txt
-+ New Project
++ New Project (Admin only)
 ```
+
+Composers primarily use "Recently Edited Songs" to jump straight back to work. The project layer is a secondary navigation path for them.
+
+QA engineers and producers primarily use "Needs My Review" to find their assigned work.
 
 Song creation should usually happen inside a project. If there is no project, empty state guides user to create or join a project.
 
@@ -1124,33 +1368,37 @@ Apply template defaults to BPM, category, and difficulty?
 Required controls:
 
 ```txt
-User picker
-Permission segmented control
-Song scope radio group
-Song multiselect if selected scope
+User picker (search by name/email)
+Permission segmented control (Read / Edit / Admin)
+Song scope radio group (All songs / Selected songs) — only shown in Phase 5+
+Song multiselect if selected scope — only shown in Phase 5+
 ```
 
 The save button remains disabled until required choices are valid.
+
+In Phase 1–4 (before SELECTED_SONGS is enabled), the modal only shows the user picker and permission selector. Song scope defaults to ALL_SONGS silently.
 
 ---
 
 ## Migration Strategy
 
-### Phase 1: Schema Foundation
+### Essential Phases (required for the project model to function)
+
+#### Phase 1: Schema Foundation
 
 Add:
 
 ```txt
 projects
 project_members
-project_member_song_access
-song project/status/category/difficulty/assignment fields
+project_member_song_access (empty initially — all members get ALL_SONGS)
+song.projectId, song.status, song.category, song.difficulty, song.assignedComposerId, song.assignedQaId fields
 ```
 
 Create a default project for existing songs:
 
 ```txt
-Default Project
+Default Project (name: "Amanotes Production")
 ```
 
 Assign all existing songs to that project.
@@ -1163,60 +1411,90 @@ COMPOSER → EDIT + ALL_SONGS
 VIEWER → READ + ALL_SONGS
 ```
 
-### Phase 2: API Authorization
+This migration must be non-breaking: the app continues to work identically after the migration runs.
 
-Update song/note/section/pattern APIs to authorize through project membership and song scope.
+#### Phase 2: API Authorization
 
-Existing routes can continue temporarily:
+Update song/note/section/pattern APIs to authorize through project membership.
+
+In this phase, all members have `ALL_SONGS`, so the authorization check is:
 
 ```txt
-/songs/:songId
+user is platform ADMIN
+OR user is a member of song.projectId with READ/EDIT/ADMIN
 ```
 
-But they must resolve project access internally.
+Existing routes continue temporarily:
 
-### Phase 3: Project UI
+```txt
+/songs/:songId → resolves projectId internally, checks membership
+```
 
-Add project dashboard and project detail.
+New routes are added in parallel:
+
+```txt
+/projects/:projectId/songs/:songId
+```
+
+#### Phase 3: Project UI + Quick Create
+
+Add project dashboard and project detail page.
 
 Move current song list into project page.
 
-Keep old global song list as a compatibility view or replace it with `Recently Edited Songs`.
-
-### Phase 4: Create Song Wizard
-
-Replace inline song creation with wizard.
-
-Support:
+Replace old global song list with home dashboard:
 
 ```txt
-Blank
-Template
-Import
+My Projects
+Recently Edited Songs (cross-project, max 10)
 ```
 
-### Phase 5: Member Management and Scopes
+Add quick-create button (single click → blank song → open editor).
 
-Ship full member admin UI.
+Add full create-song wizard (Blank / Template / Import).
 
-Enforce:
+### Progressive Phases (enhance the model, can ship independently)
+
+#### Phase 4: Song Workflow and Status
+
+Enable status transitions:
 
 ```txt
-Permission required
-Song scope required
-Selected songs required when scope is selected-only
+DRAFT → IN_REVIEW → NEEDS_FIX → APPROVED → PUBLISHED → ARCHIVED
 ```
-
-### Phase 6: Workflow Enhancements
 
 Add:
 
 ```txt
-Review dashboard
-Status transition controls
-Assignment notifications
-Workflow audit
+Status transition controls (project ADMIN and assigned QA can transition)
+"Needs My Review" dashboard widget
+Published song read-only enforcement
+```
+
+#### Phase 5: Selected Song Scopes
+
+Enable `SELECTED_SONGS` in the member management UI.
+
+Ship full member admin UI with:
+
+```txt
+Permission selector
+Song scope selector
+Song multiselect for SELECTED_SONGS
+```
+
+This phase is only needed when projects grow large enough that not all members should see all songs. Small teams (< 10 members) may never need this.
+
+#### Phase 6: Workflow Enhancements
+
+Add:
+
+```txt
+Review dashboard (project-level view of all songs by status)
+Assignment notifications (WebSocket + optional email)
+Workflow audit trail (ProjectEvent table)
 Validation summary by project
+Status transition history
 ```
 
 ---
@@ -1260,12 +1538,17 @@ AND include archived is enabled
 
 Song names do not need to be globally unique.
 
-Within one project, duplicate names should be allowed only if the UI clearly disambiguates by status/date. Recommended constraint:
+Within one project, duplicate names are allowed. The UI disambiguates by showing status badge, difficulty, and last-modified date alongside the name. Composers often create variations ("Boss Battle Easy", "Boss Battle Hard") or iterations with similar names — a hard uniqueness constraint would cause friction during rapid prototyping.
+
+Recommended behavior:
 
 ```txt
-No duplicate active song names in the same project.
-Archived songs do not block reuse.
+Duplicate song names are allowed (soft warning only).
+If names match, the UI appends status and date for disambiguation.
+The song list table always shows enough metadata columns to distinguish songs visually.
 ```
+
+The critical uniqueness constraint remains on note positions `(song_id, track, time)`, not on song names. Song names are metadata — duplicates are annoying but not corrupting.
 
 ### Project Archive
 
@@ -1302,20 +1585,26 @@ Permission service:
 
 ```txt
 READ + ALL_SONGS can view all current and future project songs.
-READ + SELECTED_SONGS can view only selected songs.
-EDIT + selected scope can edit selected songs only.
+READ + SELECTED_SONGS can view only selected songs (Phase 5+).
+EDIT + ALL_SONGS can edit all project songs.
+EDIT + SELECTED_SONGS can edit selected songs only (Phase 5+).
 READ cannot mutate songs.
 ADMIN can manage members.
-Selected scope rejects songs from other projects.
+Non-member cannot access project songs.
+Platform ADMIN bypasses project membership check.
 ```
 
 Create song:
 
 ```txt
-creates song in project
-rejects unauthorized project
-validates BPM/time signature
+creates song in project with valid permissions
+quick-create creates song with defaults and returns song + editor URL
+rejects user without EDIT/ADMIN permission
+rejects user without ALL_SONGS scope (when SELECTED_SONGS is enforced)
+validates BPM range (40–300)
+validates time signature (4/4, 3/4, 6/8)
 assigns eligible composer/QA only
+rejects assignee without song access
 ```
 
 Import:
@@ -1327,27 +1616,38 @@ copies patterns
 copies notes
 does not link future edits to source
 rejects unreadable source song
+stores audit metadata (sourceSongId, importedBy, importedAt)
 ```
 
 ### Frontend Tests
+
+Quick-create:
+
+```txt
+single click creates song and navigates to editor
+song is created with default values (PROTOTYPE, NORMAL, 120 BPM, 4/4)
+current user is auto-assigned as composer
+```
 
 Create-song wizard:
 
 ```txt
 requires name/category/difficulty/BPM/time signature
-preserves values between steps
-template applies defaults
+preserves values when navigating back between steps
+template applies defaults (with confirmation if user edited fields)
 import mode shows copy options
-review step summarizes choices
+review step summarizes all choices
+"Create and Open Editor" navigates to editor
+"Create and Stay in Project" returns to song list
 ```
 
 Member access modal:
 
 ```txt
-requires permission
-requires song scope
-requires song selection for selected-only scope
-disables save until valid
+requires user selection
+requires permission selection
+save button disabled until valid
+shows song multiselect only when SELECTED_SONGS scope enabled (Phase 5+)
 ```
 
 Editor access:
@@ -1355,17 +1655,32 @@ Editor access:
 ```txt
 read-only user cannot create/update/delete notes
 edit user can mutate scoped song
-out-of-scope song redirects or shows access denied
+out-of-scope song shows access denied page
+permission revocation mid-edit shows banner and disables mutations
+useCanEdit returns false for READ permission, PUBLISHED status, ARCHIVED status
 ```
 
 ### Integration Tests
 
 ```txt
-project admin adds editor with selected song scope
-editor can edit selected song
+project admin adds editor with ALL_SONGS
+editor can edit any song in project
+editor cannot edit song in a different project
+admin switches editor to SELECTED_SONGS (Phase 5+)
+editor can only view/edit selected songs
 editor cannot view unselected song
-admin switches editor to all songs
-editor can view newly created future song
+new song created in project is accessible to ALL_SONGS members
+quick-create → editor → place note → full flow works
+```
+
+### Persona Flow Tests
+
+```txt
+Composer: login → dashboard → recent song → editor → place notes (< 3 seconds path)
+Composer: login → project → quick-create → editor → place notes
+Developer: login → project → filter by APPROVED → open editor in Developer View → see raw data
+QA: login → dashboard → Needs My Review → open song → QA View → flag issue → set NEEDS_FIX
+Producer: login → project overview → see status breakdown → open song → read-only review
 ```
 
 ---
@@ -1375,10 +1690,12 @@ editor can view newly created future song
 | Policy | Decision |
 |---|---|
 | `EDIT + SELECTED_SONGS` creating new songs | Not allowed in the target design. |
-| Duplicate active song names in one project | Not allowed. |
+| Duplicate song names in one project | Allowed (soft warning only, UI disambiguates with metadata). |
 | Published song editing | Not allowed directly; require new version or admin status change. |
 | Project archive effect | Archived projects make songs read-only by default. |
 | Import default | Notes are not included by default. |
+| Composer flow state | Quick-create must exist alongside the full wizard. 2 clicks to editor from dashboard. |
+| View modes and permissions | View modes are presentation preferences, not access controls. Any viewer can switch modes. |
 
 ---
 
@@ -1387,15 +1704,18 @@ editor can view newly created future song
 The full flow is successful when:
 
 ```txt
-Users land on projects, not a flat song list.
-Admins can add project members with required permission and song scope.
+Composers can reach the editor in 2 clicks from the dashboard (quick-create or recent songs).
+Admins can add project members with required permission.
 Songs belong to one project.
 Song access is understandable from project membership.
-Create Song opens a wizard instead of inline name input.
-Users can create blank/template/import-based songs.
+Create Song offers both quick-create (fast path) and wizard (full control).
+Users can create blank/template/import-based songs via the wizard.
 Import creates independent copies, not shared songs.
 Editor editability follows project permission and song scope.
 Project pages show production status, assignment, validation, and ownership clearly.
+Game developers can filter songs by status and inspect data in Developer View.
+QA engineers see songs needing their review on the dashboard.
+Product owners can track production progress from the project overview.
 ```
 
 The central product rule:
@@ -1405,4 +1725,5 @@ Project owns production context.
 Song owns chart content.
 Project membership owns access.
 Import owns reuse.
+The project layer is invisible during active composition.
 ```

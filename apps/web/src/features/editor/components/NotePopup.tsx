@@ -33,7 +33,7 @@ export function NotePopup({
   const [description, setDescription] = useState(note?.description ?? '')
   const [color,       setColor]       = useState<string>(note?.color ?? NOTE_PRESET_COLORS[0])
   const [noteType,    setNoteType]    = useState<NoteType>(
-    mode === 'edit' ? (note?.noteType ?? 'TAP') : 'TAP',
+    mode === 'edit' ? (note?.noteType ?? 'HOLD') : 'HOLD',
   )
   const [duration, setDuration] = useState<number>(
     mode === 'edit' ? (note?.duration ?? 1) : 1,
@@ -122,7 +122,7 @@ export function NotePopup({
             <div className="flex flex-col gap-1">
               <label className="text-xs text-shell-muted">Type</label>
               <div className="flex gap-1">
-                {(['TAP', 'HOLD', 'SWIPE'] as const).map(t => (
+                {(['TAP', 'HOLD'] as const).map(t => (
                   <button
                     key={t}
                     type="button"

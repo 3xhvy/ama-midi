@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSongTour }  from '../features/onboarding/useSongTour'
 import { TourOverlay }  from '../features/onboarding/TourOverlay'
@@ -6,17 +6,17 @@ import { useQuery } from '@tanstack/react-query'
 import { EditorShell } from '../components/layout'
 import { Toolbar }            from '../features/editor/components/Toolbar'
 import { TrackHeader }        from '../features/editor/components/TrackHeader'
-import { LiveContextStrip }   from '../features/editor/components/LiveContextStrip'
+import { computeNps }         from '../features/editor/components/LiveContextStrip'
 import { MultiSelectBar }     from '../features/editor/components/MultiSelectBar'
 import { SavePatternModal }   from '../features/editor/components/SavePatternModal'
 import { PatternPanel }       from '../features/editor/components/PatternPanel'
 import { SectionJumpList }    from '../features/editor/components/SectionJumpList'
 import { BottomBarStats }     from '../features/editor/components/BottomBarStats'
 import { useNotes }           from '../features/notes/useNotes'
-import { useDeleteNote }      from '../features/notes/useNotes'
+import { useDeleteNote, useUpdateNote } from '../features/notes/useNotes'
 import { useSections }        from '../features/sections/useSections'
 import { usePlayback }        from '../features/editor/hooks/usePlayback'
-import { Tabs } from '../components/ui'
+import { Button, ColorPicker, Tabs, ToggleGroup } from '../components/ui'
 import { PianoRoll } from '../features/editor/components/PianoRoll'
 import { HistoryPanel } from '../features/editor/components/HistoryPanel'
 import { ValidationPanel } from '../features/editor/components/ValidationPanel'
@@ -26,10 +26,11 @@ import { useEditorStore } from '../store/editor.store'
 import { useUndo } from '../features/notes/useNotes'
 import { useCanEdit } from '../hooks/useCanEdit'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { useIsMobile } from '../hooks/useMediaQuery'
 import { useAuthStore } from '../store/auth.store'
 import { apiClient } from '../features/auth/api'
-import { formatTime } from '../lib/utils'
-import type { Note, Song } from '@ama-midi/shared'
+import { NOTE_PRESET_COLORS, type Note, type NoteType, type Song } from '@ama-midi/shared'
+import type { SnapMode } from '../features/editor/engine/beat-calculator'
 
 interface ValidationResult {
   summary: { errors: number; warnings: number }
@@ -43,15 +44,29 @@ export function EditorPage() {
     rightPanelTab, setRightPanelTab,
     leftCollapsed, rightCollapsed,
     toggleLeftPanel, toggleRightPanel,
+    setLeftCollapsed, setRightCollapsed,
     playheadTime, selectNote, triggerAiSuggest,
     selectedNoteIds, clearSelection,
   } = useEditorStore()
+
+  const isMobile = useIsMobile()
+
+  function handleToggleLeft() {
+    if (isMobile && leftCollapsed && !rightCollapsed) setRightCollapsed(true)
+    toggleLeftPanel()
+  }
+
+  function handleToggleRight() {
+    if (isMobile && rightCollapsed && !leftCollapsed) setLeftCollapsed(true)
+    toggleRightPanel()
+  }
 
   usePlayback()
 
   const songTour = useSongTour()
   const undo       = useUndo(songId!)
   const deleteNote = useDeleteNote(songId!)
+  const updateNote = useUpdateNote(songId!)
   const { data: allNotes = [] } = useNotes(songId!)
   const { data: sections = [] } = useSections(songId!)
   const { presenceList, cursors, emitCursorMove } = useSocket(songId!)
@@ -64,7 +79,6 @@ export function EditorPage() {
     enabled:  !!token && !!songId,
   })
 
-  const [selectedNote,        setSelectedNote]        = useState<Note | null>(null)
   const [mutedTracks,         setMutedTracks]         = useState<Set<number>>(new Set())
   const [showShortcuts,       setShowShortcuts]       = useState(false)
   const [showSavePattern,     setShowSavePattern]     = useState(false)
@@ -93,7 +107,6 @@ export function EditorPage() {
   }
 
   function handleNoteSelected(note: Note | null) {
-    setSelectedNote(note)
     selectNote(note?.id ?? null)
   }
 
@@ -104,6 +117,8 @@ export function EditorPage() {
     onEditNote: () => {},
     onJumpToStart: () => jumpToRef.current?.(0),
     onToggleShortcuts: () => setShowShortcuts((v) => !v),
+    onToggleLeftPanel:  handleToggleLeft,
+    onToggleRightPanel: handleToggleRight,
   })
 
   if (!songId) return null
@@ -120,6 +135,10 @@ export function EditorPage() {
       onSuggest={() => triggerAiSuggest?.()}
       onShowShortcuts={() => setShowShortcuts(true)}
       onBack={() => navigate('/')}
+      leftCollapsed={leftCollapsed}
+      rightCollapsed={rightCollapsed}
+      onToggleLeft={handleToggleLeft}
+      onToggleRight={handleToggleRight}
     />
   )
 
@@ -127,6 +146,7 @@ export function EditorPage() {
     1,
     ...Array.from({ length: 8 }, (_, i) => allNotes.filter(n => n.track === i + 1).length),
   )
+  const selectedNoteObjects = allNotes.filter(n => selectedNoteIds.has(n.id))
 
   const leftPanel = (
     <>
@@ -147,14 +167,17 @@ export function EditorPage() {
       </div>
       <SectionJumpList songId={songId!} sections={sections} />
       <PatternPanel songId={songId!} />
+      <div className="border-t border-shell-border">
+        <div className="px-3 py-2 border-b border-shell-border">
+          <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Song Stats</span>
+        </div>
+        <BottomBarStats notes={allNotes} />
+      </div>
     </>
   )
 
   const rightPanel = (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Live context — always visible */}
-      <LiveContextStrip playheadTime={playheadTime} notes={allNotes} />
-
       {/* Tabs */}
       <Tabs.Root
         value={rightPanelTab}
@@ -162,7 +185,7 @@ export function EditorPage() {
         className="flex flex-col flex-1 min-h-0"
       >
         <Tabs.List>
-          <Tabs.Trigger value="details">details</Tabs.Trigger>
+          <Tabs.Trigger value="tools">tools</Tabs.Trigger>
           <Tabs.Trigger value="validation">
             val
             {(errCount > 0 || warnCount > 0) && (
@@ -173,8 +196,21 @@ export function EditorPage() {
           </Tabs.Trigger>
           <Tabs.Trigger value="history" data-tour="history-tab">history</Tabs.Trigger>
         </Tabs.List>
-        <Tabs.Content value="details">
-          <DetailsTab note={selectedNote} />
+        <Tabs.Content value="tools">
+          <ToolsTab
+            notes={allNotes}
+            selectedNotes={selectedNoteObjects}
+            canEdit={canEdit}
+            onSavePattern={() => setShowSavePattern(true)}
+            onDelete={() => {
+              selectedNoteObjects.forEach(n => deleteNote.mutate(n.id))
+              clearSelection()
+            }}
+            onDeselect={clearSelection}
+            onUpdateSelected={(patch) => {
+              selectedNoteObjects.forEach(n => updateNote.mutate({ noteId: n.id, ...patch }))
+            }}
+          />
         </Tabs.Content>
         <Tabs.Content value="validation">
           <ValidationPanel
@@ -192,10 +228,25 @@ export function EditorPage() {
     </div>
   )
 
+  const liveNps = computeNps(allNotes, playheadTime)
+  const npsColor = liveNps < 3 ? '#10B981' : liveNps < 6 ? '#F59E0B' : '#EF4444'
+
   const bottomBar = (
     <>
-      <span className="text-xs font-mono text-shell-muted">{formatTime(playheadTime)}</span>
-      <BottomBarStats notes={allNotes} />
+      <span className="text-xs font-mono" style={{ color: npsColor }}>
+        {liveNps} NPS
+      </span>
+      <div className="w-24 h-1 rounded-full bg-shell-border mx-2">
+        <div
+          className="h-full rounded-full transition-all duration-100"
+          style={{ width: `${Math.min(100, (liveNps / 10) * 100)}%`, backgroundColor: npsColor }}
+        />
+      </div>
+      {selectedNoteIds.size > 0 && (
+        <span className="text-xs text-shell-muted">
+          <span className="text-shell-text font-medium">{selectedNoteIds.size}</span> selected
+        </span>
+      )}
       <div className="ml-auto">
         {!validationData ? null : errCount === 0 && warnCount === 0 ? (
           <span className="text-xs text-green-500">✓ Valid</span>
@@ -208,8 +259,6 @@ export function EditorPage() {
       </div>
     </>
   )
-
-  const selectedNoteObjects = allNotes.filter(n => selectedNoteIds.has(n.id))
 
   return (
     <div className="relative">
@@ -265,39 +314,195 @@ export function EditorPage() {
   )
 }
 
-function DetailsTab({ note }: { note: Note | null }) {
-  if (!note) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <p className="text-xs text-shell-muted text-center">Select a note to view details</p>
-      </div>
-    )
-  }
+interface ToolsTabProps {
+  notes: Note[]
+  selectedNotes: Note[]
+  canEdit: boolean
+  onSavePattern: () => void
+  onDelete: () => void
+  onDeselect: () => void
+  onUpdateSelected: (patch: { color?: string; noteType?: NoteType }) => void
+}
+
+const VIEW_MODES = [
+  { value: 'composer',  label: 'Composer' },
+  { value: 'developer', label: 'Dev' },
+  { value: 'qa',        label: 'QA' },
+  { value: 'preview',   label: 'Preview' },
+]
+
+const ZOOM_MODES = [
+  { value: '1', label: '1x' },
+  { value: '2', label: '2x' },
+  { value: '4', label: '4x' },
+  { value: '8', label: '8x' },
+]
+
+const SNAP_MODES: { value: SnapMode; label: string }[] = [
+  { value: '0.1s',     label: '0.1s' },
+  { value: 'beat',     label: 'Beat' },
+  { value: 'halfBeat', label: '1/2' },
+]
+
+const TYPE_MODES: { value: NoteType; label: string }[] = [
+  { value: 'TAP',  label: 'Tap' },
+  { value: 'HOLD', label: 'Hold' },
+]
+
+function ToolsTab({
+  notes, selectedNotes, canEdit,
+  onSavePattern, onDelete, onDeselect, onUpdateSelected,
+}: ToolsTabProps) {
+  const {
+    viewMode, setViewMode,
+    zoom, setZoom,
+    snapMode, setSnapMode,
+    activeNoteType, setActiveNoteType,
+    heatmapEnabled, setHeatmapEnabled,
+    createMode, setCreateMode,
+  } = useEditorStore()
+
+  const selectedCount = selectedNotes.length
+  const selectedColor = selectedCount === 1 ? selectedNotes[0].color : NOTE_PRESET_COLORS[0]
+  const selectedType = selectedCount === 1 ? selectedNotes[0].noteType : activeNoteType
 
   return (
-    <div className="p-4 space-y-3 overflow-y-auto">
-      <div className="flex items-center gap-2">
-        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: note.color }} />
-        <span className="text-sm font-medium text-shell-text truncate">{note.title}</span>
-      </div>
-      <div className="space-y-1.5 text-xs text-shell-muted">
-        <div className="flex justify-between">
-          <span>Track</span>
-          <span className="text-shell-text">{note.track}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Time</span>
-          <span className="text-shell-text">{note.time}s</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Created by</span>
-          <span className="text-shell-text truncate ml-2">{note.creatorName}</span>
-        </div>
-      </div>
-      {note.description && (
-        <p className="text-xs text-shell-muted border-t border-shell-border pt-2">{note.description}</p>
-      )}
-      <div className="text-[10px] font-mono text-shell-muted/60 break-all">{note.id}</div>
+    <div className="flex-1 overflow-y-auto p-3 space-y-4">
+      <section className="space-y-3">
+        <PanelHeading title="Editor" meta={`${notes.length} notes`} />
+
+        <ToolRow label="View">
+          <ToggleGroup
+            items={VIEW_MODES}
+            value={viewMode}
+            onValueChange={(v) => setViewMode(v as typeof viewMode)}
+            className="w-full"
+          />
+        </ToolRow>
+
+        <ToolRow label="Zoom">
+          <ToggleGroup
+            items={ZOOM_MODES}
+            value={String(zoom)}
+            onValueChange={(v) => setZoom(Number(v) as 1 | 2 | 4 | 8)}
+            className="w-full"
+          />
+        </ToolRow>
+
+        <ToolRow label="Snap">
+          <ToggleGroup
+            items={SNAP_MODES}
+            value={snapMode}
+            onValueChange={(v) => setSnapMode(v as SnapMode)}
+            className="w-full"
+          />
+        </ToolRow>
+
+        {canEdit && (
+          <>
+            <ToolRow label="Create type">
+              <ToggleGroup
+                items={TYPE_MODES}
+                value={activeNoteType}
+                onValueChange={(v) => setActiveNoteType(v as NoteType)}
+                className="w-full"
+              />
+            </ToolRow>
+
+            <ToolRow label="Create mode">
+              <ToggleGroup
+                items={[
+                  { value: 'fast',  label: 'Fast' },
+                  { value: 'popup', label: 'Popup' },
+                ]}
+                value={createMode}
+                onValueChange={(v) => setCreateMode(v as 'fast' | 'popup')}
+                className="w-full"
+              />
+            </ToolRow>
+          </>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setHeatmapEnabled(!heatmapEnabled)}
+          className="w-full flex items-center justify-between rounded-md border border-shell-border bg-shell-bg px-3 py-2 text-xs text-shell-text hover:bg-shell-surface transition-colors"
+        >
+          <span>Difficulty heatmap</span>
+          <span className={heatmapEnabled ? 'text-warning' : 'text-shell-muted'}>
+            {heatmapEnabled ? 'On' : 'Off'}
+          </span>
+        </button>
+      </section>
+
+      <section className="space-y-3 border-t border-shell-border pt-4">
+        <PanelHeading title="Selection" meta={selectedCount ? `${selectedCount} selected` : 'none'} />
+
+        {selectedCount === 0 ? (
+          <p className="text-xs text-shell-muted leading-relaxed">
+            Select notes on the canvas to edit groups here. Single-note details stay in the note popup.
+          </p>
+        ) : (
+          <>
+            {canEdit && (
+              <>
+                <ToolRow label="Type">
+                  <ToggleGroup
+                    items={TYPE_MODES}
+                    value={selectedType}
+                    onValueChange={(v) => onUpdateSelected({ noteType: v as NoteType })}
+                    className="w-full"
+                  />
+                </ToolRow>
+
+                <div className="space-y-2">
+                  <span className="text-xs text-shell-muted">Color</span>
+                  <ColorPicker
+                    colors={NOTE_PRESET_COLORS}
+                    value={selectedColor}
+                    onChange={(color) => onUpdateSelected({ color })}
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={onSavePattern}
+                disabled={!canEdit || selectedCount < 2}
+              >
+                Save pattern
+              </Button>
+              <Button size="sm" variant="danger" onClick={onDelete} disabled={!canEdit}>
+                Delete
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onDeselect} className="col-span-2">
+                Deselect
+              </Button>
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function PanelHeading({ title, meta }: { title: string; meta?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <h3 className="text-xs font-semibold text-shell-text uppercase tracking-wide">{title}</h3>
+      {meta && <span className="text-[10px] text-shell-muted">{meta}</span>}
+    </div>
+  )
+}
+
+function ToolRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <span className="text-xs text-shell-muted">{label}</span>
+      {children}
     </div>
   )
 }

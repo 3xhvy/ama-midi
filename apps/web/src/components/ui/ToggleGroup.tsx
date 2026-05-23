@@ -25,7 +25,7 @@ export function ToggleGroup({ items, value, onValueChange, variant = 'default', 
           key={item.value}
           value={item.value}
           className={cn(
-            'px-3 py-1 text-xs font-medium transition-colors',
+            'flex-1 py-1 text-xs font-medium transition-colors text-center',
             value === item.value ? 'bg-primary text-white' : itemInactive,
           )}
         >

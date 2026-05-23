@@ -3,17 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Input, Avatar } from '../components/ui'
 import { useAuthStore } from '../store/auth.store'
 import { apiClient } from '../features/auth/api'
+import { DEPARTMENTS } from '../features/profile/constants'
 import type { AuthUser } from '@ama-midi/shared'
-
-const DEPARTMENTS = ['Core Music', 'Game Dev', 'QA', 'Product', 'Other']
 
 export function ProfileSetupPage() {
   const { user, token, setAuth } = useAuthStore()
   const navigate = useNavigate()
 
   const [name,       setName]       = useState(user?.name ?? '')
-  const [title,      setTitle]      = useState('')
-  const [department, setDepartment] = useState('')
+  const [title,      setTitle]      = useState(user?.title ?? '')
+  const [department, setDepartment] = useState(user?.department ?? '')
   const [loading,    setLoading]    = useState(false)
   const [error,      setError]      = useState('')
 

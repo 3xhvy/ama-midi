@@ -113,22 +113,22 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
 
   useEffect(() => { rowVirtualizer.measure() }, [pxPerSecond]) // eslint-disable-line
 
-  // Preview mode: auto-scroll to follow playhead
+  // Auto-scroll to follow playhead during playback
   useEffect(() => {
-    if (!isPreview || !isPlaying) return
+    if (!isPlaying) return
     let raf: number
     const tick = () => {
       if (!containerRef.current) return
       const target = Math.max(
         0,
-        timeToY(useEditorStore.getState().playheadTime, pxPerSecond) - containerRef.current.clientHeight * 0.9,
+        timeToY(useEditorStore.getState().playheadTime, pxPerSecond) - containerRef.current.clientHeight * 0.3,
       )
       containerRef.current.scrollTop = target
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [isPreview, isPlaying, pxPerSecond])
+  }, [isPlaying, pxPerSecond])
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop)
@@ -285,31 +285,30 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
           onAddSection={(time, e) => setSectionPopover({ time, pos: { x: e.clientX, y: e.clientY } })}
         />
 
-        <div
-          ref={containerRef}
-          className="overflow-y-auto overflow-x-hidden flex-1"
-          onScroll={handleScroll}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onClick={handleGridClick}
-          onMouseLeave={() => effectiveCanEdit && setGhost(null)}
-        >
-          <div className="relative" style={{ height: totalHeight }}>
-            <GridLines
-              virtualItems={rowVirtualizer.getVirtualItems()}
-              gridWidth={gridWidth}
-              beatLines={beatLines}
-            />
-
-            {heatmapEnabled && (
-              <DifficultyOverlay
-                notes={notes}
-                pxPerSecond={pxPerSecond}
-                width={gridWidth}
+        <div className="relative flex-1 min-h-0 overflow-hidden">
+          <div
+            ref={containerRef}
+            className="overflow-y-auto overflow-x-hidden w-full h-full"
+            onScroll={handleScroll}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onClick={handleGridClick}
+            onMouseLeave={() => effectiveCanEdit && setGhost(null)}
+          >
+            <div className="relative" style={{ height: totalHeight }}>
+              <GridLines
+                virtualItems={rowVirtualizer.getVirtualItems()}
+                gridWidth={gridWidth}
+                beatLines={beatLines}
               />
-            )}
 
-            <Playhead time={playheadTime} pxPerSecond={pxPerSecond} scrollTop={scrollTop} />
+              {heatmapEnabled && (
+                <DifficultyOverlay
+                  notes={notes}
+                  pxPerSecond={pxPerSecond}
+                  width={gridWidth}
+                />
+              )}
 
             <SectionMarkers sections={sections} pxPerSecond={pxPerSecond} />
 
@@ -366,7 +365,11 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
                 <p className="text-sm text-canvas-muted">Click anywhere to place your first note</p>
               </div>
             )}
+            </div>
           </div>
+
+          {/* Playhead outside scroll — position: absolute relative to this wrapper */}
+          <Playhead pxPerSecond={pxPerSecond} containerRef={containerRef} />
         </div>
       </div>
 

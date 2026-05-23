@@ -1,41 +1,40 @@
+import { MoonIcon, SunIcon } from '@radix-ui/react-icons'
 import { useState } from 'react'
 import { useEditorStore } from '../../../store/editor.store'
 import { useThemeStore }  from '../../../store/theme.store'
-import { Button, IconButton, ToggleGroup, AvatarStack } from '../../../components/ui'
+import { Button, IconButton, AvatarStack } from '../../../components/ui'
 import { useCanEdit }    from '../../../hooks/useCanEdit'
 import { useNotes }      from '../../notes/useNotes'
 import { useAuthStore }  from '../../../store/auth.store'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiClient }     from '../../auth/api'
 import { formatTime }    from '../../../lib/utils'
-import type { Song, NoteType } from '@ama-midi/shared'
-import type { SnapMode } from '../engine/beat-calculator'
+import { SongSwitcher }  from './SongSwitcher'
+import type { Song } from '@ama-midi/shared'
 
-const VIEW_MODES = [
-  { value: 'composer',  label: 'Composer' },
-  { value: 'developer', label: 'Dev' },
-  { value: 'qa',        label: 'QA' },
-  { value: 'preview',   label: 'Preview' },
-]
+function PanelLeftIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="1" y="1" width="12" height="12" rx="1.5" />
+      <line x1="5" y1="1.5" x2="5" y2="12.5" />
+      {open
+        ? <path d="M2.5 5.5L1 7l1.5 1.5" />
+        : <path d="M2 5.5L3.5 7 2 8.5" />}
+    </svg>
+  )
+}
 
-const ZOOM_MODES = [
-  { value: '1', label: '1x' },
-  { value: '2', label: '2x' },
-  { value: '4', label: '4x' },
-  { value: '8', label: '8x' },
-]
-
-const SNAP_MODES: { value: SnapMode; label: string }[] = [
-  { value: '0.1s',     label: '0.1s' },
-  { value: 'beat',     label: 'Beat' },
-  { value: 'halfBeat', label: '½' },
-]
-
-const TYPE_MODES: { value: NoteType; label: string }[] = [
-  { value: 'TAP',   label: 'TAP' },
-  { value: 'HOLD',  label: 'HOLD' },
-  { value: 'SWIPE', label: 'SWIPE' },
-]
+function PanelRightIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="1" y="1" width="12" height="12" rx="1.5" />
+      <line x1="9" y1="1.5" x2="9" y2="12.5" />
+      {open
+        ? <path d="M11.5 5.5L13 7l-1.5 1.5" />
+        : <path d="M12 5.5L10.5 7 12 8.5" />}
+    </svg>
+  )
+}
 
 interface ToolbarProps {
   songId:          string
@@ -45,21 +44,20 @@ interface ToolbarProps {
   onSuggest:       () => void
   onShowShortcuts: () => void
   onBack:          () => void
+  leftCollapsed:   boolean
+  rightCollapsed:  boolean
+  onToggleLeft:    () => void
+  onToggleRight:   () => void
 }
 
 export function Toolbar({
   songId, songName, bpm, presenceList,
   onSuggest, onShowShortcuts, onBack,
+  leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
 }: ToolbarProps) {
   const {
-    viewMode, setViewMode,
-    zoom, setZoom,
     isPlaying, setPlaying,
     playheadTime, setPlayheadTime,
-    snapMode, setSnapMode,
-    activeNoteType, setActiveNoteType,
-    heatmapEnabled, setHeatmapEnabled,
-    createMode, setCreateMode,
   } = useEditorStore()
 
   const { resolved: theme, setMode: setTheme } = useThemeStore()
@@ -83,23 +81,28 @@ export function Toolbar({
   }
 
   return (
-    <div className="flex items-center w-full gap-3 h-12 px-4">
+    <div className="flex items-center w-full gap-3 h-12 px-4 overflow-hidden">
 
       {/* LEFT */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <IconButton
+          size="sm"
+          tooltip={leftCollapsed ? 'Open left panel [' : 'Close left panel ['}
+          onClick={onToggleLeft}
+        >
+          <PanelLeftIcon open={!leftCollapsed} />
+        </IconButton>
         <button
           onClick={onBack}
           className="text-shell-muted hover:text-shell-text text-sm transition-colors shrink-0"
         >
           ← Songs
         </button>
-        <span className="text-shell-text font-medium text-sm truncate max-w-[160px]">
-          {songName}
-        </span>
+        <SongSwitcher currentSongId={songId} currentSongName={songName} />
       </div>
 
       {/* CENTER */}
-      <div className="flex items-center gap-3 flex-1 justify-center flex-wrap">
+      <div className="flex items-center gap-3 flex-1 justify-center min-w-0 overflow-hidden">
         {/* Playback controls */}
         <div className="flex items-center gap-1">
           <IconButton
@@ -156,65 +159,10 @@ export function Toolbar({
           </button>
         )}
 
-        {/* Zoom */}
-        <ToggleGroup
-          items={ZOOM_MODES}
-          value={String(zoom)}
-          onValueChange={(v) => setZoom(Number(v) as 1 | 2 | 4 | 8)}
-          variant="canvas"
-        />
-
-        {/* View mode */}
-        <div data-tour="view-mode">
-          <ToggleGroup
-            items={VIEW_MODES}
-            value={viewMode}
-            onValueChange={(v) => setViewMode(v as typeof viewMode)}
-            variant="canvas"
-          />
-        </div>
-
-        {/* Snap mode */}
-        <ToggleGroup
-          items={SNAP_MODES.map(m => ({ value: m.value, label: m.label }))}
-          value={snapMode}
-          onValueChange={(v) => setSnapMode(v as SnapMode)}
-          variant="canvas"
-        />
-
-        {/* Active note type */}
-        <ToggleGroup
-          items={TYPE_MODES.map(m => ({ value: m.value, label: m.label }))}
-          value={activeNoteType}
-          onValueChange={(v) => setActiveNoteType(v as NoteType)}
-          variant="canvas"
-        />
-
-        {/* Create mode */}
-        {canEdit && (
-          <ToggleGroup
-            items={[
-              { value: 'fast',  label: '⚡ Fast' },
-              { value: 'popup', label: '⊞ Popup' },
-            ]}
-            value={createMode}
-            onValueChange={(v) => setCreateMode(v as 'fast' | 'popup')}
-            variant="canvas"
-          />
-        )}
       </div>
 
       {/* RIGHT */}
       <div className="flex items-center gap-2 shrink-0">
-        <IconButton
-          size="sm"
-          tooltip={heatmapEnabled ? 'Hide difficulty heatmap' : 'Show difficulty heatmap'}
-          onClick={() => setHeatmapEnabled(!heatmapEnabled)}
-          className={heatmapEnabled ? 'text-warning' : ''}
-        >
-          {heatmapEnabled ? '🔥' : '⬛'}
-        </IconButton>
-
         {canEdit && (
           <Button
             variant="primary"
@@ -228,14 +176,12 @@ export function Toolbar({
           </Button>
         )}
 
-        <AvatarStack users={presenceList} max={4} size="xs" />
-
         <IconButton
           size="sm"
           tooltip={theme === 'dark' ? 'Light mode' : 'Dark mode'}
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         >
-          {theme === 'dark' ? '☀' : '🌙'}
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </IconButton>
 
         <IconButton
@@ -245,6 +191,16 @@ export function Toolbar({
           data-tour="shortcut-help"
         >
           ?
+        </IconButton>
+
+        <AvatarStack users={presenceList} max={4} size="xs" />
+
+        <IconButton
+          size="sm"
+          tooltip={rightCollapsed ? 'Open right panel ]' : 'Close right panel ]'}
+          onClick={onToggleRight}
+        >
+          <PanelRightIcon open={!rightCollapsed} />
         </IconButton>
       </div>
     </div>

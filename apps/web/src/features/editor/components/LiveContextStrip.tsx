@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { formatTime } from '../../../lib/utils'
 import type { Note } from '@ama-midi/shared'
 
 interface Props {
@@ -33,9 +32,8 @@ export function LiveContextStrip({ playheadTime, notes }: Props) {
 
   return (
     <div className="shrink-0 px-3 py-2 border-b border-shell-border bg-shell-surface/50">
-      {/* Time + NPS */}
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-mono text-shell-text">⏱ {formatTime(playheadTime)}</span>
+      {/* NPS label */}
+      <div className="flex items-center justify-end mb-1">
         <span className="text-[10px] font-mono" style={{ color }}>
           {nps} NPS
         </span>

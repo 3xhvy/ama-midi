@@ -2,6 +2,41 @@ interface AmanotesLogoProps {
   className?: string
 }
 
+export function AmanotesIcon({ className }: AmanotesLogoProps) {
+  return (
+    <svg
+      className={className}
+      preserveAspectRatio="xMidYMid meet"
+      viewBox="0 0 40 40"
+      height="40"
+      width="40"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Amanotes"
+    >
+      <defs>
+        <linearGradient
+          y2="35.475"
+          x2="-5.905"
+          y1="10.855"
+          x1="25.328"
+          gradientUnits="userSpaceOnUse"
+          id="amanotes-icon-gradient"
+        >
+          <stop offset="0" stopColor="#ff3177" />
+          <stop offset="1" stopColor="#5b00e3" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M36.9 13.1c-3.2-3.6-8.9-6.7-12-8.2-1-.5-1.6.6-.6 1.1 2.4 1.1 5.5 3.1 8.2 5.2 3.9 3.2 4.7 8 .6 11.8-4.4 4-9.6 7.1-15.2 9-5.6 1.9-9.4-.2-11.7-4.2-3.3-5.8-4-15.2 0-20.8 5.5-7.8 15.6.2 17.4 7.1-1.6-.5-3.6-.2-5.3 1-2.1 1.4-3.4 3.8-2.9 5.7.6 2.3 3.5 3.2 6.5 2.1 3.4-1.2 4.9-4 4.2-7.5C24.7 7.6 14-3.8 5.5 1.4 3.4 3.1 1.9 5.8 1.1 9.2-.7 17-.3 24.9 2 32.7c1.7 5.8 6.4 8.1 12.2 6.7 8.7-2.2 16.1-6.3 22.5-13 4.1-4.4 4-8.9.2-13.3z"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        fill="url(#amanotes-icon-gradient)"
+      />
+    </svg>
+  )
+}
+
 /** Wordmark + icon from https://www.amanotes.com/ header */
 export function AmanotesLogo({ className }: AmanotesLogoProps) {
   return (

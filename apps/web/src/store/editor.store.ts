@@ -4,6 +4,7 @@ import type { NoteType } from '@ama-midi/shared'
 
 type ViewMode = 'composer' | 'developer' | 'qa' | 'preview'
 type Zoom = 1 | 2 | 4 | 8
+type RightPanelTab = 'tools' | 'validation' | 'history'
 
 interface EditorStore {
   viewMode: ViewMode
@@ -15,7 +16,7 @@ interface EditorStore {
   editorMode:      'fast' | 'popup'
   selectedNoteId:  string | null
   selectedNoteIds: Set<string>
-  rightPanelTab:   'details' | 'validation' | 'history'
+  rightPanelTab:   RightPanelTab
   leftCollapsed:  boolean
   rightCollapsed: boolean
   playheadTime:   number
@@ -29,9 +30,11 @@ interface EditorStore {
   selectNote:           (id: string | null) => void
   toggleNoteSelection:  (id: string) => void
   clearSelection:       () => void
-  setRightPanelTab:     (tab: 'details' | 'validation' | 'history') => void
+  setRightPanelTab:     (tab: RightPanelTab) => void
   toggleLeftPanel:     () => void
   toggleRightPanel:    () => void
+  setLeftCollapsed:    (collapsed: boolean) => void
+  setRightCollapsed:   (collapsed: boolean) => void
   setPlayheadTime:     (time: number) => void
   setPlaying:          (playing: boolean) => void
   setTriggerAiSuggest: (fn: (() => void) | null) => void
@@ -54,14 +57,14 @@ export const useEditorStore = create<EditorStore>((set) => ({
   editorMode:       'fast',
   selectedNoteId:   null,
   selectedNoteIds:  new Set<string>(),
-  rightPanelTab:    'details',
+  rightPanelTab:    'tools',
   leftCollapsed:    false,
   rightCollapsed:   false,
   playheadTime:     0,
   isPlaying:        false,
   triggerAiSuggest: null,
   snapMode:         '0.1s',
-  activeNoteType:   'TAP',
+  activeNoteType:   'HOLD',
   heatmapEnabled:   false,
   setCreateMode:        (createMode) => set({ createMode }),
   setEditorMode:        (editorMode) => set({ editorMode }),
@@ -76,6 +79,8 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setRightPanelTab:     (rightPanelTab) => set({ rightPanelTab }),
   toggleLeftPanel:     () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
   toggleRightPanel:    () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
+  setLeftCollapsed:    (leftCollapsed) => set({ leftCollapsed }),
+  setRightCollapsed:   (rightCollapsed) => set({ rightCollapsed }),
   setPlayheadTime:     (playheadTime) => set({ playheadTime }),
   setPlaying:          (isPlaying) => set({ isPlaying }),
   setTriggerAiSuggest: (triggerAiSuggest) => set({ triggerAiSuggest }),

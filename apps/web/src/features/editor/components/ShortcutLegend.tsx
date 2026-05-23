@@ -11,6 +11,8 @@ const SHORTCUTS = [
   { key: 'Cmd+Z', action: 'Undo last note' },
   { key: 'J', action: 'Jump to next issue (QA view)' },
   { key: '1 / 2 / 4', action: 'Set zoom level' },
+  { key: '[', action: 'Toggle left panel' },
+  { key: ']', action: 'Toggle right panel' },
   { key: 'Escape', action: 'Close popup / deselect' },
 ]
 
