@@ -25,6 +25,7 @@ interface EditorStore {
   snapMode:           SnapMode
   activeNoteType:     NoteType
   heatmapEnabled:     boolean
+  activeTrack:        number | null
   setCreateMode:        (mode: 'fast' | 'popup') => void
   setEditorMode:        (mode: 'fast' | 'popup') => void
   selectNote:           (id: string | null) => void
@@ -41,6 +42,7 @@ interface EditorStore {
   setSnapMode:         (mode: SnapMode) => void
   setActiveNoteType:   (type: NoteType) => void
   setHeatmapEnabled:   (enabled: boolean) => void
+  setActiveTrack:      (track: number | null) => void
 }
 
 function calcPxPerSecond(zoom: Zoom) {
@@ -66,6 +68,7 @@ export const useEditorStore = create<EditorStore>((set) => ({
   snapMode:         '0.1s',
   activeNoteType:   'HOLD',
   heatmapEnabled:   false,
+  activeTrack:      null,
   setCreateMode:        (createMode) => set({ createMode }),
   setEditorMode:        (editorMode) => set({ editorMode }),
   selectNote:           (id) => set({ selectedNoteId: id, selectedNoteIds: id ? new Set([id]) : new Set() }),
@@ -87,4 +90,5 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setSnapMode:         (snapMode) => set({ snapMode }),
   setActiveNoteType:   (activeNoteType) => set({ activeNoteType }),
   setHeatmapEnabled:   (heatmapEnabled) => set({ heatmapEnabled }),
+  setActiveTrack:      (activeTrack) => set({ activeTrack }),
 }))
