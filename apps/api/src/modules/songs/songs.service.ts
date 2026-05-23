@@ -1,11 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException, ForbiddenException, UnprocessableEntityException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
+import { ChartsService } from '../charts/charts.service'
+import { ChartAnalyzeService } from '../charts/chart-analyze.service'
 import { UpdateSongDto } from './dto/update-song.dto'
 import { UpdateSongStatusDto } from './dto/update-song-status.dto'
 import { CreateProjectSongDto } from './dto/create-project-song.dto'
 import { SongTemplateService } from './song-template.service'
-import type { AuthUser, Song, SongWorkflowInfo } from '@ama-midi/shared'
+import type { AuthUser, Song, SongChart, SongWorkflowInfo } from '@ama-midi/shared'
 import {
   canTransitionSongStatus,
   getAllowedStatusTransitions,
@@ -19,6 +21,8 @@ export class SongsService {
     private readonly prisma: PrismaService,
     private readonly access: ProjectAccessService,
     private readonly templates: SongTemplateService,
+    private readonly charts: ChartsService,
+    private readonly analyze: ChartAnalyzeService,
   ) {}
 
   async findAll(user: AuthUser): Promise<Song[]> {
@@ -60,7 +64,6 @@ export class SongsService {
       projectId,
       name: dto.name.trim(),
       category: dto.category,
-      difficulty: dto.difficulty,
       bpm: dto.bpm,
       timeSignature: dto.timeSignature,
       assignedComposerId: dto.assignedComposerId ?? null,
@@ -75,13 +78,24 @@ export class SongsService {
       include: this.songInclude(),
     })
 
+    const defaultChart = await this.charts.createDefaultChart(row.id)
+
     if (dto.startType === 'TEMPLATE') {
       if (!dto.templateId) throw new BadRequestException('templateId is required for TEMPLATE start')
-      await this.templates.materialize(dto.templateId, row.id, user.id)
+      await this.templates.materialize(dto.templateId, row.id, defaultChart.id, user.id)
+      await this.analyze.run(defaultChart.id)
     }
 
-    if (dto.import) await this.copyImportedData(row.id, dto.import)
-    return this.toSong(row)
+    if (dto.import) {
+      await this.copyImportedData(row.id, defaultChart.id, dto.import)
+      await this.analyze.run(defaultChart.id)
+    }
+
+    const refreshed = await this.prisma.song.findUnique({
+      where: { id: row.id },
+      include: this.songInclude(),
+    })
+    return this.toSong(refreshed!)
   }
 
   async create(name: string, user: AuthUser): Promise<Song> {
@@ -94,7 +108,6 @@ export class SongsService {
     return this.createInProject(membership.projectId, {
       name,
       category: 'PROTOTYPE',
-      difficulty: 'NORMAL',
       bpm: 120,
       timeSignature: '4/4',
       startType: 'BLANK',
@@ -161,6 +174,19 @@ export class SongsService {
       throw new ForbiddenException(`Cannot transition from ${song.status} to ${dto.status}`)
     }
 
+    if (
+      (song.status === 'IN_REVIEW' && dto.status === 'APPROVED')
+      || (song.status === 'APPROVED' && dto.status === 'PUBLISHED')
+    ) {
+      const blocking = await this.prisma.chartValidationWarning.findMany({
+        where: { chart: { songId: id }, severity: 'ERROR' },
+        include: { chart: { select: { name: true } } },
+      })
+      if (blocking.length) {
+        throw new UnprocessableEntityException({ blockingWarnings: blocking })
+      }
+    }
+
     const data: { status: typeof dto.status; archivedAt?: Date | null } = { status: dto.status }
     if (dto.status === 'ARCHIVED') data.archivedAt = new Date()
     if (song.status === 'ARCHIVED' && dto.status === 'DRAFT') data.archivedAt = null
@@ -198,7 +224,11 @@ export class SongsService {
     await this.prisma.song.delete({ where: { id } })
   }
 
-  private async copyImportedData(targetSongId: string, options: NonNullable<CreateProjectSongDto['import']>) {
+  private async copyImportedData(
+    targetSongId: string,
+    targetChartId: string,
+    options: NonNullable<CreateProjectSongDto['import']>,
+  ) {
     if (options.copySections) {
       const sections = await this.prisma.sectionMarker.findMany({ where: { songId: options.sourceSongId } })
       if (sections.length) {
@@ -233,6 +263,7 @@ export class SongsService {
       if (notes.length) {
         await this.prisma.note.createMany({
           data: notes.map((n) => ({
+            chartId: targetChartId,
             songId: targetSongId,
             track: n.track,
             time: n.time,
@@ -252,6 +283,7 @@ export class SongsService {
       creator: { select: { name: true, avatarUrl: true } },
       assignedComposer: { select: { name: true } },
       assignedQa: { select: { name: true } },
+      charts: { orderBy: { createdAt: 'asc' as const } },
       _count: { select: { notes: { where: { deletedAt: null } } } },
     } as const
   }
@@ -262,7 +294,6 @@ export class SongsService {
     name: string
     category: Song['category']
     status: Song['status']
-    difficulty: Song['difficulty']
     assignedComposerId: string | null
     assignedQaId: string | null
     sourceSongId: string | null
@@ -275,15 +306,39 @@ export class SongsService {
     creator: { name: string; avatarUrl: string | null }
     assignedComposer?: { name: string } | null
     assignedQa?: { name: string } | null
+    charts?: Array<{
+      id: string
+      songId: string
+      name: string
+      speedMultiplier: number
+      computedDifficulty: string
+      averageDifficultyScore: number
+      peakDifficultyScore: number
+      analyzedAt: Date | null
+      createdAt: Date
+      updatedAt: Date
+    }>
     _count: { notes: number }
   }): Song {
+    const charts: SongChart[] | undefined = s.charts?.map((c) => ({
+      id: c.id,
+      songId: c.songId,
+      name: c.name,
+      speedMultiplier: c.speedMultiplier,
+      computedDifficulty: c.computedDifficulty as SongChart['computedDifficulty'],
+      averageDifficultyScore: c.averageDifficultyScore,
+      peakDifficultyScore: c.peakDifficultyScore,
+      analyzedAt: c.analyzedAt?.toISOString() ?? null,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+    }))
+
     return {
       id: s.id,
       projectId: s.projectId,
       name: s.name,
       category: s.category,
       status: s.status,
-      difficulty: s.difficulty,
       assignedComposerId: s.assignedComposerId,
       assignedComposerName: s.assignedComposer?.name ?? null,
       assignedQaId: s.assignedQaId,
@@ -294,6 +349,8 @@ export class SongsService {
       creatorName: s.creator.name,
       creatorAvatarUrl: s.creator.avatarUrl ?? undefined,
       noteCount: s._count.notes,
+      charts,
+      chartSummary: charts ? ChartsService.chartSummary(charts) : undefined,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
       bpm: s.bpm,
