@@ -1,4 +1,4 @@
-import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from 'class-validator'
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
 import type { SnapMode, SongDifficulty } from '@ama-midi/shared'
 
@@ -57,6 +57,9 @@ class GeneratedChartSectionDto {
 }
 
 export class ApplyChartDto {
+  @IsUUID()
+  chartId!: string
+
   @ValidateNested({ each: true })
   @Type(() => GeneratedChartNoteDto)
   notes!: GeneratedChartNoteDto[]

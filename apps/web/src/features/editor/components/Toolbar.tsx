@@ -19,6 +19,7 @@ import { formatTime } from '../../../lib/utils'
 import { EditorBreadcrumb } from '../../navigation/EditorBreadcrumb'
 import { ChartSwitcher } from '../../charts/ChartSwitcher'
 import { ReadOnlyBanner } from './ReadOnlyBanner'
+import { AiSuggestMenu } from './AiSuggestMenu'
 import type { Song, SongChart } from '@ama-midi/shared'
 
 function PanelLeftIcon({ open }: { open: boolean }) {
@@ -56,8 +57,8 @@ interface ToolbarProps {
   canEdit:         boolean
   readOnlyMessage?: string | null
   bpm:             number
+  song?:           Song
   presenceList:    { id: string; name: string; avatarUrl?: string; title?: string | null; department?: string | null }[]
-  onSuggest:       () => void
   onShowShortcuts: () => void
   leftCollapsed:   boolean
   rightCollapsed:  boolean
@@ -68,8 +69,8 @@ interface ToolbarProps {
 export function Toolbar({
   projectId, projectName, songId, songName, songStatus,
   charts, activeChartId,
-  canEdit, readOnlyMessage, bpm,
-  onSuggest, onShowShortcuts,
+  canEdit, readOnlyMessage, bpm, song,
+  onShowShortcuts,
   leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
 }: ToolbarProps) {
   const {
@@ -180,16 +181,13 @@ export function Toolbar({
 
       {/* RIGHT — ghost actions */}
       <div className="flex shrink-0 items-center gap-0.5">
-        {canEdit && (
-          <button
-            type="button"
+        {canEdit && activeChartId && (
+          <AiSuggestMenu
             disabled={notes.length < 5}
-            onClick={onSuggest}
-            data-tour="ai-suggest"
-            className="editor-toolbar-suggest mr-1"
-          >
-            + Suggest
-          </button>
+            songId={songId}
+            song={song}
+            noteCount={notes.length}
+          />
         )}
 
         <button

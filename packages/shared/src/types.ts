@@ -220,6 +220,7 @@ export interface NoteSuggestion {
 export type SuggestNotesMode = 'continue_pattern' | 'fill_track'
 
 export interface SuggestNotesRequest {
+  chartId: string
   mode: SuggestNotesMode
   playheadTime: number
   snapMode: SnapMode
@@ -257,6 +258,7 @@ export interface GenerateChartResponse {
 }
 
 export interface ApplyChartRequest {
+  chartId: string
   notes: GeneratedChartNote[]
   sections?: GeneratedChartSection[]
   replaceExisting: boolean

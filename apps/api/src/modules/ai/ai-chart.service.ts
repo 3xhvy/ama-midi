@@ -77,6 +77,7 @@ export class AiChartService {
     songId: string,
     user: AuthUser,
     body: {
+      chartId: string
       notes: GeneratedChartNote[]
       sections?: GeneratedChartSection[]
       replaceExisting: boolean
@@ -84,11 +85,10 @@ export class AiChartService {
   ): Promise<ApplyChartResponse> {
     await this.access.assertCanEditSongChart(songId, user)
     const chart = await this.prisma.songChart.findFirst({
-      where: { songId },
-      orderBy: { createdAt: 'asc' },
+      where: { id: body.chartId, songId },
       select: { id: true },
     })
-    if (!chart) throw new NotFoundException('No chart found for song')
+    if (!chart) throw new NotFoundException('Chart not found')
     const chartId = chart.id
 
     if (body.notes.length === 0) throw new BadRequestException('No notes to apply')

@@ -50,7 +50,7 @@ export function usePreviewPatternPaste(patternId?: string) {
   })
 }
 
-export function useApplyPatternPaste(patternId?: string) {
+export function useApplyPatternPaste(patternId?: string, chartId?: string) {
   const token = useAuthStore(s => s.token)
   const qc = useQueryClient()
   return useMutation({
@@ -59,9 +59,11 @@ export function useApplyPatternPaste(patternId?: string) {
         method: 'POST',
         body: JSON.stringify(body),
       }),
-    onSuccess: (_result, variables) => {
-      qc.invalidateQueries({ queryKey: ['notes', variables.songId], exact: false })
-      qc.invalidateQueries({ queryKey: ['validation', variables.songId] })
+    onSuccess: () => {
+      if (chartId) {
+        qc.invalidateQueries({ queryKey: ['notes', chartId], exact: false })
+        qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
+      }
     },
   })
 }

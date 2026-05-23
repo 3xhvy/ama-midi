@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon } from '@radix-ui/react-icons'
+import type { SongStatus } from '@ama-midi/shared'
+import { SongStatusEnum } from '@ama-midi/shared'
+import { SongStatusBadge } from '../../components/ui'
 import { cn } from '../../lib/utils'
 
 export interface NavDropdownItem {
   id: string
   label: string
   description?: string
+  meta?: string
+  status?: SongStatus
   onSelect: () => void
   active?: boolean
 }
@@ -47,11 +52,14 @@ export function NavDropdown({
     return sections
       .map((section) => ({
         ...section,
-        items: section.items.filter(
-          (item) =>
+        items: section.items.filter((item) => {
+          const secondary = item.meta ?? item.description
+          return (
             item.label.toLowerCase().includes(q)
-            || (item.description?.toLowerCase().includes(q) ?? false),
-        ),
+            || (secondary?.toLowerCase().includes(q) ?? false)
+            || (item.status ? SongStatusEnum.label(item.status).toLowerCase().includes(q) : false)
+          )
+        }),
       }))
       .filter((section) => section.items.length > 0)
   }, [sections, query])
@@ -176,8 +184,10 @@ export function NavDropdown({
                       {section.title}
                     </p>
                   )}
-                  <ul>
-                    {section.items.map((item) => (
+                  <ul className="px-1">
+                    {section.items.map((item) => {
+                      const secondary = item.meta ?? item.description
+                      return (
                       <li key={item.id}>
                         <button
                           type="button"
@@ -185,19 +195,36 @@ export function NavDropdown({
                           aria-selected={item.active}
                           onClick={() => selectItem(item)}
                           className={cn(
-                            'w-full px-3 py-2 text-left text-xs transition-colors',
+                            'w-full rounded-lg px-2.5 py-2 text-left transition-colors',
                             item.active
-                              ? 'bg-primary/8 font-medium text-primary'
-                              : 'text-shell-text hover:bg-shell-bg',
+                              ? 'bg-primary/10 ring-1 ring-primary/20'
+                              : 'hover:bg-shell-bg',
                           )}
                         >
-                          <span className="block truncate">{item.label}</span>
-                          {item.description && (
-                            <span className="mt-0.5 block truncate text-[11px] text-shell-muted">{item.description}</span>
-                          )}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <span
+                                className={cn(
+                                  'block truncate text-xs',
+                                  item.active ? 'font-semibold text-primary' : 'font-medium text-shell-text',
+                                )}
+                              >
+                                {item.label}
+                              </span>
+                              {secondary && (
+                                <span className="mt-0.5 block truncate text-[10px] leading-snug text-shell-muted">
+                                  {secondary}
+                                </span>
+                              )}
+                            </div>
+                            {item.status && (
+                              <SongStatusBadge status={item.status} className="shrink-0" />
+                            )}
+                          </div>
                         </button>
                       </li>
-                    ))}
+                      )
+                    })}
                   </ul>
                 </div>
               ))

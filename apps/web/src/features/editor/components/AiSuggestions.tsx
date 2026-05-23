@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '../../../store/auth.store'
 import { useEditorStore } from '../../../store/editor.store'
 import { apiClient } from '../../auth/api'
 import { useCreateNote } from '../../notes/useNotes'
 import { trackToX, timeToY, trackWidth } from '../engine'
-import { trackColor, type NoteSuggestion, type SuggestNotesRequest } from '@ama-midi/shared'
+import {
+  trackColor,
+  type NoteSuggestion,
+  type SuggestNotesRequest,
+  type SuggestNotesResponse,
+} from '@ama-midi/shared'
 
 interface Props {
   songId:      string
@@ -19,33 +24,31 @@ export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, scrollT
   const [suggestions, setSuggestions] = useState<NoteSuggestion[]>([])
   const token = useAuthStore(s => s.token)
   const createNote = useCreateNote(chartId)
-  const { setTriggerAiSuggest, playheadTime, snapMode } = useEditorStore()
+  const { setTriggerAiSuggest } = useEditorStore()
 
-  useEffect(() => {
-    setTriggerAiSuggest(handleSuggest)
-    return () => setTriggerAiSuggest(null)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [songId])
-
-  async function handleSuggest(request?: SuggestNotesRequest) {
+  const handleSuggest = useCallback(async (request: SuggestNotesRequest) => {
     try {
-      const result = await apiClient(token)<{ suggestions: NoteSuggestion[] }>(
+      const result = await apiClient(token)<SuggestNotesResponse>(
         `/songs/${songId}/suggest-notes`,
-        {
-          method: 'POST',
-          body: JSON.stringify(
-            request ?? { mode: 'continue_pattern', playheadTime, snapMode },
-          ),
-        },
+        { method: 'POST', body: JSON.stringify({ ...request, chartId }) },
       )
       setSuggestions(result.suggestions)
       if (result.suggestions.length === 0) {
-        toast.info('No suggestions available — add more notes first')
+        const hint =
+          request.mode === 'fill_track'
+            ? 'No gaps found on that track — try another lane or add more context notes'
+            : 'No suggestions — try selecting a clearer rhythmic pattern'
+        toast.info(hint)
       }
     } catch {
       toast.error('Failed to get suggestions')
     }
-  }
+  }, [songId, chartId, token])
+
+  useEffect(() => {
+    setTriggerAiSuggest(handleSuggest)
+    return () => setTriggerAiSuggest(null)
+  }, [handleSuggest, setTriggerAiSuggest])
 
   function dismiss(idx: number) {
     setSuggestions(prev => prev.filter((_, i) => i !== idx))
@@ -74,7 +77,7 @@ export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, scrollT
         const color = trackColor(s.track)
         return (
           <div
-            key={i}
+            key={`${s.track}-${s.time}-${i}`}
             className="absolute z-20 group pointer-events-auto"
             style={{ left: cx, top: y - 8 }}
           >

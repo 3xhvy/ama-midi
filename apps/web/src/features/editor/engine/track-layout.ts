@@ -1,4 +1,11 @@
 import { TRACK_MAX, TRACK_MIN } from '@ama-midi/shared'
+import { MIN_TRACK_WIDTH_PX } from '../../../lib/constants'
+
+export const MIN_GRID_WIDTH = MIN_TRACK_WIDTH_PX * TRACK_MAX
+
+export function resolveLayoutGridWidth(measuredWidth: number): number {
+  return Math.max(measuredWidth, MIN_GRID_WIDTH)
+}
 
 export interface TrackLayoutInput {
   editorWidth:   number

@@ -17,7 +17,7 @@ export function AiSuggestMenu({ disabled, songId, song, noteCount }: Props) {
   const [generateOpen, setGenerateOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
-  const { playheadTime, snapMode, triggerAiSuggest } = useEditorStore()
+  const { playheadTime, snapMode, triggerAiSuggest, activeChartId } = useEditorStore()
 
   useEffect(() => {
     if (!open && !fillOpen) return
@@ -46,7 +46,9 @@ export function AiSuggestMenu({ disabled, songId, song, noteCount }: Props) {
   }
 
   function fillTrack(track: number) {
+    if (!activeChartId) return
     void run({
+      chartId: activeChartId,
       mode: 'fill_track',
       targetTrack: track,
       playheadTime,

@@ -9,15 +9,16 @@ import { apiClient } from '../../auth/api'
 
 interface Props {
   songId: string
+  chartId: string | undefined
 }
 
-export function ChartPreviewBar({ songId }: Props) {
+export function ChartPreviewBar({ songId, chartId }: Props) {
   const token = useAuthStore((s) => s.token)
   const qc = useQueryClient()
   const { chartPreview, clearChartPreview } = useEditorStore()
   const [applying, setApplying] = useState(false)
 
-  if (!chartPreview) return null
+  if (!chartPreview || !chartId) return null
 
   const { notes, sections, replaceExisting } = chartPreview
 
@@ -30,6 +31,7 @@ export function ChartPreviewBar({ songId }: Props) {
         {
           method: 'POST',
           body: JSON.stringify({
+            chartId,
             notes,
             sections,
             replaceExisting,
@@ -37,7 +39,8 @@ export function ChartPreviewBar({ songId }: Props) {
         },
       )
       clearChartPreview()
-      await qc.invalidateQueries({ queryKey: ['notes', songId] })
+      await qc.invalidateQueries({ queryKey: ['notes', chartId] })
+      await qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
       await qc.invalidateQueries({ queryKey: ['sections', songId] })
       const skipped = result.skippedCount > 0 ? ` (${result.skippedCount} skipped)` : ''
       toast.success(`Added ${result.createdCount} notes${skipped}`)

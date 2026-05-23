@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Song, SongStatus } from '@ama-midi/shared'
+import { SongCategoryEnum } from '@ama-midi/shared'
+import { timeAgo } from '../../../lib/utils'
 import { useProjectSongs } from '../../songs/useSongs'
 import { getRecentSongForProject } from '../../navigation/recent-navigation'
 import { songEditorPath } from '../../navigation/song-editor-path'
@@ -21,11 +23,23 @@ interface Props {
   accent?: 'default' | 'project' | 'song'
 }
 
+function songMeta(song: Song): string {
+  const parts = [
+    `Updated ${timeAgo(song.updatedAt)}`,
+    `${song.noteCount} note${song.noteCount === 1 ? '' : 's'}`,
+    `${song.bpm} BPM`,
+    SongCategoryEnum.label(song.category),
+  ]
+  if (song.assignedComposerName) parts.push(song.assignedComposerName)
+  return parts.join(' · ')
+}
+
 function toItem(song: Song, currentSongId: string, onSelect: (song: Song) => void) {
   return {
     id: song.id,
     label: song.name,
-    description: song.status.replace(/_/g, ' '),
+    meta: songMeta(song),
+    status: song.status,
     active: song.id === currentSongId,
     onSelect: () => onSelect(song),
   }
@@ -78,6 +92,7 @@ export function SongSwitcher({
       triggerLabel={currentSongName}
       searchPlaceholder={`Search songs in ${projectName}…`}
       sections={sections}
+      maxWidthClassName="w-80"
       triggerClassName={
         variant === 'toolbar'
           ? 'max-w-[100px] sm:max-w-[140px]'

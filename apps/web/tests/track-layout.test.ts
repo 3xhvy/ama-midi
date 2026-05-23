@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { getTrackLayout } from '../src/features/editor/engine/track-layout.ts'
+import { getTrackLayout, MIN_GRID_WIDTH, resolveLayoutGridWidth } from '../src/features/editor/engine/track-layout.ts'
 
 test('track layout reserves the time axis outside the eight track columns', () => {
   const layout = getTrackLayout({ editorWidth: 840, timeAxisWidth: 40 })
@@ -10,6 +10,12 @@ test('track layout reserves the time axis outside the eight track columns', () =
   assert.equal(layout.trackLeft(1), 40)
   assert.equal(layout.trackLeft(8), 740)
   assert.equal(layout.trackRight(8), 840)
+})
+
+test('layout grid width never shrinks below eight minimum track lanes', () => {
+  assert.equal(MIN_GRID_WIDTH, 48 * 8)
+  assert.equal(resolveLayoutGridWidth(100), MIN_GRID_WIDTH)
+  assert.equal(resolveLayoutGridWidth(800), 800)
 })
 
 test('track width is independent of vertical zoom', () => {

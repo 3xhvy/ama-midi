@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo, type ReactNode } from 'react'
+import { useRef, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useSongTour }  from '../features/onboarding/useSongTour'
 import { TourOverlay }  from '../features/onboarding/TourOverlay'
@@ -8,6 +8,7 @@ import { Toolbar }            from '../features/editor/components/Toolbar'
 import { TrackHeader }        from '../features/editor/components/TrackHeader'
 import { computeNps }         from '../features/editor/components/LiveContextStrip'
 import { MultiSelectBar }     from '../features/editor/components/MultiSelectBar'
+import { ChartPreviewBar }    from '../features/editor/components/ChartPreviewBar'
 import { SavePatternModal }   from '../features/editor/components/SavePatternModal'
 import { CopyToModal }        from '../features/editor/components/CopyToModal'
 import { ConflictReviewModal } from '../features/editor/components/ConflictReviewModal'
@@ -52,7 +53,7 @@ export function EditorPage() {
     leftCollapsed, rightCollapsed,
     toggleLeftPanel, toggleRightPanel,
     setLeftCollapsed, setRightCollapsed,
-    playheadTime, triggerAiSuggest,
+    playheadTime, triggerAiSuggest, snapMode,
     selectedNoteIds, clearSelection, focusNote,
     activeTrack,
     activeChartId,
@@ -146,7 +147,7 @@ export function EditorPage() {
   const [copyConflictChanged, setCopyConflictChanged] = useState(false)
   const [copyStep,            setCopyStep]            = useState<'INPUT' | 'REVIEW' | 'APPLYING'>('INPUT')
 
-  const applyNoteCopy = useApplyNoteCopy(songId!)
+  const applyNoteCopy = useApplyNoteCopy(chartId)
 
   const jumpToRef = useRef<((time: number, track?: number) => void) | null>(null)
 
@@ -187,29 +188,51 @@ export function EditorPage() {
 
   const { errors: errCount, warnings: warnCount, total: validationTotal } = validationSummary
 
-  const topBar = (
-    <Toolbar
-      projectId={projectId!}
-      projectName={project?.name ?? 'Project'}
-      songId={songId!}
-      songName={song?.name ?? '…'}
-      songStatus={song?.status ?? 'DRAFT'}
-      charts={charts}
-      activeChartId={activeChartId}
-      canEdit={canEdit}
-      readOnlyMessage={readOnlyMessage}
-      bpm={song?.bpm ?? 120}
-      presenceList={presenceList}
-      onSuggest={() => triggerAiSuggest?.()}
-      onShowShortcuts={() => setShowShortcuts(true)}
-      leftCollapsed={leftCollapsed}
-      rightCollapsed={rightCollapsed}
-      onToggleLeft={handleToggleLeft}
-      onToggleRight={handleToggleRight}
-    />
-  )
-
   const selectedNoteObjects = allNotes.filter(n => selectedNoteIds.has(n.id))
+
+  const handleContinuePattern = useCallback(async () => {
+    if (!canEdit || !chartId || selectedNoteObjects.length < 2 || !triggerAiSuggest) return
+    const selectedNotes = selectedNoteObjects
+      .map((n) => ({ track: n.track, time: n.time }))
+      .sort((a, b) => a.time - b.time || a.track - b.track)
+    const toastId = toast.loading('Getting AI suggestions…')
+    try {
+      await triggerAiSuggest({
+        chartId,
+        mode: 'continue_pattern',
+        playheadTime: selectedNotes[selectedNotes.length - 1]!.time,
+        snapMode,
+        selectedNotes,
+      })
+    } finally {
+      toast.dismiss(toastId)
+    }
+  }, [canEdit, chartId, selectedNoteObjects, triggerAiSuggest, snapMode])
+
+  const topBar = (
+    <>
+      <Toolbar
+        projectId={projectId!}
+        projectName={project?.name ?? 'Project'}
+        songId={songId!}
+        songName={song?.name ?? '…'}
+        songStatus={song?.status ?? 'DRAFT'}
+        charts={charts}
+        activeChartId={activeChartId}
+        canEdit={canEdit}
+        readOnlyMessage={readOnlyMessage}
+        bpm={song?.bpm ?? 120}
+        song={song}
+        presenceList={presenceList}
+        onShowShortcuts={() => setShowShortcuts(true)}
+        leftCollapsed={leftCollapsed}
+        rightCollapsed={rightCollapsed}
+        onToggleLeft={handleToggleLeft}
+        onToggleRight={handleToggleRight}
+      />
+      {canEdit && <ChartPreviewBar songId={songId!} chartId={chartId} />}
+    </>
+  )
 
   function resetCopyState() {
     setShowCopyTo(false)
@@ -295,13 +318,31 @@ export function EditorPage() {
         ))}
       </div>
       <SectionJumpList songId={songId!} sections={sections} />
-      <PatternPanel songId={songId!} />
+      <PatternPanel songId={songId!} chartId={chartId} />
       <div className="border-t border-shell-border">
         <div className="px-3 py-2 border-b border-shell-border">
           <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Song Stats</span>
         </div>
         <BottomBarStats notes={allNotes} />
       </div>
+      {chartId && projectId && (
+        <div className="border-t border-shell-border">
+          <div className="px-3 py-2 border-b border-shell-border">
+            <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Analysis</span>
+          </div>
+          <AnalysisSummaryPanel
+            notes={allNotes}
+            bpm={song?.bpm ?? 120}
+            timeSignature={song?.timeSignature ?? '4/4'}
+            speedMultiplier={activeChart?.speedMultiplier ?? 1}
+            chartId={chartId}
+            projectId={projectId}
+            songId={songId!}
+            onSeek={(timeMs) => setPlayheadTime(timeMs / 1000)}
+            embedded
+          />
+        </div>
+      )}
     </>
   )
 
@@ -333,13 +374,6 @@ export function EditorPage() {
             notes={allNotes}
             selectedNotes={selectedNoteObjects}
             canEdit={canEdit}
-            chartId={chartId}
-            projectId={projectId!}
-            songId={songId!}
-            bpm={song?.bpm ?? 120}
-            timeSignature={song?.timeSignature ?? '4/4'}
-            speedMultiplier={activeChart?.speedMultiplier ?? 1}
-            onSeek={(timeMs) => setPlayheadTime(timeMs / 1000)}
             onSavePattern={() => setShowSavePattern(true)}
             onDelete={() => {
               selectedNoteObjects.forEach(n => deleteNote.mutate(n.id))
@@ -403,6 +437,8 @@ export function EditorPage() {
     <div className="relative">
       <MultiSelectBar
         count={selectedNoteIds.size}
+        canEdit={canEdit}
+        onContinuePattern={() => void handleContinuePattern()}
         onSavePattern={() => setShowSavePattern(true)}
         onCopyTo={() => setShowCopyTo(true)}
         copyDisabled={!canEdit}
@@ -412,9 +448,9 @@ export function EditorPage() {
         }}
         onDeselect={clearSelection}
       />
-      {showCopyTo && canEdit && (
+      {showCopyTo && canEdit && chartId && (
         <CopyToModal
-          songId={songId!}
+          chartId={chartId}
           selectedNotes={selectedNoteObjects}
           onCancel={resetCopyState}
           onPreviewReady={handleCopyPreviewReady}
@@ -484,13 +520,6 @@ interface ToolsTabProps {
   notes: Note[]
   selectedNotes: Note[]
   canEdit: boolean
-  chartId?: string
-  projectId: string
-  songId: string
-  bpm: number
-  timeSignature: string
-  speedMultiplier: number
-  onSeek: (timeMs: number) => void
   onSavePattern: () => void
   onDelete: () => void
   onDeselect: () => void
@@ -561,7 +590,6 @@ function MultiNoteDetail({ notes }: { notes: Note[] }) {
 
 function ToolsTab({
   notes, selectedNotes, canEdit,
-  chartId, projectId, songId, bpm, timeSignature, speedMultiplier, onSeek,
   onSavePattern, onDelete, onDeselect, onUpdateSelected,
 }: ToolsTabProps) {
   const {
@@ -652,22 +680,6 @@ function ToolsTab({
           </span>
         </button>
       </section>
-
-      {chartId && (
-        <section className="space-y-3 border-t border-shell-border pt-4">
-          <PanelHeading title="Analysis" />
-          <AnalysisSummaryPanel
-            notes={notes}
-            bpm={bpm}
-            timeSignature={timeSignature}
-            speedMultiplier={speedMultiplier}
-            chartId={chartId}
-            projectId={projectId}
-            songId={songId}
-            onSeek={onSeek}
-          />
-        </section>
-      )}
 
       <section className="space-y-3 border-t border-shell-border pt-4">
         <PanelHeading title="Selection" meta={selectedCount ? `${selectedCount} selected` : 'none'} />

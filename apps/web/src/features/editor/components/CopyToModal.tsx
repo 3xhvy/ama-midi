@@ -25,7 +25,7 @@ import {
 } from './pattern-placement'
 
 interface Props {
-  songId:         string
+  chartId:        string
   selectedNotes:  Note[]
   onCancel:       () => void
   onPreviewReady: (preview: NoteCopyPreview, request: NoteCopyPreviewRequest) => void
@@ -39,8 +39,8 @@ const MODE_TABS: { value: CopyMode; label: string }[] = [
   { value: 'TRACK_TIME_ANCHOR', label: 'Track + Time' },
 ]
 
-export function CopyToModal({ songId, selectedNotes, onCancel, onPreviewReady }: Props) {
-  const previewCopy = usePreviewNoteCopy(songId)
+export function CopyToModal({ chartId, selectedNotes, onCancel, onPreviewReady }: Props) {
+  const previewCopy = usePreviewNoteCopy(chartId)
 
   const [operation, setOperation] = useState<NoteCopyOperation>('COPY')
   const [mode, setMode] = useState<CopyMode>('TIME_SHIFT')

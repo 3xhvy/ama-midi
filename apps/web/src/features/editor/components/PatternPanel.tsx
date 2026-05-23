@@ -18,12 +18,12 @@ import {
 import { ConflictReviewModal } from './ConflictReviewModal'
 import { mergeResolutions, patternPreviewToPlacement } from './placement-preview'
 
-interface Props { songId: string }
+interface Props { songId: string; chartId?: string }
 
 type PasteStep = 'INPUT' | 'VALIDATING' | 'REVIEW' | 'APPLYING'
 type ConflictResolutionState = Record<string, ConflictAction>
 
-export function PatternPanel({ songId }: Props) {
+export function PatternPanel({ songId, chartId }: Props) {
   const { data: patterns = [] } = usePatterns()
   const deletePattern = useDeletePattern()
   const playheadTime  = useEditorStore(s => s.playheadTime)
@@ -36,7 +36,7 @@ export function PatternPanel({ songId }: Props) {
   const [conflictChanged, setConflictChanged] = useState(false)
 
   const previewPaste = usePreviewPatternPaste(pasteTarget?.id)
-  const applyPaste = useApplyPatternPaste(pasteTarget?.id)
+  const applyPaste = useApplyPatternPaste(pasteTarget?.id, chartId)
 
   const pasteTime = parsePatternPasteTimeDraft(pasteTimeDraft)
 

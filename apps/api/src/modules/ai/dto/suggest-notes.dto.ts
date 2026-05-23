@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsNumber, IsOptional, Max, Min, ValidateIf, ValidateNested } from 'class-validator'
+import { IsIn, IsInt, IsNumber, IsOptional, IsUUID, Max, Min, ValidateIf, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
 import type { SnapMode, SuggestNotesMode } from '@ama-midi/shared'
 
@@ -15,6 +15,9 @@ class SelectedPatternNoteDto {
 }
 
 export class SuggestNotesDto {
+  @IsUUID()
+  chartId!: string
+
   @IsIn(['continue_pattern', 'fill_track'])
   mode!: SuggestNotesMode
 

@@ -8,29 +8,38 @@ import type {
   NoteCopyPreviewRequest,
 } from '@ama-midi/shared'
 
-export function usePreviewNoteCopy(songId: string) {
+function requireChartId(chartId: string | undefined): asserts chartId is string {
+  if (!chartId) throw new Error('No chart selected')
+}
+
+export function usePreviewNoteCopy(chartId: string | undefined) {
   const token = useAuthStore((s) => s.token)
   return useMutation({
-    mutationFn: (body: NoteCopyPreviewRequest) =>
-      apiClient(token)<NoteCopyPreview>(`/songs/${songId}/notes/copy-preview`, {
+    mutationFn: (body: NoteCopyPreviewRequest) => {
+      requireChartId(chartId)
+      return apiClient(token)<NoteCopyPreview>(`/charts/${chartId}/notes/copy-preview`, {
         method: 'POST',
         body: JSON.stringify(body),
-      }),
+      })
+    },
   })
 }
 
-export function useApplyNoteCopy(songId: string) {
+export function useApplyNoteCopy(chartId: string | undefined) {
   const token = useAuthStore((s) => s.token)
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: NoteCopyApplyRequest) =>
-      apiClient(token)<NoteCopyApplyResult>(`/songs/${songId}/notes/copy-apply`, {
+    mutationFn: (body: NoteCopyApplyRequest) => {
+      requireChartId(chartId)
+      return apiClient(token)<NoteCopyApplyResult>(`/charts/${chartId}/notes/copy-apply`, {
         method: 'POST',
         body: JSON.stringify(body),
-      }),
+      })
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['notes', songId], exact: false })
-      qc.invalidateQueries({ queryKey: ['validation', songId] })
+      if (!chartId) return
+      qc.invalidateQueries({ queryKey: ['notes', chartId], exact: false })
+      qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     },
   })
 }

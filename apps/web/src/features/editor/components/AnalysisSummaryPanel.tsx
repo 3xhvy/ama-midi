@@ -15,6 +15,7 @@ interface Props {
   projectId: string
   songId: string
   onSeek?: (timeMs: number) => void
+  embedded?: boolean
 }
 
 export function AnalysisSummaryPanel({
@@ -26,6 +27,7 @@ export function AnalysisSummaryPanel({
   projectId,
   songId,
   onSeek,
+  embedded = false,
 }: Props) {
   const debouncedNotes = useDebouncedValue(notes, 300)
 
@@ -48,7 +50,10 @@ export function AnalysisSummaryPanel({
   const tier = analysis.computedDifficulty
 
   return (
-    <div className="space-y-3 rounded-lg border border-shell-border bg-shell-bg/50 p-3">
+    <div className={embedded
+      ? 'px-3 py-2 space-y-3'
+      : 'space-y-3 rounded-lg border border-shell-border bg-shell-bg/50 p-3'
+    }>
       <div className="flex flex-wrap items-center gap-2">
         <Badge size="sm" variant={SongDifficultyEnum.variant(tier)}>
           {SongDifficultyEnum.label(tier)}
