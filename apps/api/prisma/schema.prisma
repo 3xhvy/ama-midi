@@ -218,18 +218,21 @@ model Note {
 }
 
 model NoteEvent {
-  id          String        @id @default(uuid())
-  songId      String
-  noteId      String?
-  eventType   NoteEventType
-  userId      String
-  beforeState Json?
-  afterState  Json?
-  createdAt   DateTime      @default(now())
+  id             String        @id @default(uuid())
+  songId         String
+  noteId         String?
+  eventType      NoteEventType
+  userId         String
+  beforeState    Json?
+  afterState     Json?
+  batchId        String?       @db.Uuid
+  replacesNoteId String?       @db.Uuid
+  createdAt      DateTime      @default(now())
 
   song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id])
 
+  @@index([batchId])
   @@map("note_events")
 }
 

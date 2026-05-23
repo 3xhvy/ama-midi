@@ -9,7 +9,14 @@ export class LedgerListener {
   constructor(private readonly prisma: PrismaService) {}
 
   @OnEvent(NOTE_EVENTS.CREATED)
-  async onNoteCreated({ songId, noteId, userId, afterState }: NoteCreatedEvent) {
+  async onNoteCreated({
+    songId,
+    noteId,
+    userId,
+    afterState,
+    batchId,
+    replacesNoteId,
+  }: NoteCreatedEvent) {
     await this.prisma.noteEvent.create({
       data: {
         songId,
@@ -17,12 +24,20 @@ export class LedgerListener {
         eventType: 'NOTE_CREATED',
         userId,
         afterState: afterState as object,
+        batchId: batchId ?? null,
+        replacesNoteId: replacesNoteId ?? null,
       },
     })
   }
 
   @OnEvent(NOTE_EVENTS.DELETED)
-  async onNoteDeleted({ songId, noteId, userId, beforeState }: NoteDeletedEvent) {
+  async onNoteDeleted({
+    songId,
+    noteId,
+    userId,
+    beforeState,
+    batchId,
+  }: NoteDeletedEvent) {
     await this.prisma.noteEvent.create({
       data: {
         songId,
@@ -30,6 +45,7 @@ export class LedgerListener {
         eventType: 'NOTE_DELETED',
         userId,
         beforeState: beforeState as object,
+        batchId: batchId ?? null,
       },
     })
   }

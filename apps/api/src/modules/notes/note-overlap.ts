@@ -4,6 +4,10 @@ export interface NoteSpan {
   duration?: number | null
 }
 
+export interface NoteSlot extends NoteSpan {
+  track: number
+}
+
 export function noteEnd(note: NoteSpan): number {
   if (note.noteType === 'HOLD' && note.duration != null && note.duration > 0) {
     return note.time + note.duration
@@ -13,7 +17,8 @@ export function noteEnd(note: NoteSpan): number {
 
 export function noteRange(note: NoteSpan): { start: number; end: number } {
   const start = note.time
-  return { start, end: noteEnd(note) }
+  const end = noteEnd(note)
+  return end === start ? { start, end: start + 0.0001 } : { start, end }
 }
 
 export function rangesOverlap(
@@ -21,6 +26,17 @@ export function rangesOverlap(
   b: { start: number; end: number },
 ): boolean {
   return a.start < b.end && b.start < a.end
+}
+
+export function notesOverlap(a: NoteSlot, b: NoteSlot): boolean {
+  return a.track === b.track && rangesOverlap(noteRange(a), noteRange(b))
+}
+
+export function findOverlapping<T extends NoteSlot>(
+  candidate: NoteSlot,
+  existing: T[],
+): T | undefined {
+  return existing.find((note) => notesOverlap(candidate, note))
 }
 
 export function overlapsAny(

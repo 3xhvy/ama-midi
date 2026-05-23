@@ -183,3 +183,77 @@ export interface NotePattern {
   songId:    string | null
   createdAt: string
 }
+
+export type ConflictAction = 'KEEP_EXISTING' | 'REPLACE_WITH_PATTERN'
+
+export interface PatternPastePreviewRequest {
+  songId: string
+  startTime: number
+}
+
+export interface PatternPasteCreatableNote {
+  patternNoteIndex: number
+  track: number
+  time: number
+  noteType: NoteType
+  duration?: number
+}
+
+export interface PatternPasteConflict {
+  conflictId: string
+  patternNoteIndex: number
+  track: number
+  time: number
+  patternNote: {
+    track: number
+    timeOffset: number
+    noteType: NoteType
+    duration?: number
+  }
+  existingNote: {
+    id: string
+    title: string
+    description: string
+    track: number
+    time: number
+    noteType: NoteType
+    duration?: number
+    createdBy: string
+    creatorName: string
+    creatorAvatarUrl?: string
+    createdAt: string
+  }
+}
+
+export interface PatternPastePreview {
+  patternId: string
+  patternVersion: string
+  songId: string
+  startTime: number
+  summary: {
+    totalPatternNotes: number
+    creatableNotes: number
+    conflictCount: number
+    affectedExistingNotes: number
+  }
+  creatable: PatternPasteCreatableNote[]
+  conflicts: PatternPasteConflict[]
+}
+
+export interface PatternPasteApplyRequest {
+  songId: string
+  startTime: number
+  patternVersion: string
+  resolutions: Array<{
+    conflictId: string
+    action: ConflictAction
+  }>
+}
+
+export interface PatternPasteApplyResult {
+  batchId: string
+  createdCount: number
+  replacedCount: number
+  skippedCount: number
+  notes: Note[]
+}

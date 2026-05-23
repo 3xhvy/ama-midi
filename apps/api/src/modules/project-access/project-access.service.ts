@@ -49,6 +49,18 @@ export class ProjectAccessService {
     return song
   }
 
+  async assertCanEditSongChart(songId: string, user: AuthUser) {
+    const song = await this.assertCanEditSong(songId, user)
+    const full = await this.prisma.song.findUnique({
+      where: { id: songId },
+      select: { status: true },
+    })
+    if (full && ['PUBLISHED', 'ARCHIVED'].includes(full.status)) {
+      throw new ForbiddenException('Song chart is read-only')
+    }
+    return song
+  }
+
   async getAccessibleSongWhere(projectId: string, user: AuthUser) {
     if (user.role === 'ADMIN') return { projectId }
     const membership = await this.getMembership(projectId, user.id)

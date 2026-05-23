@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { io, Socket } from 'socket.io-client'
 import { useAuthStore } from '../../store/auth.store'
 import { toast } from 'sonner'
-import type { Note } from '@ama-midi/shared'
+import type { Note, NotesBatchAppliedPayload } from '@ama-midi/shared'
 
 export interface PresenceUser {
   id:          string
@@ -126,6 +126,20 @@ export function useSocket(songId: string, projectId?: string) {
       queryClient.setQueryData<Note[]>(['notes', songId], old =>
         old ? old.filter(n => n.id !== noteId) : []
       )
+    })
+
+    socket.on('notes-batch-applied', (payload: NotesBatchAppliedPayload) => {
+      queryClient.setQueriesData<Note[]>(
+        { queryKey: ['notes', songId], exact: false },
+        (old) => {
+          if (!old) return payload.created
+          const deleted = new Set(payload.deletedIds)
+          const createdById = new Map(payload.created.map((note) => [note.id, note]))
+          const kept = old.filter((note) => !deleted.has(note.id) && !createdById.has(note.id))
+          return [...kept, ...payload.created]
+        },
+      )
+      queryClient.invalidateQueries({ queryKey: ['validation', songId] })
     })
 
     socket.on('section-created', () => {

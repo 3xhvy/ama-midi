@@ -4,6 +4,7 @@ export const NOTE_EVENTS = {
   CREATED: 'note.created',
   UPDATED: 'note.updated',
   DELETED: 'note.deleted',
+  BATCH_APPLIED: 'notes.batch-applied',
 } as const
 
 export const PROJECT_MEMBER_UPDATED = 'project.member.updated'
@@ -15,6 +16,9 @@ export interface NoteCreatedEvent {
   noteId: string
   userId: string
   afterState: Note
+  batchId?: string
+  replacesNoteId?: string
+  realtimeMode?: 'single' | 'batch'
 }
 
 export interface NoteUpdatedEvent {
@@ -30,4 +34,15 @@ export interface NoteDeletedEvent {
   noteId: string
   userId: string
   beforeState: Partial<Note>
+  batchId?: string
+  replacedByBatch?: boolean
+  realtimeMode?: 'single' | 'batch'
+}
+
+export interface NotesBatchAppliedPayload {
+  songId: string
+  batchId: string
+  created: Note[]
+  deletedIds: string[]
+  actorId: string
 }

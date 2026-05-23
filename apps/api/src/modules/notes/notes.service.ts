@@ -5,7 +5,8 @@ import { ProjectAccessService } from '../project-access/project-access.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { AuthUser, Note, NoteCreatedEvent, NoteDeletedEvent, NoteUpdatedEvent } from '@ama-midi/shared'
 import { UpdateNoteDto } from './dto/update-note.dto'
-import { noteEnd, overlapsAny } from './note-overlap'
+import { noteEnd, overlapsAny, findOverlapping, type NoteSlot } from './note-overlap'
+import { randomUUID } from 'crypto'
 
 function snapTime(time: number): number {
   return Math.round(time * 10) / 10
@@ -48,7 +49,7 @@ export class NotesService {
     body: { track: number; time: number; title: string; description?: string; noteType?: string; duration?: number },
     user: AuthUser,
   ): Promise<Note> {
-    await this.access.assertCanEditSong(songId, user)
+    await this.access.assertCanEditSongChart(songId, user)
     const time = snapTime(body.time)
 
     if (body.noteType === 'HOLD' && (body.duration == null || body.duration <= 0)) {
@@ -92,7 +93,7 @@ export class NotesService {
   }
 
   async softDelete(songId: string, noteId: string, user: AuthUser): Promise<void> {
-    await this.access.assertCanEditSong(songId, user)
+    await this.access.assertCanEditSongChart(songId, user)
     const note = await this.prisma.note.findFirst({
       where: { id: noteId, songId, deletedAt: null },
       include: { creator: { select: { name: true, avatarUrl: true } } },
@@ -114,21 +115,128 @@ export class NotesService {
   }
 
   async undo(songId: string, user: AuthUser): Promise<{ noteId: string }> {
-    await this.access.assertCanEditSong(songId, user)
+    await this.access.assertCanEditSongChart(songId, user)
     const lastEvent = await this.prisma.noteEvent.findFirst({
-      where: { songId, userId: user.id, eventType: 'NOTE_CREATED' },
+      where: { songId, userId: user.id },
       orderBy: { createdAt: 'desc' },
     })
-    if (!lastEvent || !lastEvent.noteId) throw new NotFoundException('Nothing to undo')
+    if (!lastEvent) throw new NotFoundException('Nothing to undo')
 
-    const note = await this.prisma.note.findFirst({
-      where: { id: lastEvent.noteId, songId, deletedAt: null },
-      include: { creator: { select: { name: true, avatarUrl: true } } },
+    if (!lastEvent.batchId) {
+      if (lastEvent.eventType !== 'NOTE_CREATED' || !lastEvent.noteId) {
+        throw new NotFoundException('Nothing to undo')
+      }
+
+      const note = await this.prisma.note.findFirst({
+        where: { id: lastEvent.noteId, songId, deletedAt: null },
+        include: { creator: { select: { name: true, avatarUrl: true } } },
+      })
+      if (!note) throw new NotFoundException('Note already deleted')
+
+      await this.softDelete(songId, note.id, user)
+      return { noteId: note.id }
+    }
+
+    return this.undoBatch(songId, user, lastEvent.batchId)
+  }
+
+  private async undoBatch(songId: string, user: AuthUser, batchId: string): Promise<{ noteId: string }> {
+    const batchEvents = await this.prisma.noteEvent.findMany({
+      where: { songId, userId: user.id, batchId },
+      orderBy: { createdAt: 'desc' },
     })
-    if (!note) throw new NotFoundException('Note already deleted')
+    if (batchEvents.length === 0) throw new NotFoundException('Nothing to undo')
 
-    await this.softDelete(songId, note.id, user)
-    return { noteId: note.id }
+    const undoBatchId = randomUUID()
+    let lastNoteId = batchEvents[0]?.noteId ?? batchEvents[0]?.id
+
+    for (const event of batchEvents) {
+      if (event.eventType === 'NOTE_CREATED' && event.noteId) {
+        const note = await this.prisma.note.findFirst({
+          where: { id: event.noteId, songId, deletedAt: null },
+          include: { creator: { select: { name: true, avatarUrl: true } } },
+        })
+        if (!note) continue
+
+        await this.prisma.note.update({
+          where: { id: note.id },
+          data: { deletedAt: new Date() },
+        })
+
+        this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
+          songId,
+          noteId: note.id,
+          userId: user.id,
+          beforeState: toNote(note),
+          batchId: undoBatchId,
+          realtimeMode: 'batch',
+        } satisfies NoteDeletedEvent)
+
+        lastNoteId = note.id
+      }
+
+      if (event.eventType === 'NOTE_DELETED' && event.beforeState) {
+        const before = event.beforeState as Partial<Note>
+        if (
+          before.track == null ||
+          before.time == null ||
+          before.title == null ||
+          before.noteType == null
+        ) {
+          continue
+        }
+
+        const existing = await this.prisma.note.findMany({
+          where: { songId, track: before.track, deletedAt: null },
+          select: { id: true, track: true, time: true, noteType: true, duration: true },
+        })
+
+        const candidate: NoteSlot = {
+          track: before.track,
+          time: before.time,
+          noteType: before.noteType,
+          duration: before.duration ?? null,
+        }
+
+        if (findOverlapping(candidate, existing)) continue
+
+        const restored = await this.prisma.note.create({
+          data: {
+            songId,
+            track: before.track,
+            time: before.time,
+            title: before.title,
+            description: before.description ?? '',
+            noteType: before.noteType as any,
+            duration: before.duration ?? null,
+            createdBy: before.createdBy ?? user.id,
+          },
+          include: { creator: { select: { name: true, avatarUrl: true } } },
+        })
+
+        const note = toNote(restored)
+        this.eventEmitter.emit(NOTE_EVENTS.CREATED, {
+          songId,
+          noteId: note.id,
+          userId: user.id,
+          afterState: note,
+          batchId: undoBatchId,
+          realtimeMode: 'batch',
+        } satisfies NoteCreatedEvent)
+
+        lastNoteId = note.id
+      }
+    }
+
+    this.eventEmitter.emit(NOTE_EVENTS.BATCH_APPLIED, {
+      songId,
+      batchId: undoBatchId,
+      created: [],
+      deletedIds: [],
+      actorId: user.id,
+    })
+
+    return { noteId: lastNoteId ?? batchId }
   }
 
   async update(noteId: string, dto: UpdateNoteDto, user: AuthUser): Promise<Note> {

@@ -2,15 +2,21 @@ import { Injectable } from '@nestjs/common'
 import { OnEvent } from '@nestjs/event-emitter'
 import { RealtimeGateway } from './realtime.gateway'
 import { NOTE_EVENTS } from '@ama-midi/shared'
-import type { NoteCreatedEvent, NoteUpdatedEvent, NoteDeletedEvent } from '@ama-midi/shared'
+import type {
+  NoteCreatedEvent,
+  NoteUpdatedEvent,
+  NoteDeletedEvent,
+  NotesBatchAppliedPayload,
+} from '@ama-midi/shared'
 
 @Injectable()
 export class RealtimeListener {
   constructor(private readonly gateway: RealtimeGateway) {}
 
   @OnEvent(NOTE_EVENTS.CREATED)
-  onNoteCreated({ songId, afterState }: NoteCreatedEvent) {
-    this.gateway.broadcastToSong(songId, 'note-created', afterState)
+  onNoteCreated(event: NoteCreatedEvent) {
+    if (event.realtimeMode === 'batch') return
+    this.gateway.broadcastToSong(event.songId, 'note-created', event.afterState)
   }
 
   @OnEvent(NOTE_EVENTS.UPDATED)
@@ -19,8 +25,14 @@ export class RealtimeListener {
   }
 
   @OnEvent(NOTE_EVENTS.DELETED)
-  onNoteDeleted({ songId, noteId }: NoteDeletedEvent) {
-    this.gateway.broadcastToSong(songId, 'note-deleted', { noteId })
+  onNoteDeleted(event: NoteDeletedEvent) {
+    if (event.realtimeMode === 'batch') return
+    this.gateway.broadcastToSong(event.songId, 'note-deleted', { noteId: event.noteId })
+  }
+
+  @OnEvent(NOTE_EVENTS.BATCH_APPLIED)
+  onNotesBatchApplied(payload: NotesBatchAppliedPayload) {
+    this.gateway.broadcastToSong(payload.songId, 'notes-batch-applied', payload)
   }
 
   @OnEvent('project.member.updated')
