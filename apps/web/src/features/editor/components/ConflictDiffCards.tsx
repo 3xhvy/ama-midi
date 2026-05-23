@@ -1,6 +1,8 @@
 import { Avatar } from '../../../components/ui/Avatar'
 import type { ConflictAction, PlacementConflict } from '@ama-midi/shared'
 import { formatTime, formatOffset } from './conflict-formatters'
+import type { CSSProperties } from 'react'
+import { typePillStyle } from './conflict-theme'
 
 interface Props {
   conflict:      PlacementConflict
@@ -8,15 +10,12 @@ interface Props {
   incomingLabel: string
 }
 
-const NOTE_TYPE_COLORS: Record<string, string> = {
-  TAP:   'bg-[#EEF0FF] text-[#6C63FF]',
-  HOLD:  'bg-red-50 text-red-500',
-  SWIPE: 'bg-blue-50 text-blue-500',
-}
-
 function TypePill({ type }: { type: string }) {
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${NOTE_TYPE_COLORS[type] ?? 'bg-slate-100 text-slate-500'}`}>
+    <span
+      className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold"
+      style={typePillStyle(type)}
+    >
       {type}
     </span>
   )
@@ -29,23 +28,42 @@ function formatDate(iso: string): string {
   return `${date} · ${time}`
 }
 
+function cardStyle(
+  variant: 'neutral' | 'dimmed' | 'keep' | 'incoming',
+): CSSProperties {
+  switch (variant) {
+    case 'dimmed':
+      return {
+        backgroundColor: 'var(--conflict-card-bg)',
+        borderColor: 'var(--conflict-card-border)',
+        opacity: 0.55,
+      }
+    case 'keep':
+      return {
+        backgroundColor: 'var(--conflict-keep-bg)',
+        borderColor: 'var(--conflict-keep-border)',
+      }
+    case 'incoming':
+      return {
+        backgroundColor: 'var(--conflict-incoming-bg)',
+        borderColor: 'var(--conflict-incoming-border)',
+      }
+    default:
+      return {
+        backgroundColor: 'var(--conflict-card-bg)',
+        borderColor: 'var(--conflict-card-border)',
+      }
+  }
+}
+
 export function ConflictDiffCards({ conflict, resolution, incomingLabel }: Props) {
   const { existingNote, incomingNote } = conflict
   const isReplacing = resolution === 'REPLACE_WITH_PATTERN'
   const isKeeping   = resolution === 'KEEP_EXISTING'
   const incomingUpper = incomingLabel.toUpperCase()
 
-  const existingCls = isReplacing
-    ? 'border-slate-200 bg-slate-50 opacity-50'
-    : isKeeping
-    ? 'border-red-200 bg-red-50'
-    : 'border-slate-200 bg-slate-50'
-
-  const incomingCls = isKeeping
-    ? 'border-slate-200 bg-slate-50 opacity-50'
-    : isReplacing
-    ? 'border-[#6C63FF] bg-[#F5F3FF]'
-    : 'border-slate-200 bg-slate-50'
+  const existingVariant = isReplacing ? 'dimmed' : isKeeping ? 'keep' : 'neutral'
+  const incomingVariant = isKeeping ? 'dimmed' : isReplacing ? 'incoming' : 'neutral'
 
   const existingLabel = isReplacing
     ? 'EXISTING — WILL BE REMOVED'
@@ -53,11 +71,11 @@ export function ConflictDiffCards({ conflict, resolution, incomingLabel }: Props
     ? 'EXISTING — WILL BE KEPT'
     : 'EXISTING NOTE'
 
-  const existingLabelCls = isReplacing
-    ? 'text-slate-400'
+  const existingLabelColor = isReplacing
+    ? 'var(--modal-muted)'
     : isKeeping
-    ? 'text-red-500'
-    : 'text-slate-400'
+    ? 'var(--conflict-danger)'
+    : 'var(--modal-muted)'
 
   const incomingSideLabel = isKeeping
     ? `${incomingUpper} — WILL BE SKIPPED`
@@ -65,26 +83,32 @@ export function ConflictDiffCards({ conflict, resolution, incomingLabel }: Props
     ? `${incomingUpper} — WILL BE CREATED`
     : `${incomingUpper} NOTE`
 
-  const incomingLabelCls = isKeeping
-    ? 'text-slate-400'
+  const incomingLabelColor = isKeeping
+    ? 'var(--modal-muted)'
     : isReplacing
-    ? 'text-[#6C63FF]'
-    : 'text-slate-400'
+    ? 'var(--conflict-accent)'
+    : 'var(--modal-muted)'
 
   const incomingTitle = incomingNote.title || 'New note'
 
   return (
     <div className="flex items-start gap-3">
-      <div className={`flex-1 rounded-xl border p-4 transition-all ${existingCls}`}>
-        <div className={`text-[9px] font-bold tracking-wider mb-3 ${existingLabelCls}`}>
+      <div
+        className="flex-1 rounded-xl border p-4 transition-all"
+        style={cardStyle(existingVariant)}
+      >
+        <div className="text-[9px] font-bold tracking-wider mb-3" style={{ color: existingLabelColor }}>
           {existingLabel}
         </div>
-        <div className={`text-base font-bold text-slate-800 mb-2 ${isReplacing ? 'line-through text-slate-400' : ''}`}>
+        <div
+          className={`text-base font-bold mb-2 ${isReplacing ? 'line-through' : ''}`}
+          style={{ color: isReplacing ? 'var(--modal-muted)' : 'var(--modal-text)' }}
+        >
           {existingNote.title}
         </div>
         <TypePill type={existingNote.noteType} />
         {existingNote.duration != null && (
-          <div className="text-xs text-slate-500 mt-2">
+          <div className="text-xs mt-2" style={{ color: 'var(--modal-muted)' }}>
             Duration: {formatTime(existingNote.duration)}
           </div>
         )}
@@ -94,30 +118,33 @@ export function ConflictDiffCards({ conflict, resolution, incomingLabel }: Props
             name={existingNote.creatorName}
             size="xs"
           />
-          <span className="text-xs text-slate-600">{existingNote.creatorName}</span>
+          <span className="text-xs" style={{ color: 'var(--modal-text)' }}>{existingNote.creatorName}</span>
         </div>
-        <div className="text-[10px] text-slate-400 mt-1">
+        <div className="text-[10px] mt-1" style={{ color: 'var(--modal-muted)' }}>
           {formatDate(existingNote.createdAt)}
         </div>
       </div>
 
-      <div className="flex-shrink-0 mt-8 text-slate-300 text-lg">→</div>
+      <div className="flex-shrink-0 mt-8 text-lg" style={{ color: 'var(--modal-muted)' }}>→</div>
 
-      <div className={`flex-1 rounded-xl border p-4 transition-all ${incomingCls}`}>
-        <div className={`text-[9px] font-bold tracking-wider mb-3 ${incomingLabelCls}`}>
+      <div
+        className="flex-1 rounded-xl border p-4 transition-all"
+        style={cardStyle(incomingVariant)}
+      >
+        <div className="text-[9px] font-bold tracking-wider mb-3" style={{ color: incomingLabelColor }}>
           {incomingSideLabel}
         </div>
-        <div className="text-base font-bold text-slate-400 mb-2">{incomingTitle}</div>
+        <div className="text-base font-bold mb-2" style={{ color: 'var(--modal-muted)' }}>{incomingTitle}</div>
         <TypePill type={incomingNote.noteType} />
         {incomingNote.duration != null && (
-          <div className="text-xs text-slate-500 mt-2">
+          <div className="text-xs mt-2" style={{ color: 'var(--modal-muted)' }}>
             Duration: {formatTime(incomingNote.duration)}
           </div>
         )}
         {incomingNote.duration == null && (
-          <div className="text-xs text-slate-400 mt-2">No duration</div>
+          <div className="text-xs mt-2" style={{ color: 'var(--modal-muted)' }}>No duration</div>
         )}
-        <div className="text-xs text-slate-400 mt-3">
+        <div className="text-xs mt-3" style={{ color: 'var(--modal-muted)' }}>
           offset {formatOffset(incomingNote.timeOffset)} from anchor
         </div>
       </div>

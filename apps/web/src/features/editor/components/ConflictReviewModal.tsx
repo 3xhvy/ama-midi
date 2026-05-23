@@ -6,6 +6,7 @@ import { ConflictListItem } from './ConflictListItem'
 import { ConflictDiffCards } from './ConflictDiffCards'
 import { ConflictContextStrip } from './ConflictContextStrip'
 import { formatTime } from './conflict-formatters'
+import { conflictChipStyle } from './conflict-theme'
 
 interface Props {
   preview:                  PlacementPreview
@@ -97,7 +98,7 @@ export function ConflictReviewModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: 'rgba(8,6,20,0.72)' }}
+      style={{ backgroundColor: 'var(--modal-overlay)' }}
       onClick={onCancel}
     >
       <div
@@ -121,13 +122,13 @@ export function ConflictReviewModal({
                 {subtitle}
               </p>
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={conflictChipStyle('emerald')}>
                   {preview.summary.creatableNotes} will be created
                 </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-500">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={conflictChipStyle('red')}>
                   {preview.summary.conflictCount} conflicts
                 </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={conflictChipStyle('amber')}>
                   {preview.summary.affectedExistingNotes} notes affected
                 </span>
               </div>
@@ -156,13 +157,13 @@ export function ConflictReviewModal({
           <>
           <div className="w-[220px] flex-shrink-0 border-r overflow-y-auto" style={{ borderColor: 'var(--modal-border)' }}>
             <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: 'var(--modal-border)' }}>
-              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Conflicts</span>
+              <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--modal-muted)' }}>Conflicts</span>
               {unresolved.length > 0 ? (
-                <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
+                <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full" style={conflictChipStyle('amber')}>
                   {unresolved.length} unresolved
                 </span>
               ) : (
-                <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+                <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full" style={conflictChipStyle('emerald')}>
                   All resolved ✓
                 </span>
               )}
@@ -180,12 +181,21 @@ export function ConflictReviewModal({
 
           <div className="flex-1 flex flex-col overflow-y-auto p-5 gap-4">
             {hasConflictChanged && (
-              <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
-                <span className="text-xs text-amber-800">⚠ Conflicts changed — review again</span>
+              <div
+                className="flex items-center justify-between rounded-md border px-3 py-2"
+                style={{
+                  backgroundColor: 'var(--conflict-banner-bg)',
+                  borderColor: 'var(--conflict-banner-border)',
+                }}
+              >
+                <span className="text-xs" style={{ color: 'var(--conflict-banner-text)' }}>
+                  ⚠ Conflicts changed — review again
+                </span>
                 <button
                   type="button"
                   onClick={onDismissConflictBanner}
-                  className="text-amber-600 hover:opacity-60 text-xs ml-3"
+                  className="hover:opacity-60 text-xs ml-3"
+                  style={{ color: 'var(--conflict-banner-text)' }}
                 >
                   ✕
                 </button>
@@ -207,8 +217,10 @@ export function ConflictReviewModal({
                   type="button"
                   disabled={activeIndex === 0}
                   onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
-                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30 hover:bg-slate-50"
-                  style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)' }}
+                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30 transition-colors"
+                  style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
+                  onMouseEnter={(e) => { if (activeIndex !== 0) e.currentTarget.style.backgroundColor = 'var(--conflict-list-hover)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
                 >
                   ← Prev
                 </button>
@@ -219,8 +231,10 @@ export function ConflictReviewModal({
                   type="button"
                   disabled={activeIndex === conflicts.length - 1}
                   onClick={() => setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))}
-                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30 hover:bg-slate-50"
-                  style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)' }}
+                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30 transition-colors"
+                  style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
+                  onMouseEnter={(e) => { if (activeIndex !== conflicts.length - 1) e.currentTarget.style.backgroundColor = 'var(--conflict-list-hover)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
                 >
                   Next →
                 </button>
@@ -239,22 +253,40 @@ export function ConflictReviewModal({
               <button
                 type="button"
                 onClick={() => resolveAndAdvance(activeConflict.conflictId, 'KEEP_EXISTING')}
-                className={`flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors ${
+                className="flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors"
+                style={
                   resolutions[activeConflict.conflictId] === 'KEEP_EXISTING'
-                    ? 'bg-[#EEF0FF] text-[#6C63FF] border-[#6C63FF]'
-                    : 'bg-white text-slate-500 border-slate-200 hover:bg-[#F5F3FF] hover:border-slate-300'
-                }`}
+                    ? {
+                        backgroundColor: 'var(--conflict-incoming-bg)',
+                        borderColor: 'var(--conflict-incoming-border)',
+                        color: 'var(--conflict-accent)',
+                      }
+                    : {
+                        backgroundColor: 'var(--modal-input-bg)',
+                        borderColor: 'var(--modal-border)',
+                        color: 'var(--modal-muted)',
+                      }
+                }
               >
                 {resolutions[activeConflict.conflictId] === 'KEEP_EXISTING' ? '✓ ' : ''}Keep Existing
               </button>
               <button
                 type="button"
                 onClick={() => resolveAndAdvance(activeConflict.conflictId, 'REPLACE_WITH_PATTERN')}
-                className={`flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors ${
+                className="flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors"
+                style={
                   resolutions[activeConflict.conflictId] === 'REPLACE_WITH_PATTERN'
-                    ? 'bg-red-50 text-red-500 border-red-500'
-                    : 'bg-white text-slate-500 border-slate-200 hover:bg-red-50 hover:border-red-200'
-                }`}
+                    ? {
+                        backgroundColor: 'var(--conflict-keep-bg)',
+                        borderColor: 'var(--conflict-keep-border)',
+                        color: 'var(--conflict-danger)',
+                      }
+                    : {
+                        backgroundColor: 'var(--modal-input-bg)',
+                        borderColor: 'var(--modal-border)',
+                        color: 'var(--modal-muted)',
+                      }
+                }
               >
                 {resolutions[activeConflict.conflictId] === 'REPLACE_WITH_PATTERN' ? '✕ ' : ''}{replaceButtonLabel}
               </button>
@@ -270,9 +302,9 @@ export function ConflictReviewModal({
         >
           <div className="text-xs" style={{ color: 'var(--modal-muted)' }}>
             {unresolved.length > 0 && (
-              <span className="font-semibold text-amber-600">{unresolved.length} unresolved · </span>
+              <span className="font-semibold" style={{ color: 'var(--conflict-warning)' }}>{unresolved.length} unresolved · </span>
             )}
-            Create <strong>{createCount}</strong> · Replace <strong>{replaceCount}</strong> · Skip <strong>{skipCount}</strong>
+            Create <strong style={{ color: 'var(--modal-text)' }}>{createCount}</strong> · Replace <strong style={{ color: 'var(--modal-text)' }}>{replaceCount}</strong> · Skip <strong style={{ color: 'var(--modal-text)' }}>{skipCount}</strong>
           </div>
           <div className="flex items-center gap-2">
             <button

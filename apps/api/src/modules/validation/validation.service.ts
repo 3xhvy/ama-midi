@@ -32,6 +32,7 @@ export class ValidationService {
     const mappedNotes = notes.map((n) => ({
       id: n.id,
       songId: n.songId,
+      chartId: n.chartId,
       track: n.track,
       time: n.time,
       title: n.title,

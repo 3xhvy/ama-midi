@@ -88,6 +88,38 @@
   --modal-input-text:          var(--color-text-primary);
   --modal-input-placeholder:   var(--color-text-tertiary);
 
+  /* Conflict review modal */
+  --conflict-card-bg:          var(--color-bg);
+  --conflict-card-border:      var(--color-border);
+  --conflict-list-active:      rgba(108, 99, 255, 0.10);
+  --conflict-list-hover:       rgba(0, 0, 0, 0.04);
+  --conflict-incoming-bg:      rgba(108, 99, 255, 0.10);
+  --conflict-incoming-border:  rgba(108, 99, 255, 0.40);
+  --conflict-keep-bg:          rgba(239, 68, 68, 0.08);
+  --conflict-keep-border:      rgba(239, 68, 68, 0.35);
+  --conflict-context-bg:       rgba(108, 99, 255, 0.05);
+  --conflict-chip-emerald-bg:  rgba(16, 185, 129, 0.12);
+  --conflict-chip-emerald-text:#059669;
+  --conflict-chip-red-bg:      rgba(239, 68, 68, 0.12);
+  --conflict-chip-red-text:    #dc2626;
+  --conflict-chip-amber-bg:    rgba(245, 158, 11, 0.12);
+  --conflict-chip-amber-text:  #d97706;
+  --conflict-banner-bg:        rgba(245, 158, 11, 0.12);
+  --conflict-banner-border:    rgba(245, 158, 11, 0.35);
+  --conflict-banner-text:      #92400e;
+  --conflict-type-tap-bg:      rgba(108, 99, 255, 0.12);
+  --conflict-type-tap-text:    #6C63FF;
+  --conflict-type-hold-bg:     rgba(239, 68, 68, 0.12);
+  --conflict-type-hold-text:   #ef4444;
+  --conflict-type-swipe-bg:    rgba(59, 130, 246, 0.12);
+  --conflict-type-swipe-text:  #3b82f6;
+  --conflict-type-fallback-bg: rgba(100, 116, 139, 0.12);
+  --conflict-type-fallback-text: #64748b;
+  --conflict-accent:           #6C63FF;
+  --conflict-danger:           #ef4444;
+  --conflict-warning:          #f59e0b;
+  --conflict-success:          #10b981;
+
   /* Shell tokens — alias to existing light-zone vars */
   --shell-bg: var(--color-bg);
   --shell-surface: var(--color-surface);
@@ -138,6 +170,38 @@
   --modal-input-border:        rgba(255, 255, 255, 0.12);
   --modal-input-text:          rgba(255, 255, 255, 0.90);
   --modal-input-placeholder:   rgba(255, 255, 255, 0.35);
+
+  /* Conflict review modal */
+  --conflict-card-bg:          rgba(255, 255, 255, 0.05);
+  --conflict-card-border:      rgba(255, 255, 255, 0.10);
+  --conflict-list-active:      rgba(108, 99, 255, 0.20);
+  --conflict-list-hover:       rgba(255, 255, 255, 0.06);
+  --conflict-incoming-bg:      rgba(108, 99, 255, 0.18);
+  --conflict-incoming-border:  rgba(108, 99, 255, 0.50);
+  --conflict-keep-bg:          rgba(239, 68, 68, 0.14);
+  --conflict-keep-border:      rgba(239, 68, 68, 0.45);
+  --conflict-context-bg:       rgba(108, 99, 255, 0.08);
+  --conflict-chip-emerald-bg:  rgba(16, 185, 129, 0.18);
+  --conflict-chip-emerald-text:#34d399;
+  --conflict-chip-red-bg:      rgba(239, 68, 68, 0.18);
+  --conflict-chip-red-text:    #f87171;
+  --conflict-chip-amber-bg:    rgba(245, 158, 11, 0.18);
+  --conflict-chip-amber-text:  #fbbf24;
+  --conflict-banner-bg:        rgba(245, 158, 11, 0.14);
+  --conflict-banner-border:    rgba(245, 158, 11, 0.35);
+  --conflict-banner-text:      #fcd34d;
+  --conflict-type-tap-bg:      rgba(108, 99, 255, 0.20);
+  --conflict-type-tap-text:    #a5a0ff;
+  --conflict-type-hold-bg:     rgba(239, 68, 68, 0.18);
+  --conflict-type-hold-text:   #f87171;
+  --conflict-type-swipe-bg:    rgba(59, 130, 246, 0.18);
+  --conflict-type-swipe-text:  #93c5fd;
+  --conflict-type-fallback-bg: rgba(255, 255, 255, 0.08);
+  --conflict-type-fallback-text: rgba(255, 255, 255, 0.45);
+  --conflict-accent:           #a5a0ff;
+  --conflict-danger:           #f87171;
+  --conflict-warning:          #fbbf24;
+  --conflict-success:          #34d399;
 
   --panel-bg: var(--shell-surface);
   --panel-border: var(--shell-border);
