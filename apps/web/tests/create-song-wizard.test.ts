@@ -45,7 +45,6 @@ test('applyTemplateDefaults prefills from template', () => {
   const next = applyTemplateDefaults('tap-starter')
   assert.equal(next.name, 'Tap Starter')
   assert.equal(next.category, 'PROTOTYPE')
-  assert.equal(next.difficulty, 'EASY')
   assert.equal(next.bpm, 120)
 })
 
@@ -75,12 +74,12 @@ test('buildReviewSummary uses human labels', () => {
     templateName: 'Tap Starter',
     name: 'My Song',
     category: 'PROTOTYPE',
-    difficulty: 'EASY',
     bpm: 120,
     timeSignature: '4/4',
     composerName: 'Composer',
     qaName: null,
   })
   assert.match(summary.startLine, /Tap Starter/)
-  assert.match(summary.detailsLine, /Easy/)
+  assert.match(summary.detailsLine, /Prototype/)
+  assert.match(summary.detailsLine, /120 BPM/)
 })

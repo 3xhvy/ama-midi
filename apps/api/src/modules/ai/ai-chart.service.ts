@@ -54,7 +54,7 @@ export class AiChartService {
   async generateChart(
     songId: string,
     userRole: string,
-    body: { description: string; snapMode: SnapMode },
+    body: { description: string; snapMode: SnapMode; targetTier?: keyof typeof TARGET_NOTE_COUNT },
   ): Promise<GenerateChartResponse> {
     if (userRole === 'VIEWER') throw new ForbiddenException('VIEWER cannot use AI chart generation')
 
@@ -64,8 +64,8 @@ export class AiChartService {
     const description = body.description.trim()
     if (!description) throw new BadRequestException('Description is required')
 
-    const targetCount = 90
-    const prompt = this.buildGeneratePrompt(song, description, body.snapMode, targetCount)
+    const targetCount = body.targetTier ? TARGET_NOTE_COUNT[body.targetTier] ?? 90 : 90
+    const prompt = this.buildGeneratePrompt(song, description, body.snapMode, targetCount, body.targetTier)
     const parsed = await this.callClaudeForChart(prompt)
     const notes = this.normalizeGeneratedNotes(parsed.notes, body.snapMode, song.bpm)
     const sections = this.normalizeSections(parsed.sections)
@@ -229,6 +229,7 @@ export class AiChartService {
     description: string,
     snapMode: SnapMode,
     targetCount: number,
+    targetTier?: string,
   ) {
     const measure = measureDuration(song.bpm, song.timeSignature)
     const snapHint =
@@ -247,6 +248,7 @@ export class AiChartService {
 
     const user = [
       `Song "${song.name}": ${song.bpm} BPM, ${song.timeSignature}, category ${song.category}.`,
+      targetTier ? `Target difficulty tier hint: ${targetTier} (not persisted — match density to this tier).` : null,
       `Snap all times to ${snapHint}. One note per track+time (no overlaps).`,
       `Composer brief: ${description}`,
       `Generate about ${targetCount} notes spread across the full 0–300s timeline with clear structure (intro, build, peak, outro as appropriate).`,
@@ -254,7 +256,7 @@ export class AiChartService {
       `Also suggest 3–6 section markers when they help structure the chart.`,
       `JSON shape: {"notes":[{"track":1,"time":0.0,"noteType":"TAP","title":"Kick"}],"sections":[{"time":0,"label":"Intro","color":"#10B981"}]}`,
       `HOLD notes must include duration. Keep titles short.`,
-    ].join(' ')
+    ].filter(Boolean).join(' ')
 
     return { system, user }
   }

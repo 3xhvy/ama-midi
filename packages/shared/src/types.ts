@@ -93,21 +93,65 @@ export interface Song {
   name:             string
   category:         SongCategory
   status:           SongStatus
-  difficulty:       SongDifficulty
   assignedComposerId?: string | null
   assignedComposerName?: string | null
+  assignedComposerAvatarUrl?: string
   assignedQaId?: string | null
   assignedQaName?: string | null
+  assignedQaAvatarUrl?: string
   sourceSongId?: string | null
   archivedAt?: string | null
   createdBy:        string
   creatorName:      string
   creatorAvatarUrl?: string
   noteCount:        number
+  chartSummary?:    string
+  charts?:          SongChart[]
   createdAt:        string
   updatedAt:        string
   bpm:              number
   timeSignature:    string
+}
+
+export interface SongChart {
+  id: string
+  songId: string
+  name: string
+  speedMultiplier: number
+  computedDifficulty: SongDifficulty
+  averageDifficultyScore: number
+  peakDifficultyScore: number
+  analyzedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ChartDifficultySegment {
+  id: string
+  chartId: string
+  startTimeMs: number
+  endTimeMs: number
+  notesPerSecond: number
+  averageLaneJump: number
+  offbeatRatio: number
+  holdNoteRatio: number
+  simultaneousNoteRatio: number
+  patternComplexityScore: number
+  difficultyScore: number
+  difficultyLevel: SongDifficulty
+}
+
+export type ValidationSeverity = 'INFO' | 'WARN' | 'ERROR'
+
+export interface ChartValidationWarning {
+  id: string
+  chartId: string
+  code: string
+  severity: ValidationSeverity
+  startTimeMs?: number | null
+  endTimeMs?: number | null
+  message: string
+  metadata?: Record<string, unknown> | null
 }
 
 export interface DashboardSongRow {
@@ -270,4 +314,31 @@ export interface PatternPasteApplyResult {
   replacedCount: number
   skippedCount: number
   notes: Note[]
+}
+
+export interface GeneratedChartNote {
+  track: number
+  time: number
+  noteType?: NoteType
+  duration?: number
+  title?: string
+}
+
+export interface GeneratedChartSection {
+  time: number
+  label: string
+  color?: string
+}
+
+export interface GenerateChartResponse {
+  notes: GeneratedChartNote[]
+  sections: GeneratedChartSection[]
+}
+
+export interface ApplyChartResponse {
+  batchId: string
+  createdCount: number
+  skippedCount: number
+  sectionsCreated: number
+  replacedCount: number
 }

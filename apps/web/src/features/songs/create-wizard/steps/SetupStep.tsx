@@ -1,9 +1,7 @@
 import {
   SongCategoryEnum,
-  SongDifficultyEnum,
   SUPPORTED_TIME_SIGNATURES,
   type SongCategory,
-  type SongDifficulty,
 } from '@ama-midi/shared'
 import { Input } from '../../../../components/ui'
 import type { SetupFields } from '../wizard-logic'
@@ -11,7 +9,6 @@ import type { SetupFields } from '../wizard-logic'
 export interface SetupStepProps {
   name: string
   category: SongCategory
-  difficulty: SongDifficulty
   bpm: number
   timeSignature: string
   error?: string | null
@@ -24,7 +21,6 @@ const selectClassName =
 export function SetupStep({
   name,
   category,
-  difficulty,
   bpm,
   timeSignature,
   error,
@@ -33,6 +29,10 @@ export function SetupStep({
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-medium text-shell-text">Song details</h3>
+
+      <p className="text-xs leading-relaxed text-shell-muted">
+        Difficulty is computed automatically from your chart after you add notes.
+      </p>
 
       <div>
         <label className="mb-1 block text-xs text-shell-muted">Name</label>
@@ -53,21 +53,6 @@ export function SetupStep({
           {SongCategoryEnum.keys.map((key) => (
             <option key={key} value={key}>
               {SongCategoryEnum.label(key)}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-xs text-shell-muted">Difficulty</label>
-        <select
-          value={difficulty}
-          onChange={(e) => onSetupChange({ difficulty: e.target.value as SongDifficulty })}
-          className={selectClassName}
-        >
-          {SongDifficultyEnum.keys.map((key) => (
-            <option key={key} value={key}>
-              {SongDifficultyEnum.label(key)}
             </option>
           ))}
         </select>
