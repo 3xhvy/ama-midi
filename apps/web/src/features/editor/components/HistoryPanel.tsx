@@ -16,7 +16,7 @@ interface NoteEventRow {
 }
 
 interface Props {
-  songId: string
+  chartId?: string
   onClose?: () => void
   inline?: boolean
 }
@@ -41,18 +41,19 @@ function eventLabel(event: NoteEventRow): string {
   return `${name} removed the note at Track ${track}, ${time}s`
 }
 
-export function HistoryPanel({ songId, onClose, inline = false }: Props) {
+export function HistoryPanel({ chartId, onClose, inline = false }: Props) {
   const token = useAuthStore(s => s.token)
-  const undo = useUndo(songId)
+  const undo = useUndo(chartId)
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
-    queryKey: ['events', songId],
+    queryKey: ['events', chartId],
     queryFn: async ({ pageParam }) => {
-      const url = `/songs/${songId}/events${pageParam ? `?cursor=${pageParam}` : ''}`
+      const url = `/charts/${chartId}/events${pageParam ? `?cursor=${pageParam}` : ''}`
       return apiClient(token)<{ events: NoteEventRow[]; nextCursor: string | null }>(url)
     },
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     initialPageParam: undefined as string | undefined,
+    enabled: !!token && !!chartId,
   })
 
   const events = data?.pages.flatMap(p => p.events) ?? []
@@ -76,7 +77,7 @@ export function HistoryPanel({ songId, onClose, inline = false }: Props) {
         <div className="flex items-center gap-2">
           <button
             onClick={handleUndo}
-            disabled={undo.isPending}
+            disabled={undo.isPending || !chartId}
             className="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary-dark disabled:opacity-50 transition-colors"
           >
             Undo

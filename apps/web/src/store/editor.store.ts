@@ -6,6 +6,18 @@ type ViewMode = 'composer' | 'developer' | 'qa' | 'preview'
 type Zoom = 1 | 2 | 4 | 8
 type RightPanelTab = 'tools' | 'validation' | 'history'
 
+export interface ChartPreviewState {
+  notes: Array<{
+    track: number
+    time: number
+    noteType?: string
+    duration?: number
+    title?: string
+  }>
+  sections?: Array<{ time: number; label: string; color?: string }>
+  replaceExisting: boolean
+}
+
 interface EditorStore {
   viewMode: ViewMode
   zoom: Zoom
@@ -26,6 +38,8 @@ interface EditorStore {
   activeNoteType:     NoteType
   heatmapEnabled:     boolean
   activeTrack:        number | null
+  activeChartId:      string | null
+  chartPreview:       ChartPreviewState | null
   setCreateMode:        (mode: 'fast' | 'popup') => void
   setEditorMode:        (mode: 'fast' | 'popup') => void
   selectNote:           (id: string | null) => void
@@ -45,6 +59,9 @@ interface EditorStore {
   setActiveNoteType:   (type: NoteType) => void
   setHeatmapEnabled:   (enabled: boolean) => void
   setActiveTrack:      (track: number | null) => void
+  setActiveChartId:    (id: string | null) => void
+  setChartPreview:     (preview: ChartPreviewState | null) => void
+  clearChartPreview:   () => void
 }
 
 function calcPxPerSecond(zoom: Zoom) {
@@ -71,6 +88,8 @@ export const useEditorStore = create<EditorStore>((set) => ({
   activeNoteType:   'HOLD',
   heatmapEnabled:   false,
   activeTrack:      null,
+  activeChartId:    null,
+  chartPreview:     null,
   setCreateMode:        (createMode) => set({ createMode }),
   setEditorMode:        (editorMode) => set({ editorMode }),
   selectNote:           (id) => set({ selectedNoteId: id, selectedNoteIds: id ? new Set([id]) : new Set() }),
@@ -99,4 +118,7 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setActiveNoteType:   (activeNoteType) => set({ activeNoteType }),
   setHeatmapEnabled:   (heatmapEnabled) => set({ heatmapEnabled }),
   setActiveTrack:      (activeTrack) => set({ activeTrack }),
+  setActiveChartId:    (activeChartId) => set({ activeChartId }),
+  setChartPreview:     (chartPreview) => set({ chartPreview }),
+  clearChartPreview:   () => set({ chartPreview: null }),
 }))
