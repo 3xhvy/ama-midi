@@ -2,8 +2,15 @@ import { BadRequestException, Injectable, NotFoundException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { UpdateSongDto } from './dto/update-song.dto'
+import { UpdateSongStatusDto } from './dto/update-song-status.dto'
 import { CreateProjectSongDto } from './dto/create-project-song.dto'
-import type { AuthUser, Song } from '@ama-midi/shared'
+import type { AuthUser, Song, SongWorkflowInfo } from '@ama-midi/shared'
+import {
+  canTransitionSongStatus,
+  getAllowedStatusTransitions,
+  resolveChartEditAccess,
+  resolveSongWorkflowRole,
+} from '@ama-midi/shared'
 
 @Injectable()
 export class SongsService {
@@ -88,7 +95,7 @@ export class SongsService {
   }
 
   async update(id: string, dto: UpdateSongDto, user: AuthUser): Promise<Song> {
-    await this.access.assertCanEditSong(id, user)
+    await this.access.assertCanEditSongChart(id, user)
 
     const s = await this.prisma.song.update({
       where: { id },
@@ -96,6 +103,87 @@ export class SongsService {
       include: this.songInclude(),
     })
     return this.toSong(s)
+  }
+
+  async getWorkflow(id: string, user: AuthUser): Promise<SongWorkflowInfo> {
+    await this.access.assertCanViewSong(id, user)
+    const song = await this.prisma.song.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        projectId: true,
+        assignedComposerId: true,
+        assignedQaId: true,
+        createdBy: true,
+      },
+    })
+    if (!song) throw new NotFoundException('Song not found')
+
+    const role = await this.resolveWorkflowRole(song, user)
+    const projectPermission = await this.access.getProjectPermission(song.projectId, user)
+    const { canEditChart, readOnlyReason } = resolveChartEditAccess({
+      isPlatformAdmin: user.role === 'ADMIN',
+      platformRole: user.role,
+      projectPermission,
+      songStatus: song.status,
+    })
+    return {
+      status: song.status,
+      allowedTransitions: getAllowedStatusTransitions(song.status, role),
+      canEditChart,
+      readOnlyReason,
+    }
+  }
+
+  async transitionStatus(id: string, dto: UpdateSongStatusDto, user: AuthUser): Promise<Song> {
+    await this.access.assertCanViewSong(id, user)
+    const song = await this.prisma.song.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        projectId: true,
+        assignedComposerId: true,
+        assignedQaId: true,
+        createdBy: true,
+      },
+    })
+    if (!song) throw new NotFoundException('Song not found')
+
+    const role = await this.resolveWorkflowRole(song, user)
+    if (!canTransitionSongStatus(song.status, dto.status, role)) {
+      throw new ForbiddenException(`Cannot transition from ${song.status} to ${dto.status}`)
+    }
+
+    const data: { status: typeof dto.status; archivedAt?: Date | null } = { status: dto.status }
+    if (dto.status === 'ARCHIVED') data.archivedAt = new Date()
+    if (song.status === 'ARCHIVED' && dto.status === 'DRAFT') data.archivedAt = null
+
+    const updated = await this.prisma.song.update({
+      where: { id },
+      data,
+      include: this.songInclude(),
+    })
+    return this.toSong(updated)
+  }
+
+  private async resolveWorkflowRole(
+    song: {
+      projectId: string
+      assignedComposerId: string | null
+      assignedQaId: string | null
+      createdBy: string
+    },
+    user: AuthUser,
+  ) {
+    const projectPermission = await this.access.getProjectPermission(song.projectId, user)
+    return resolveSongWorkflowRole({
+      userId: user.id,
+      isPlatformAdmin: user.role === 'ADMIN',
+      projectPermission,
+      assignedComposerId: song.assignedComposerId,
+      assignedQaId: song.assignedQaId,
+      createdBy: song.createdBy,
+    })
   }
 
   async remove(id: string, user: AuthUser): Promise<void> {

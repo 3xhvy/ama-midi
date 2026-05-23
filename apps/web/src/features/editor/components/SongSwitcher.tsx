@@ -17,6 +17,8 @@ interface Props {
   projectName: string
   currentSongId: string
   currentSongName: string
+  variant?: 'default' | 'breadcrumb' | 'toolbar'
+  accent?: 'default' | 'project' | 'song'
 }
 
 function toItem(song: Song, currentSongId: string, onSelect: (song: Song) => void) {
@@ -29,7 +31,14 @@ function toItem(song: Song, currentSongId: string, onSelect: (song: Song) => voi
   }
 }
 
-export function SongSwitcher({ projectId, projectName, currentSongId, currentSongName }: Props) {
+export function SongSwitcher({
+  projectId,
+  projectName,
+  currentSongId,
+  currentSongName,
+  variant = 'default',
+  accent = 'default',
+}: Props) {
   const navigate = useNavigate()
   const { data: songs = [] } = useProjectSongs(projectId)
   const recentSongId = getRecentSongForProject(localStorage, projectId)
@@ -63,11 +72,19 @@ export function SongSwitcher({ projectId, projectName, currentSongId, currentSon
 
   return (
     <NavDropdown
+      variant={variant}
+      accent={accent}
       dropdownId="song-switcher-drop"
       triggerLabel={currentSongName}
       searchPlaceholder={`Search songs in ${projectName}…`}
       sections={sections}
-      triggerClassName="max-w-[160px]"
+      triggerClassName={
+        variant === 'toolbar'
+          ? 'max-w-[100px] sm:max-w-[140px]'
+          : variant === 'breadcrumb'
+            ? 'max-w-[100px] sm:max-w-[140px]'
+            : 'max-w-[160px]'
+      }
     />
   )
 }

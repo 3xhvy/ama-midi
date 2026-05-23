@@ -4,6 +4,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common'
 import { NotesService } from '../notes.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { AuthUser } from '@ama-midi/shared'
 
 const mockUser: AuthUser = {
@@ -234,6 +235,15 @@ describe('NotesService', () => {
       await service.undo('s1', mockUser)
 
       expect(prisma.note.update).toHaveBeenCalledTimes(2)
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        NOTE_EVENTS.BATCH_APPLIED,
+        expect.objectContaining({
+          songId: 's1',
+          created: [],
+          deletedIds: ['n2', 'n1'],
+          actorId: mockUser.id,
+        }),
+      )
     })
 
     it('undo restores notes deleted by a replacement batch', async () => {
@@ -279,6 +289,21 @@ describe('NotesService', () => {
       expect(prisma.note.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ title: 'Restored', track: 1, time: 5.0 }),
+        }),
+      )
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        NOTE_EVENTS.BATCH_APPLIED,
+        expect.objectContaining({
+          songId: 's1',
+          created: [
+            expect.objectContaining({
+              id: 'restored-1',
+              track: 1,
+              time: 5.0,
+            }),
+          ],
+          deletedIds: [],
+          actorId: mockUser.id,
         }),
       )
     })

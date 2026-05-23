@@ -1,12 +1,13 @@
 import { ArrayNotEmpty, IsArray, IsIn, IsOptional, IsUUID, ValidateIf } from 'class-validator'
+import { ProjectPermissionEnum, SongScopeEnum } from '@ama-midi/shared'
 
 export class UpdateProjectMemberDto {
   @IsOptional()
-  @IsIn(['READ', 'EDIT', 'ADMIN'])
+  @IsIn([...ProjectPermissionEnum.keys])
   permission?: 'READ' | 'EDIT' | 'ADMIN'
 
   @IsOptional()
-  @IsIn(['ALL_SONGS', 'SELECTED_SONGS', 'NO_SONGS'])
+  @IsIn([...SongScopeEnum.keys])
   songScope?: 'ALL_SONGS' | 'SELECTED_SONGS' | 'NO_SONGS'
 
   @ValidateIf((dto) => dto.songScope === 'SELECTED_SONGS')

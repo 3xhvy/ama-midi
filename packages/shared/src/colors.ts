@@ -32,7 +32,7 @@ export const NOTE_PRESET_COLORS = [
   '#8B5CF6',
 ] as const
 
-export const STATUS_COLORS = {
+export const SYNC_STATUS_COLORS = {
   synced: { color: '#10B981', bg: '#ECFDF5', label: 'Synced' },
   needsReview: { color: '#F59E0B', bg: '#FFFBEB', label: 'Needs Review' },
   outdated: { color: '#EF4444', bg: '#FEF2F2', label: 'Outdated' },

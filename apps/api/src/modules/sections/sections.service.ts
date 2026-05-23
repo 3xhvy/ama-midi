@@ -24,7 +24,7 @@ export class SectionsService {
   }
 
   async create(user: AuthUser, songId: string, dto: CreateSectionDto): Promise<SectionMarker> {
-    await this.access.assertCanEditSong(songId, user)
+    await this.access.assertCanEditSongChart(songId, user)
     const row = await this.prisma.sectionMarker.create({
       data: {
         songId,
@@ -41,7 +41,7 @@ export class SectionsService {
   }
 
   async update(songId: string, id: string, dto: UpdateSectionDto, user: AuthUser): Promise<SectionMarker> {
-    await this.access.assertCanEditSong(songId, user)
+    await this.access.assertCanEditSongChart(songId, user)
     const existing = await this.prisma.sectionMarker.findUnique({ where: { id } })
     if (!existing || existing.songId !== songId) throw new NotFoundException()
     const row = await this.prisma.sectionMarker.update({
@@ -55,7 +55,7 @@ export class SectionsService {
   }
 
   async delete(songId: string, id: string, user: AuthUser): Promise<void> {
-    await this.access.assertCanEditSong(songId, user)
+    await this.access.assertCanEditSongChart(songId, user)
     const existing = await this.prisma.sectionMarker.findUnique({ where: { id } })
     if (!existing || existing.songId !== songId) throw new NotFoundException()
     await this.prisma.sectionMarker.delete({ where: { id } })

@@ -27,7 +27,7 @@ const mockPrisma = {
 const mockEmitter = { emit: jest.fn() }
 const mockAccess = {
   assertCanViewSong: jest.fn(),
-  assertCanEditSong: jest.fn(),
+  assertCanEditSongChart: jest.fn(),
 }
 
 describe('SectionsService', () => {

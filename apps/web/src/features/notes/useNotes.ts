@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { CHART_READ_ONLY_MESSAGES } from '@ama-midi/shared'
 import { useAuthStore } from '../../store/auth.store'
 import { apiClient } from '../auth/api'
 import type { Note } from '@ama-midi/shared'
@@ -19,6 +20,13 @@ export function useNotes(songId: string, timeFrom?: number, timeTo?: number) {
   })
 }
 
+function mutationErrorMessage(err: Error & { status?: number; body?: { message?: string; error?: string } }, fallback: string) {
+  if (err.status === 403) {
+    return err.body?.message ?? CHART_READ_ONLY_MESSAGES.project_read
+  }
+  return fallback
+}
+
 export function useCreateNote(songId: string) {
   const token = useAuthStore((s) => s.token)
   const qc = useQueryClient()
@@ -32,11 +40,11 @@ export function useCreateNote(songId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notes', songId] })
     },
-    onError: (err: Error & { status?: number }) => {
+    onError: (err: Error & { status?: number; body?: { message?: string; error?: string } }) => {
       if (err.status === 409) {
         toast.error('Position already taken')
       } else {
-        toast.error('Failed to create note')
+        toast.error(mutationErrorMessage(err, 'Failed to create note'))
       }
     },
   })
@@ -50,7 +58,9 @@ export function useDeleteNote(songId: string) {
     mutationFn: (noteId: string) =>
       apiClient(token)<void>(`/songs/${songId}/notes/${noteId}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notes', songId] }),
-    onError: () => toast.error('Failed to delete note'),
+    onError: (err: Error & { status?: number; body?: { message?: string; error?: string } }) => {
+      toast.error(mutationErrorMessage(err, 'Failed to delete note'))
+    },
   })
 }
 
@@ -67,7 +77,9 @@ export function useUpdateNote(songId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notes', songId] })
     },
-    onError: () => toast.error('Failed to update note'),
+    onError: (err: Error & { status?: number; body?: { message?: string; error?: string } }) => {
+      toast.error(mutationErrorMessage(err, 'Failed to update note'))
+    },
   })
 }
 

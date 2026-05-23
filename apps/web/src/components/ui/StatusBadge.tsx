@@ -1,26 +1,26 @@
-import { STATUS_COLORS } from '@ama-midi/shared'
+import { SYNC_STATUS_COLORS } from '@ama-midi/shared'
 import { Badge } from './Badge'
 
-type Status = keyof typeof STATUS_COLORS
+type Status = keyof typeof SYNC_STATUS_COLORS
 
 const icons: Record<Status, string> = {
-  synced:      '✓',
-  needsReview: '⚠',
-  outdated:    '✕',
-  draft:       '○',
+  synced: '✓',
+  needsReview: '!',
+  outdated: '×',
+  draft: '○',
 }
 
 const badgeVariants: Record<Status, 'success' | 'warning' | 'error' | 'muted'> = {
-  synced:      'success',
+  synced: 'success',
   needsReview: 'warning',
-  outdated:    'error',
-  draft:       'muted',
+  outdated: 'error',
+  draft: 'muted',
 }
 
 export function StatusBadge({ status, className }: { status: Status; className?: string }) {
   return (
     <Badge variant={badgeVariants[status]} size="sm" icon={<span>{icons[status]}</span>} className={className}>
-      {STATUS_COLORS[status].label}
+      {SYNC_STATUS_COLORS[status].label}
     </Badge>
   )
 }

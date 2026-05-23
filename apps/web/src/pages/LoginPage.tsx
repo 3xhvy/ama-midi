@@ -48,7 +48,7 @@ function GoogleIcon() {
 
 export function LoginPage() {
   return (
-    <AppShell showHeader={false} maxWidth="480px" className="flex min-h-screen items-center justify-center">
+    <AppShell variant="auth" showHeader={false} maxWidth={480} className="flex min-h-screen items-center justify-center">
       <main
         className="flex w-full flex-col items-center gap-8 py-12"
         aria-labelledby="login-title"

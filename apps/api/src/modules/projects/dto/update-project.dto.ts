@@ -1,4 +1,5 @@
 import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'
+import { ProjectStatusEnum } from '@ama-midi/shared'
 
 export class UpdateProjectDto {
   @IsOptional()
@@ -13,6 +14,6 @@ export class UpdateProjectDto {
   description?: string | null
 
   @IsOptional()
-  @IsIn(['ACTIVE', 'PAUSED', 'ARCHIVED'])
+  @IsIn([...ProjectStatusEnum.keys])
   status?: 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
 }

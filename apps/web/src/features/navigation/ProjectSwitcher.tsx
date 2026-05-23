@@ -12,9 +12,13 @@ import { NavDropdown } from './NavDropdown'
 export function ProjectSwitcher({
   currentProjectId,
   currentProjectName,
+  variant = 'default',
+  accent = 'default',
 }: {
   currentProjectId: string
   currentProjectName: string
+  variant?: 'default' | 'breadcrumb' | 'toolbar'
+  accent?: 'default' | 'project' | 'song'
 }) {
   const navigate = useNavigate()
   const { data: projects = [] } = useProjects()
@@ -59,11 +63,19 @@ export function ProjectSwitcher({
 
   return (
     <NavDropdown
+      variant={variant}
+      accent={accent}
       dropdownId="project-switcher-drop"
       triggerLabel={currentProjectName}
       searchPlaceholder="Search projects…"
       sections={sections}
-      triggerClassName="max-w-[140px]"
+      triggerClassName={
+        variant === 'toolbar'
+          ? 'max-w-[120px] sm:max-w-[150px]'
+          : variant === 'breadcrumb'
+            ? 'max-w-[120px] sm:max-w-[150px]'
+            : 'max-w-[140px]'
+      }
     />
   )
 }

@@ -29,7 +29,9 @@ interface EditorStore {
   setCreateMode:        (mode: 'fast' | 'popup') => void
   setEditorMode:        (mode: 'fast' | 'popup') => void
   selectNote:           (id: string | null) => void
+  focusNote:            (id: string | null) => void
   toggleNoteSelection:  (id: string) => void
+  addNoteSelection:     (ids: string[]) => void
   clearSelection:       () => void
   setRightPanelTab:     (tab: RightPanelTab) => void
   toggleLeftPanel:     () => void
@@ -72,10 +74,16 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setCreateMode:        (createMode) => set({ createMode }),
   setEditorMode:        (editorMode) => set({ editorMode }),
   selectNote:           (id) => set({ selectedNoteId: id, selectedNoteIds: id ? new Set([id]) : new Set() }),
+  focusNote:            (id) => set({ selectedNoteId: id }),
   toggleNoteSelection:  (id) => set((s) => {
     const next = new Set(s.selectedNoteIds)
     if (next.has(id)) next.delete(id)
     else next.add(id)
+    return { selectedNoteIds: next, selectedNoteId: next.size === 1 ? [...next][0] : null }
+  }),
+  addNoteSelection:     (ids) => set((s) => {
+    const next = new Set(s.selectedNoteIds)
+    ids.forEach((id) => next.add(id))
     return { selectedNoteIds: next, selectedNoteId: next.size === 1 ? [...next][0] : null }
   }),
   clearSelection:       () => set({ selectedNoteIds: new Set(), selectedNoteId: null }),

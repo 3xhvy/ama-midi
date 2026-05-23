@@ -3,7 +3,7 @@ import { AppShell } from '../components/layout'
 
 export function SongListPage() {
   return (
-    <AppShell>
+    <AppShell variant="management">
       <Navigate to="/projects" replace />
     </AppShell>
   )

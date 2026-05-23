@@ -1,6 +1,6 @@
 import { Cross2Icon, ExitIcon, MoonIcon, PersonIcon, SunIcon } from '@radix-ui/react-icons'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, NavLink } from 'react-router-dom'
 import type { AuthUser } from '@ama-midi/shared'
 import { apiClient } from '../../features/auth/api'
 import { DEPARTMENTS } from '../../features/profile/constants'
@@ -12,12 +12,19 @@ import { Avatar, Button, IconButton, Input } from '../ui'
 
 export interface AppShellProps {
   children: React.ReactNode
-  maxWidth?: string
+  variant?: 'management' | 'editor' | 'auth'
+  maxWidth?: number | string
   showHeader?: boolean
   className?: string
 }
 
-export function AppShell({ children, maxWidth = '1100px', showHeader = true, className }: AppShellProps) {
+export function AppShell({
+  children,
+  variant = 'management',
+  maxWidth,
+  showHeader = true,
+  className,
+}: AppShellProps) {
   const { user, token, setAuth, clearAuth } = useAuthStore()
   const { resolved: theme, setMode: setTheme } = useThemeStore()
   const navigate = useNavigate()
@@ -29,6 +36,9 @@ export function AppShell({ children, maxWidth = '1100px', showHeader = true, cla
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState('')
   const accountRef = useRef<HTMLDivElement>(null)
+
+  const resolvedMaxWidth = maxWidth ?? (variant === 'management' ? 1280 : variant === 'auth' ? 480 : '100%')
+  const mainMaxWidth = typeof resolvedMaxWidth === 'number' ? `${resolvedMaxWidth}px` : resolvedMaxWidth
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -88,6 +98,30 @@ export function AppShell({ children, maxWidth = '1100px', showHeader = true, cla
             <AmanotesIcon className="w-7 h-7 shrink-0" />
             <span className="font-semibold text-shell-text">AMA-MIDI</span>
           </div>
+          {variant === 'management' && (
+            <nav className="ml-8 hidden items-center gap-1 md:flex" aria-label="Primary navigation">
+              {[
+                { to: '/', label: 'Dashboard', end: true },
+                { to: '/projects', label: 'Projects', end: false },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    cn(
+                      'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-shell-muted hover:bg-shell-bg hover:text-shell-text',
+                    )
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+          )}
           {user && (
             <div className="ml-auto flex items-center gap-2">
               <IconButton
@@ -240,7 +274,7 @@ export function AppShell({ children, maxWidth = '1100px', showHeader = true, cla
         </div>
       )}
 
-      <main className="mx-auto px-4 py-8" style={{ maxWidth }}>
+      <main className="mx-auto px-4 py-6 sm:px-6 lg:px-8" style={{ maxWidth: mainMaxWidth }}>
         {children}
       </main>
     </div>

@@ -1,22 +1,26 @@
 import { useState } from 'react'
 import { cn } from '../../../lib/utils'
 import { trackColor } from '@ama-midi/shared'
+import { trackBarWidth } from '../utils/track-density'
 
 export interface TrackHeaderProps {
   track:        number
   isMuted:      boolean
   noteCount:    number
-  maxCount:     number
+  density:      number
   isActive?:    boolean
   onToggleMute: () => void
 }
 
 export function TrackHeader({
-  track, isMuted, noteCount, maxCount, isActive = false, onToggleMute,
+  track, isMuted, noteCount, density, isActive = false, onToggleMute,
 }: TrackHeaderProps) {
-  const density = maxCount > 0 ? noteCount / maxCount : 0
+  const barWidth = trackBarWidth(density)
   const color = trackColor(track)
   const [hovered, setHovered] = useState(false)
+
+  const muteTitle = isMuted ? `Track ${track} (muted — click to unmute)` : `Track ${track} — click to mute`
+  const noteTitle = `${noteCount} note${noteCount === 1 ? '' : 's'} on this track`
 
   return (
     <div
@@ -29,7 +33,7 @@ export function TrackHeader({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onToggleMute}
-      title={isMuted ? `Track ${track} (muted — click to unmute)` : `Track ${track} — click to mute`}
+      title={hovered ? noteTitle : muteTitle}
     >
       <div
         className="w-2 h-2 rounded-full shrink-0 transition-shadow"
@@ -45,10 +49,10 @@ export function TrackHeader({
         T{track}
       </span>
 
-      <div className="flex-1 h-1.5 rounded-full bg-shell-border overflow-hidden">
+      <div className="track-activity-bar-bg flex-1">
         <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${density * 100}%`, backgroundColor: color }}
+          className="track-activity-bar-fill"
+          style={{ width: `${barWidth * 100}%`, backgroundColor: color }}
         />
       </div>
 

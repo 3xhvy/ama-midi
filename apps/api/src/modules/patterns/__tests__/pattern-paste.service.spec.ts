@@ -30,6 +30,7 @@ const patternRow = {
   createdBy: 'user-1',
   songId:    null,
   createdAt: new Date('2026-05-23T10:00:00.000Z'),
+  updatedAt: new Date('2026-05-23T12:00:00.000Z'),
 }
 
 describe('PatternPasteService', () => {
@@ -118,6 +119,11 @@ describe('PatternPasteService', () => {
       })
     })
 
+    it('returns latest patternVersion from pattern updatedAt', async () => {
+      const preview = await service.previewPaste('pattern-1', { songId: 'song-1', startTime: 10 }, mockUser)
+      expect(preview.patternVersion).toBe('2026-05-23T12:00:00.000Z')
+    })
+
     it('uses existing note id as stable conflictId', async () => {
       prisma.note.findMany.mockResolvedValue([
         {
@@ -158,7 +164,7 @@ describe('PatternPasteService', () => {
   })
 
   describe('applyPaste', () => {
-    const patternVersion = patternRow.createdAt.toISOString()
+    const patternVersion = patternRow.updatedAt.toISOString()
 
     it('applies safe notes and skips conflicts marked KEEP_EXISTING', async () => {
       prisma.note.findMany.mockResolvedValue([

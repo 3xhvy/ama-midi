@@ -10,7 +10,7 @@ export const PANEL_WIDTHS = {
   historyOverlay: 320,
 } as const
 
-export const TOPBAR_HEIGHT = 64
+export const TOPBAR_HEIGHT = 52
 export const BOTTOMBAR_HEIGHT = 48
 export const TRACK_HEADER_HEIGHT = 40
 export const TIME_AXIS_WIDTH = 40

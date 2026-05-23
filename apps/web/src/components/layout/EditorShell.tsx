@@ -1,5 +1,5 @@
 import { useIsMobile, useIsTablet } from '../../hooks/useMediaQuery'
-import { TOPBAR_HEIGHT, BOTTOMBAR_HEIGHT, PANEL_WIDTHS } from '../../lib/constants'
+import { BOTTOMBAR_HEIGHT, PANEL_WIDTHS } from '../../lib/constants'
 
 export interface EditorShellProps {
   topBar:          React.ReactNode
@@ -23,7 +23,7 @@ export function EditorShell({
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-shell-bg">
-      <header className="shrink-0 flex items-center border-b border-shell-border bg-shell-surface px-4" style={{ height: TOPBAR_HEIGHT }}>
+      <header className="editor-toolbar shrink-0 flex flex-col px-4">
         {topBar}
       </header>
 

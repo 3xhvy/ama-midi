@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req } fro
 import { AuthGuard } from '@nestjs/passport'
 import { SongsService } from './songs.service'
 import { UpdateSongDto } from './dto/update-song.dto'
+import { UpdateSongStatusDto } from './dto/update-song-status.dto'
 import type { Request } from 'express'
 import type { AuthUser } from '@ama-midi/shared'
 
@@ -15,6 +16,11 @@ export class SongsController {
     return this.songs.findAll(req.user as AuthUser)
   }
 
+  @Get(':id/workflow')
+  getWorkflow(@Param('id') id: string, @Req() req: Request) {
+    return this.songs.getWorkflow(id, req.user as AuthUser)
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req: Request) {
     return this.songs.findOne(id, req.user as AuthUser)
@@ -23,6 +29,11 @@ export class SongsController {
   @Post()
   create(@Body('name') name: string, @Req() req: Request) {
     return this.songs.create(name, req.user as AuthUser)
+  }
+
+  @Patch(':id/status')
+  transitionStatus(@Param('id') id: string, @Body() dto: UpdateSongStatusDto, @Req() req: Request) {
+    return this.songs.transitionStatus(id, dto, req.user as AuthUser)
   }
 
   @Patch(':id')

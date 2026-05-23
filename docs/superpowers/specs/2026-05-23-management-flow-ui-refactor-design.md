@@ -1,238 +1,374 @@
 # Management Flow UI Refactor Design
 
 **Date:** 2026-05-23
-**Goal:** Refactor the dashboard, project directory, and project workspace into a more professional, dense, user-friendly management flow.
-**Scope:** Frontend management UI only. The editor UI, editor routes, and editor navigation chrome are explicitly out of scope.
+**Goal:** Refactor dashboard, project directory, and project workspace into a coherent, dense, professional management surface. Land a centralized enum/status system as the foundation so every status badge, filter, and color reads from one table.
+**Scope:** Frontend management UI + shared enum layer. Editor UI, editor routes, and API schema changes are out of scope.
+
+## Audience
+
+Internal team workspace. Composers, producers, QA, developers. Pre-production. Desktop-first.
 
 ## Decisions
 
 | Topic | Decision |
 |---|---|
-| Primary audience | Balanced team workspace for composers, producers, QA, and developers. |
-| Visual direction | Dense professional SaaS: compact, operational, table-first, fast scanning. |
-| Route model | Keep the existing route model and canonical project-song-editor flow. |
-| Editor impact | Do not change editor components, editor layout, or editor route styling. |
-| Behavior impact | Prefer presentation and layout refactors over new product behavior. |
+| Visual direction | Dense professional SaaS. Compact, operational, table-first. |
+| Route model | Keep existing routes and canonical project → song → editor flow. |
+| Editor impact | Zero. Editor route renders pixel-identical pre/post refactor. |
+| Behavior impact | Presentation only. No new product behavior except enum cleanup. |
+| Foundation work | Centralize enums (`SongStatus`, `ProjectStatus`, `SongCategory`, `SongDifficulty`, `ProjectPermission`, `SongScope`, `UserRole`, `NoteType`, `NoteEventType`) into `packages/shared/src/enums.ts` before UI touches them. |
+| i18n | Reserve `labelKey` per enum entry now. Wire later. |
+| Rollout | Direct to `main`. No feature flag. Internal users only. |
+| Mobile | Defer. Define one breakpoint at 768px where two-column grid stacks. No further mobile polish. |
+| AppShell variants | Add `variant?: 'management' \| 'editor' \| 'auth'`, default `'management'`. Editor passes `'editor'`. |
 
-## Current Issues
+## Current State
 
-The current management pages are functional, but they read as separate plain pages rather than one coherent product surface.
-
-- The app shell has branding and account controls but no primary management navigation.
-- Dashboard sections are stacked equally, so urgent work does not stand out.
-- Project pages use simple headings and tabs, with limited production context in the header.
-- Project cards and song rows are usable but visually light for a production management workflow.
-- Empty and loading states are minimal and do not guide the user toward the next action.
+- App shell has branding and account controls but no primary management navigation.
+- Dashboard sections stack equally; urgent work does not stand out.
+- Project pages use plain headings + tabs, no production context in header.
+- Project cards and song rows usable but visually light for production workflow.
+- Empty/loading states minimal, do not guide next action.
+- Enum logic duplicated: `SONG_STATUS_LABELS` in `constants.ts`, variant map in `SongStatusBadge.tsx`, ad-hoc maps in 8+ components, no labels for category/difficulty at all.
+- Uncommitted nav edits exist on `EditorBreadcrumb.tsx`, `NavDropdown.tsx`, `ProjectSwitcher.tsx`. Plan: commit those first as a standalone PR, then start this refactor from clean base.
 
 ## Target Flow
 
-The navigation flow remains stable:
+Navigation flow stable:
 
 ```txt
 Dashboard -> Project Directory -> Project Workspace -> Song Editor
 Dashboard -> Recent / Assigned / Review Song -> Song Editor
 ```
 
-The management pages should feel like a single operational system:
+- Dashboard: "What needs attention across projects?"
+- Project directory: "Which workspace should I enter?"
+- Project workspace: "What is happening inside this project?"
+- Editor: focused chart editing — untouched.
 
-- Dashboard answers: "What needs attention across projects?"
-- Project directory answers: "Which workspace should I enter?"
-- Project workspace answers: "What is happening inside this project?"
-- Editor remains the focused chart editing surface and is not restyled by this work.
+## Phase 0 — Centralize Enums (Foundation, ships first)
 
-## App Shell
+Separate PR. Blocks all UI work.
 
-Management pages use a stronger shared shell.
+`packages/shared/src/enums.ts`:
 
-Header:
+```ts
+export type EnumVariant = 'muted' | 'warning' | 'error' | 'success' | 'info'
 
-- AMA-MIDI brand on the left.
-- Primary navigation links: `Dashboard` and `Projects`.
-- Active route state for the current management page.
-- Existing theme toggle and account menu on the right.
+export interface EnumMeta<K extends string = string> {
+  key: K
+  labelKey: string
+  labelFallback: string
+  color: string
+  bg: string
+  variant: EnumVariant
+}
 
-Main area:
+export function defineEnum<const T extends readonly EnumMeta[]>(entries: T) {
+  const byKey = Object.fromEntries(entries.map((e) => [e.key, e])) as {
+    [K in T[number]['key']]: Extract<T[number], { key: K }>
+  }
+  return {
+    entries,
+    keys: entries.map((e) => e.key) as ReadonlyArray<T[number]['key']>,
+    byKey,
+    label:   (k: T[number]['key']) => byKey[k].labelFallback,
+    color:   (k: T[number]['key']) => byKey[k].color,
+    bg:      (k: T[number]['key']) => byKey[k].bg,
+    variant: (k: T[number]['key']) => byKey[k].variant,
+  }
+}
 
-- Wider operational max width, approximately `1280px`.
-- Compact top and bottom padding.
-- Shared page header patterns across dashboard, project list, and project detail.
+export const SongStatusEnum = defineEnum([
+  { key: 'DRAFT',     labelKey: 'song.status.draft',     labelFallback: 'Draft',      color: '#6B6585', bg: '#F3F0F9', variant: 'muted'   },
+  { key: 'IN_REVIEW', labelKey: 'song.status.inReview',  labelFallback: 'In Review',  color: '#F59E0B', bg: '#FFFBEB', variant: 'warning' },
+  { key: 'NEEDS_FIX', labelKey: 'song.status.needsFix',  labelFallback: 'Needs Fix',  color: '#EF4444', bg: '#FEF2F2', variant: 'error'   },
+  { key: 'APPROVED',  labelKey: 'song.status.approved',  labelFallback: 'Approved',   color: '#10B981', bg: '#ECFDF5', variant: 'success' },
+  { key: 'PUBLISHED', labelKey: 'song.status.published', labelFallback: 'Published',  color: '#059669', bg: '#D1FAE5', variant: 'success' },
+  { key: 'ARCHIVED',  labelKey: 'song.status.archived',  labelFallback: 'Archived',   color: '#6B7280', bg: '#F3F4F6', variant: 'muted'   },
+] as const)
+export type SongStatus = typeof SongStatusEnum.keys[number]
+```
 
-The shell must remain compatible with pages that already pass custom `maxWidth` or hide the header. Editor-specific shells and editor layout components are not part of this refactor.
+Repeat for `ProjectStatusEnum`, `ProjectPermissionEnum`, `SongScopeEnum`, `SongCategoryEnum`, `SongDifficultyEnum`, `UserRoleEnum`, `NoteTypeEnum`, `NoteEventTypeEnum`.
 
-## Dashboard
+Migration steps (Phase 0 only):
 
-The dashboard becomes a compact team operations overview.
+1. Add `enums.ts`. Export from `index.ts`.
+2. `types.ts`: replace each union literal with `export type X = typeof XEnum.keys[number]`. Existing imports continue working.
+3. `song-status-workflow.ts`: import `SongStatus` from enums.
+4. Delete `SONG_STATUS_LABELS` from `constants.ts`. Keep `*_OPTIONS` aliases for one release.
+5. Rename `STATUS_COLORS` → `SYNC_STATUS_COLORS` (it is sync state, not song state). Update `StatusBadge.tsx`.
+6. Replace `SongStatusBadge.tsx` variants map with `SongStatusEnum.variant(status)`.
+7. Sweep ad-hoc maps: `SongTable.tsx`, `SongStatusMenu.tsx`, `song-table-filters.ts`, `useSongWorkflow.ts`, `DashboardSongList.tsx`, `EditorBreadcrumb.tsx`, `Toolbar.tsx`, `SongSwitcher.tsx`.
+8. Inline category/difficulty title-casing → `*Enum.label(k)`.
+9. API DTOs: replace hardcoded `IsIn([...])` arrays with `IsIn([...XEnum.keys])`.
+10. Prisma ↔ shared drift test in `apps/api`. Regex-parse `schema.prisma`, assert each `enum X { ... }` equals `XEnum.keys`.
+11. Unit test per enum asserts key order.
+
+Acceptance (Phase 0):
+
+- [ ] `grep -rn "Record<SongStatus" apps/web/src` returns zero
+- [ ] `SONG_STATUS_LABELS` deleted
+- [ ] `STATUS_COLORS` renamed
+- [ ] Prisma drift test passes
+- [ ] Web + API type-check + tests pass
+
+## Phase 1 — AppShell
+
+`apps/web/src/components/layout/AppShell.tsx`.
+
+Prop API:
+
+```ts
+interface AppShellProps {
+  variant?: 'management' | 'editor' | 'auth'  // default 'management'
+  maxWidth?: number                            // override; default depends on variant
+  hideHeader?: boolean                         // unchanged
+  children: ReactNode
+}
+```
+
+Variant behavior:
+
+| Variant | Header nav | Default maxWidth |
+|---|---|---|
+| `management` | Brand + `Dashboard` / `Projects` links + active state + theme + account | 1280px |
+| `editor` | Brand + theme + account only | full width |
+| `auth` | Brand only | 480px |
+
+Audit every current `<AppShell>` caller. Set explicit `variant` on each:
+
+- `EditorPage.tsx` → `editor`
+- `App.tsx` / dashboard route → `management`
+- `ProjectDashboardPage.tsx` → `management`
+- `ProjectPage.tsx` → `management`
+- Login page → `auth`
+
+Acceptance (Phase 1):
+
+- [ ] Editor route screenshot matches baseline pixel-for-pixel
+- [ ] Management routes show new nav with active state
+- [ ] Auth route unchanged
+
+## Phase 2 — Dashboard
+
+`apps/web/src/features/dashboard/`
 
 Layout:
 
 ```txt
-Page header
-  Title: Dashboard
-  Subtitle: Cross-project production work, reviews, and recent activity
-
-Summary strip
-  Needs review count
-  Assigned to me count
-  Recent songs count
-  Active projects count
-
-Main grid
-  Left column:
-    Needs Review
-    Assigned to Me
-    Recent Songs
-
-  Right column:
-    My Projects
++-------------------------------------------------------------+
+| Page header                                                 |
+|   Title: Dashboard                                          |
+|   Subtitle: Cross-project production work + activity        |
++-------------------------------------------------------------+
+| Summary strip (≤ 64px tall)                                 |
+|   [Needs review N] [Assigned N] [Recent N] [Active proj N]  |
++-------------------------------------------------------------+
+| Main grid (collapses to single column < 768px)              |
+|   Left col (2/3 width):     | Right col (1/3 width):        |
+|     Needs Review            |   My Projects                 |
+|     Assigned to Me          |                               |
+|     Recent Songs            |                               |
++-------------------------------------------------------------+
 ```
 
-Design rules:
+Rules:
 
-- Put `Needs Review` first because it is the most team-actionable queue.
-- Use compact section headers with counts where useful.
-- Render song rows in a denser list style: song, project, status, updated time.
-- Keep status badges visible but not oversized.
-- Use inline empty states for empty queues.
-- Keep `View all projects` available from the project panel.
+- `Needs Review` first — most team-actionable queue.
+- Compact section headers with counts.
+- Song rows: dense list — song name, project, status badge, updated time. ≤ 48px tall.
+- Status badges use `SongStatusEnum.variant()` + `SongStatusEnum.label()`.
+- Inline empty states per queue ("No songs need review").
+- `View all projects` link on project panel.
 
-Data flow:
+Data:
 
-- Continue using `useDashboard()` for `recentSongs`, `assignedToMe`, and `needsReview`.
-- Continue using `useProjects()` for project data.
-- Do not introduce new API requirements for this UI refactor.
+- `useDashboard()` for `recentSongs`, `assignedToMe`, `needsReview`.
+- `useProjects()` for projects.
+- No new API requirements.
 
-## Project Directory
+Acceptance (Phase 2):
 
-`/projects` becomes a proper project directory rather than a loose card grid.
+- [ ] Summary strip ≤ 64px
+- [ ] Song row ≤ 48px
+- [ ] Grid stacks at < 768px
+- [ ] All status pills source from `SongStatusEnum`
+
+## Phase 3 — Project Directory
+
+`apps/web/src/features/projects/ProjectDashboardPage.tsx`
 
 Header:
 
-- Breadcrumb or back link to `Dashboard`.
-- Title: `Projects`.
-- Subtitle: `Workspaces for songs, members, and production status`.
-- Primary action: `New Project`.
+```txt
+< Dashboard
+Projects
+Workspaces for songs, members, and production status      [+ New Project]
+```
 
-Directory controls:
+Controls row:
 
-- Search projects by name and description.
-- Filter by project status.
+```txt
+[Search projects...]  [Status: All ▾]
+```
 
-Project list:
+- Status filter uses `ProjectStatusEnum.entries`.
+- Search/filter run locally against `useProjects()` result. `// Revisit if project count > 200.`
 
-- Use compact project cards or row-like cards.
-- Emphasize project name and status.
-- Group metadata: song count, member count, last updated.
-- Keep description optional and visually secondary.
-- Use clear hover and keyboard focus states.
+List:
+
+```txt
++----------------------------------------------------------+
+| Project Name                              [Status badge] |
+| Description (muted, optional)                            |
+| 12 songs · 4 members · Updated 2h ago                    |
++----------------------------------------------------------+
+```
 
 Empty state:
 
-- Explain that projects contain songs and members.
-- Surface `New Project` as the next action.
+```txt
+No projects yet
+Projects contain songs and members. Create one to start.
+[+ New Project]
+```
 
-Filtering should be implemented locally against the already loaded project list unless the existing API shape changes later.
+Acceptance (Phase 3):
 
-## Project Workspace
+- [ ] Search + filter work without re-fetch
+- [ ] Empty state shows action
+- [ ] Card uses `ProjectStatusEnum` for badge
 
-`/projects/:projectId` becomes the main production workspace for a project.
+## Phase 4 — Project Workspace
+
+`apps/web/src/features/projects/ProjectPage.tsx`
 
 Header:
 
-- Back link to `Projects`.
-- Project name.
-- Status badge.
-- Metadata: song count, member count, last updated if available.
-- Primary action: `New Song`.
-
-Tabs:
-
 ```txt
-Songs | Members | Settings
+< Projects
+Project Name                          [Status]  [+ New Song]
+12 songs · 4 members · Updated 2h ago
 ```
 
-Songs tab:
+Tabs: `Songs | Members | Settings`
 
-- Keep the existing search and status filter.
-- Improve spacing and alignment so the table reads as the primary object.
-- Keep columns focused on management: song, status, composer, QA, last edited, validation, actions.
-- Keep `Open Editor` as the route into chart editing.
+Songs tab — `SongTable.tsx`:
 
-Members tab:
+- Keep search + status filter. Both source from enums.
+- Columns: Song · Status · Composer · QA · Last Edited · Validation · Actions.
+- `Open Editor` action unchanged.
+- Row density tighter (≤ 44px).
+- Filter chips use `SongStatusEnum.entries`.
+- Empty state when filter active: "No songs match. Clear filters?"
 
-- Keep existing behavior.
-- Apply only surrounding layout polish if needed.
+Members tab: layout polish only. Behavior unchanged.
 
-Settings tab:
+Settings tab: placeholder styled consistently. No new behavior.
 
-- Keep current placeholder behavior unless existing project settings are already implemented.
-- Style it consistently with the management surface.
+Acceptance (Phase 4):
 
-## Components
-
-Expected focused changes:
-
-- `AppShell`: add primary management navigation and support the wider default management layout.
-- `DashboardPage`: reorganize into summary strip plus two-column operational grid.
-- `DashboardSongList`: make rows denser and more table-like.
-- `ProjectDashboardPage`: add directory controls and improve header/action hierarchy.
-- `ProjectListSection`: support compact professional cards and better empty/loading states.
-- `ProjectCard`: polish metadata hierarchy and status display.
-- `ProjectPage`: improve project header and tab surface.
-- `SongTable`: polish table toolbar, empty state, and row density without changing editor links.
-
-No editor components should be modified as part of this work.
+- [ ] Song row ≤ 44px
+- [ ] Filter chips driven by enum, not literals
+- [ ] Empty + filtered-empty states distinct
 
 ## Styling Direction
 
-The management UI should be professional and restrained:
+- Compact spacing. Clear hierarchy. No hero sections.
+- Border radius ≤ 8px on new management cards/panels.
+- Neutral surfaces. Brand purple as accent only — active links, primary actions.
+- Light + dark theme readable.
+- Tokens — reuse `globals.css` variables. New tokens only if no existing one fits.
 
-- Use compact spacing and clear hierarchy.
-- Avoid decorative hero sections.
-- Avoid marketing-style cards and oversized headings.
-- Keep border radius at `8px` or below for new management cards and panels unless an existing component requires otherwise.
-- Prefer neutral surfaces with limited brand accent use for active states and primary actions.
-- Ensure light and dark themes both remain readable.
-- Avoid a one-color visual theme; primary purple should be an accent, not the whole page personality.
+## Loading / Error / Empty
 
-## Error, Loading, And Empty States
+Loading:
 
-Loading states:
+- Inline skeletons per panel. No full-page spinner on management pages.
 
-- Use quiet inline skeleton-like panels or concise loading rows.
-- Avoid large centered loading messages on management pages.
+Empty:
 
-Empty states:
-
-- Dashboard queues: short inline messages.
-- Project directory: explain the next action and offer `New Project`.
-- Project song table: explain filters may be hiding songs, and keep the filter controls visible.
+- Dashboard queues: inline message + nothing else.
+- Directory: explain + offer `New Project`.
+- Workspace songs: distinguish "no songs yet" from "filter hid all songs".
 
 Errors:
 
-- No new error handling is required unless existing hooks expose errors.
-- If surfaced, errors should appear near the affected section, not as full-page failures.
+- No new error handling. Existing hooks expose errors → render near affected section, never full-page.
+
+## Regression Guards
+
+Before Phase 1 lands:
+
+- Playwright screenshot of `/editor/:songId` at 1440×900. Diff post-refactor.
+- Snapshot list of all current `<AppShell>` callers with their props.
+- Editor smoke: open editor, add note, save. Confirm header chrome unchanged.
+
+After each phase:
+
+- `pnpm --filter web build` — type + bundle.
+- `pnpm --filter web test` — unit suite.
+- Manual check: light + dark, 1440px + 768px.
 
 ## Testing
 
-Focused tests should cover behavior introduced by the UI refactor:
+- Unit: project directory filter helper (pure function — easy to test).
+- Unit: each `*Enum.keys` matches expected order (Phase 0).
+- Integration: Prisma ↔ shared drift test (Phase 0).
+- Existing dashboard + song-table tests must continue passing.
+- Manual: `/`, `/projects` (0/1/many), `/projects/:id` (empty + populated), 1440px + 768px, light + dark, confirm `/editor/:id` unchanged.
 
-- Project directory filtering by search text and status if implemented as pure helper logic.
-- Existing dashboard and song table unit tests should continue passing.
-- Build or type-check the web app after implementation.
+## Sequencing
 
-Manual verification should cover:
+```txt
+Pre: Commit in-flight nav edits as standalone PR. Land on main.
 
-- `/` dashboard in light and dark modes.
-- `/projects` with zero, one, and many projects.
-- `/projects/:projectId` with empty and populated song lists.
-- Responsive behavior at mobile and desktop widths.
-- Confirming editor pages are visually unaffected.
+PR 1 — Phase 0 (Enums)        [blocks all below]
+PR 2 — Phase 1 (AppShell)     [blocks Phase 2-4]
+PR 3 — Phase 2 (Dashboard)    ┐
+PR 4 — Phase 3 (Directory)    ├ parallelizable after Phase 1
+PR 5 — Phase 4 (Workspace)    ┘
+```
+
+Phases 2-4 can be split across developers once Phase 1 ships.
+
+## Risks
+
+| Risk | Mitigation |
+|---|---|
+| AppShell change breaks editor chrome | Playwright screenshot diff before Phase 1 merges |
+| Enum migration causes color drift in existing badges | Expected — same source of truth fixes inconsistency. Document in PR with before/after. |
+| Prisma vs shared enum drift | Drift test in Phase 0 (regex parse + assert) |
+| Local project filter doesn't scale | Document 200-project ceiling. Server search = separate ticket. |
+| Two-column dashboard breaks on tablet | Single breakpoint at 768px. Stack vertically below. |
+| Uncommitted nav work conflicts | Land it as own PR before this refactor starts |
+
+## Opposing Case
+
+Restyle work disguised as architecture — no new behavior, no schema changes. A skeptic says: skip the spec, open a visual PR, iterate in code. Counter: (1) shared enum work has cross-cutting impact and must precede UI changes; (2) AppShell variant prop is a real contract that consumers across the app must adopt — needs design before code; (3) editor regression risk is real (every management page shares `<AppShell>` with the editor). Without phases 0-1 written down, phases 2-4 will diverge across engineers.
 
 ## Out Of Scope
 
-- Editor layout, toolbar, breadcrumb, piano roll, panels, and editor interactions.
-- API schema changes.
-- New role-based dashboard behavior.
-- Command palette.
-- Server-side project search or pagination.
-- Project settings implementation beyond existing placeholder styling.
+- Editor layout, toolbar, breadcrumb, piano roll, panels, editor interactions
+- API schema changes
+- New role-based dashboard behavior
+- Command palette
+- Server-side project search or pagination
+- Project settings implementation beyond placeholder styling
+- i18n runtime (labelKey reserved, translation table not wired)
+- Mobile polish beyond single 768px breakpoint
+- New enums (only consolidate existing)
+
+## Estimate
+
+| Phase | Effort |
+|---|---|
+| Pre — commit nav edits | 30min |
+| 0 — Enums | 2-3h |
+| 1 — AppShell | 1-2h |
+| 2 — Dashboard | 3-4h |
+| 3 — Directory | 2-3h |
+| 4 — Workspace | 2-3h |
+| Total | ~12-16h, 5 PRs |

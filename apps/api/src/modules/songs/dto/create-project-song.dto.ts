@@ -1,5 +1,6 @@
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
+import { SongCategoryEnum, SongDifficultyEnum, type SongCategory, type SongDifficulty } from '@ama-midi/shared'
 
 class ImportSongDto {
   @IsUUID()
@@ -24,11 +25,11 @@ export class CreateProjectSongDto {
   @MaxLength(160)
   name!: string
 
-  @IsIn(['MAIN_CAMPAIGN', 'EVENT', 'TUTORIAL', 'LIVE_OPS', 'PROTOTYPE', 'QA_TEST', 'TEMPLATE', 'REFERENCE'])
-  category!: 'MAIN_CAMPAIGN' | 'EVENT' | 'TUTORIAL' | 'LIVE_OPS' | 'PROTOTYPE' | 'QA_TEST' | 'TEMPLATE' | 'REFERENCE'
+  @IsIn([...SongCategoryEnum.keys])
+  category!: SongCategory
 
-  @IsIn(['EASY', 'NORMAL', 'HARD', 'EXPERT', 'MASTER'])
-  difficulty!: 'EASY' | 'NORMAL' | 'HARD' | 'EXPERT' | 'MASTER'
+  @IsIn([...SongDifficultyEnum.keys])
+  difficulty!: SongDifficulty
 
   @IsInt()
   @Min(40)

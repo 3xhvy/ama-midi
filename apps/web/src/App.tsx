@@ -48,7 +48,11 @@ export default function App() {
           <Route path="/songs" element={<RequireAuth><SongListPage /></RequireAuth>} />
           <Route path="/songs/:songId" element={<RequireAuth><LegacySongEditorRedirect /></RequireAuth>} />
         </Routes>
-        <Toaster position="bottom-right" richColors />
+        <Toaster
+          position="bottom-right"
+          theme="dark"
+          toastOptions={{ classNames: { toast: 'ama-toast' } }}
+        />
       </BrowserRouter>
     </QueryClientProvider>
   )

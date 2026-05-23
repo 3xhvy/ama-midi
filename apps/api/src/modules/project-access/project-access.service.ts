@@ -69,6 +69,16 @@ export class ProjectAccessService {
     return { projectId, id: { in: membership.selectedSongs.map((s) => s.songId) } }
   }
 
+  async getProjectPermission(projectId: string, user: AuthUser): Promise<Permission | null> {
+    if (user.role === 'ADMIN') return 'ADMIN'
+    try {
+      const membership = await this.getMembership(projectId, user.id)
+      return membership.permission
+    } catch {
+      return null
+    }
+  }
+
   private async getSong(songId: string) {
     const song = await this.prisma.song.findUnique({
       where: { id: songId },

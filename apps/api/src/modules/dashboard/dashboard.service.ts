@@ -49,7 +49,7 @@ export class DashboardService {
         where: {
           archivedAt: null,
           assignedQaId: user.id,
-          status: 'IN_REVIEW',
+          status: { in: ['IN_REVIEW', 'NEEDS_FIX'] },
         },
         include: this.include(),
         orderBy: { updatedAt: 'desc' },

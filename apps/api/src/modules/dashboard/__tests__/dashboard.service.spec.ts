@@ -46,8 +46,11 @@ describe('DashboardService', () => {
   })
 
   it('returns needsReview songs assigned to current QA user', async () => {
-    prisma.song.findMany.mockImplementation((args: { where?: { status?: string } }) => {
-      if (args.where?.status === 'IN_REVIEW') return Promise.resolve([songRow])
+    prisma.song.findMany.mockImplementation((args: { where?: { status?: string | { in?: string[] } } }) => {
+      const status = args.where?.status
+      if (typeof status === 'object' && status?.in?.includes('IN_REVIEW')) {
+        return Promise.resolve([songRow])
+      }
       return Promise.resolve([])
     })
 
@@ -59,8 +62,9 @@ describe('DashboardService', () => {
   })
 
   it('maps assignedToMe without requiring IN_REVIEW status', async () => {
-    prisma.song.findMany.mockImplementation((args: { where?: { status?: string; OR?: Record<string, unknown>[] } }) => {
-      if (args.where?.status === 'IN_REVIEW') return Promise.resolve([])
+    prisma.song.findMany.mockImplementation((args: { where?: { status?: string | { in?: string[] }; OR?: Record<string, unknown>[] } }) => {
+      const status = args.where?.status
+      if (typeof status === 'object' && status?.in) return Promise.resolve([])
       const or = args.where?.OR ?? []
       if (or.some((c) => 'assignedComposerId' in c || 'assignedQaId' in c)) {
         return Promise.resolve([{ ...songRow, status: 'DRAFT' }])

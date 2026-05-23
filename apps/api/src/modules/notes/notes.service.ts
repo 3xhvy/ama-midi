@@ -149,6 +149,8 @@ export class NotesService {
 
     const undoBatchId = randomUUID()
     let lastNoteId = batchEvents[0]?.noteId ?? batchEvents[0]?.id
+    const restoredNotes: Note[] = []
+    const deletedIds: string[] = []
 
     for (const event of batchEvents) {
       if (event.eventType === 'NOTE_CREATED' && event.noteId) {
@@ -172,6 +174,7 @@ export class NotesService {
           realtimeMode: 'batch',
         } satisfies NoteDeletedEvent)
 
+        deletedIds.push(note.id)
         lastNoteId = note.id
       }
 
@@ -224,6 +227,7 @@ export class NotesService {
           realtimeMode: 'batch',
         } satisfies NoteCreatedEvent)
 
+        restoredNotes.push(note)
         lastNoteId = note.id
       }
     }
@@ -231,8 +235,8 @@ export class NotesService {
     this.eventEmitter.emit(NOTE_EVENTS.BATCH_APPLIED, {
       songId,
       batchId: undoBatchId,
-      created: [],
-      deletedIds: [],
+      created: restoredNotes,
+      deletedIds,
       actorId: user.id,
     })
 
@@ -245,7 +249,7 @@ export class NotesService {
       include: { creator: { select: { name: true, avatarUrl: true } } },
     })
     if (!existing) throw new NotFoundException('Note not found')
-    await this.access.assertCanEditSong(existing.songId, user)
+    await this.access.assertCanEditSongChart(existing.songId, user)
     if (existing.createdBy !== user.id && user.role !== 'ADMIN') throw new ForbiddenException()
 
     const track = existing.track

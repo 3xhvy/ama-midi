@@ -66,16 +66,24 @@ export function useSocket(songId: string, projectId?: string) {
 
     socket.on('disconnect', () => {
       setIsConnected(false)
-      toast.loading('Connection lost — reconnecting...', { id: 'ws-disconnect', duration: Infinity })
+      toast.loading('Connection lost — reconnecting...', {
+        id: 'ws-disconnect',
+        duration: Infinity,
+        className: 'ama-toast ama-toast--connecting',
+      })
     })
 
     socket.on('connect_error', () => {
-      toast.loading('Connection lost — reconnecting...', { id: 'ws-disconnect', duration: Infinity })
+      toast.loading('Connection lost — reconnecting...', {
+        id: 'ws-disconnect',
+        duration: Infinity,
+        className: 'ama-toast ama-toast--connecting',
+      })
     })
 
     socket.io.on('reconnect', () => {
       toast.dismiss('ws-disconnect')
-      toast.success('Back online — syncing changes')
+      toast.success('Back online — syncing changes', { className: 'ama-toast ama-toast--success' })
       setIsConnected(true)
     })
 

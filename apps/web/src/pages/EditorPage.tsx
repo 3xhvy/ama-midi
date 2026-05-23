@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, type ReactNode } from 'react'
+import { useRef, useState, useEffect, useMemo, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSongTour }  from '../features/onboarding/useSongTour'
 import { TourOverlay }  from '../features/onboarding/TourOverlay'
@@ -24,7 +24,7 @@ import { ShortcutLegend } from '../features/editor/components/ShortcutLegend'
 import { useSocket } from '../features/collaboration/useSocket'
 import { useEditorStore } from '../store/editor.store'
 import { useUndo } from '../features/notes/useNotes'
-import { useCanEdit } from '../hooks/useCanEdit'
+import { useSongChartAccess } from '../hooks/useSongChartAccess'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useIsMobile } from '../hooks/useMediaQuery'
 import { useAuthStore } from '../store/auth.store'
@@ -32,11 +32,9 @@ import { apiClient } from '../features/auth/api'
 import { type Note, type NoteType, type Song, trackColor } from '@ama-midi/shared'
 import { useProject } from '../features/projects/useProjects'
 import { recordRecentProject, recordRecentSong } from '../features/navigation/recent-navigation'
+import { useValidation } from '../features/validation/useValidation'
+import { computeTrackDensity } from '../features/editor/utils/track-density'
 import type { SnapMode } from '../features/editor/engine/beat-calculator'
-
-interface ValidationResult {
-  summary: { errors: number; warnings: number }
-}
 
 export function EditorPage() {
   const { projectId, songId } = useParams<{ projectId?: string; songId: string }>()
@@ -47,8 +45,8 @@ export function EditorPage() {
     leftCollapsed, rightCollapsed,
     toggleLeftPanel, toggleRightPanel,
     setLeftCollapsed, setRightCollapsed,
-    playheadTime, selectNote, triggerAiSuggest,
-    selectedNoteIds, clearSelection,
+    playheadTime, triggerAiSuggest,
+    selectedNoteIds, clearSelection, focusNote,
     activeTrack,
   } = useEditorStore()
 
@@ -73,7 +71,6 @@ export function EditorPage() {
   const { data: allNotes = [] } = useNotes(songId!)
   const { data: sections = [] } = useSections(songId!)
   const { presenceList, cursors, emitCursorMove } = useSocket(songId!, projectId)
-  const canEdit = useCanEdit()
   const token = useAuthStore((s) => s.token)
 
   const { data: song } = useQuery<Song>({
@@ -81,6 +78,8 @@ export function EditorPage() {
     queryFn:  () => apiClient(token)<Song>(`/songs/${songId}`),
     enabled:  !!token && !!songId,
   })
+
+  const { canEdit, readOnlyMessage } = useSongChartAccess(songId, song)
 
   const { data: project } = useProject(projectId)
 
@@ -102,12 +101,7 @@ export function EditorPage() {
 
   const jumpToRef = useRef<((time: number, track?: number) => void) | null>(null)
 
-  const { data: validationData } = useQuery<ValidationResult>({
-    queryKey: ['validation', songId],
-    queryFn: () => apiClient(token)<ValidationResult>(`/songs/${songId}/validation`),
-    staleTime: 30_000,
-    enabled: !!token && !!songId,
-  })
+  const { summary: validationSummary, data: validationData } = useValidation(songId)
 
   function toggleMute(track: number, alt: boolean) {
     if (alt) {
@@ -124,7 +118,7 @@ export function EditorPage() {
   }
 
   function handleNoteSelected(note: Note | null) {
-    selectNote(note?.id ?? null)
+    focusNote(note?.id ?? null)
   }
 
   useKeyboardShortcuts({
@@ -138,10 +132,11 @@ export function EditorPage() {
     onToggleRightPanel: handleToggleRight,
   })
 
+  const trackDensities = useMemo(() => computeTrackDensity(allNotes), [allNotes])
+
   if (!songId) return null
 
-  const errCount = validationData?.summary.errors ?? 0
-  const warnCount = validationData?.summary.warnings ?? 0
+  const { errors: errCount, warnings: warnCount, total: validationTotal } = validationSummary
 
   const topBar = (
     <Toolbar
@@ -149,6 +144,9 @@ export function EditorPage() {
       projectName={project?.name ?? 'Project'}
       songId={songId!}
       songName={song?.name ?? '…'}
+      songStatus={song?.status ?? 'DRAFT'}
+      canEdit={canEdit}
+      readOnlyMessage={readOnlyMessage}
       bpm={song?.bpm ?? 120}
       presenceList={presenceList}
       onSuggest={() => triggerAiSuggest?.()}
@@ -160,10 +158,6 @@ export function EditorPage() {
     />
   )
 
-  const maxNoteCount = Math.max(
-    1,
-    ...Array.from({ length: 8 }, (_, i) => allNotes.filter(n => n.track === i + 1).length),
-  )
   const selectedNoteObjects = allNotes.filter(n => selectedNoteIds.has(n.id))
 
   const leftPanel = (
@@ -178,7 +172,7 @@ export function EditorPage() {
             track={track}
             isMuted={mutedTracks.has(track)}
             noteCount={allNotes.filter(n => n.track === track).length}
-            maxCount={maxNoteCount}
+            density={trackDensities[track] ?? 0}
             isActive={activeTrack === track}
             onToggleMute={() => toggleMute(track, false)}
           />
@@ -207,9 +201,12 @@ export function EditorPage() {
           <Tabs.Trigger value="tools">tools</Tabs.Trigger>
           <Tabs.Trigger value="validation">
             val
-            {(errCount > 0 || warnCount > 0) && (
-              <span className={`ml-1 text-[10px] ${errCount > 0 ? 'text-red-400' : 'text-yellow-400'}`}>
-                {errCount > 0 ? errCount : warnCount}
+            {validationTotal > 0 && (
+              <span
+                className="ml-1 text-[10px]"
+                style={{ color: errCount > 0 ? 'var(--color-error)' : 'var(--color-warning)' }}
+              >
+                {validationTotal}
               </span>
             )}
           </Tabs.Trigger>
@@ -271,8 +268,8 @@ export function EditorPage() {
           <span className="text-xs text-green-500">✓ Valid</span>
         ) : (
           <span className="flex items-center gap-2 text-xs">
-            {errCount > 0 && <span className="text-red-400">{errCount} err</span>}
-            {warnCount > 0 && <span className="text-yellow-400">{warnCount} warn</span>}
+            {errCount > 0 && <span className="bottombar-errors">{errCount} err</span>}
+            {warnCount > 0 && <span className="bottombar-warnings">{warnCount} warn</span>}
           </span>
         )}
       </div>
@@ -307,10 +304,11 @@ export function EditorPage() {
         onLeftToggle={toggleLeftPanel}
         onRightToggle={toggleRightPanel}
       >
-        <div data-tour="piano-roll" className="flex-1 overflow-hidden flex flex-col h-full">
+        <div data-tour="piano-roll" className="flex flex-1 overflow-hidden flex-col h-full">
           <PianoRoll
             songId={songId}
             canEdit={canEdit}
+            readOnlyMessage={readOnlyMessage}
             mutedTracks={mutedTracks}
             onNoteSelected={handleNoteSelected}
             cursors={cursors}
@@ -452,6 +450,12 @@ function ToolsTab({
             className="w-full"
           />
         </ToolRow>
+
+        {!canEdit && (
+          <p className="rounded-md border border-amber-500/20 bg-amber-500/[0.08] px-3 py-2 text-xs text-amber-100/90">
+            Chart is read-only — select notes to inspect, but changes are disabled.
+          </p>
+        )}
 
         {canEdit && (
           <>

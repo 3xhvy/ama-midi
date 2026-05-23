@@ -1,15 +1,23 @@
-import { MoonIcon, SunIcon } from '@radix-ui/react-icons'
+import {
+  MoonIcon,
+  PauseIcon,
+  PlayIcon,
+  SunIcon,
+  TrackNextIcon,
+  TrackPreviousIcon,
+} from '@radix-ui/react-icons'
 import { useState } from 'react'
 import { useEditorStore } from '../../../store/editor.store'
-import { useThemeStore }  from '../../../store/theme.store'
-import { Button, IconButton, AvatarStack } from '../../../components/ui'
-import { useCanEdit }    from '../../../hooks/useCanEdit'
-import { useNotes }      from '../../notes/useNotes'
-import { useAuthStore }  from '../../../store/auth.store'
+import { useThemeStore } from '../../../store/theme.store'
+import { Avatar } from '../../../components/ui'
+import type { SongStatus } from '@ama-midi/shared'
+import { useNotes } from '../../notes/useNotes'
+import { useAuthStore } from '../../../store/auth.store'
 import { useQueryClient } from '@tanstack/react-query'
-import { apiClient }     from '../../auth/api'
-import { formatTime }    from '../../../lib/utils'
+import { apiClient } from '../../auth/api'
+import { formatTime } from '../../../lib/utils'
 import { EditorBreadcrumb } from '../../navigation/EditorBreadcrumb'
+import { ReadOnlyBanner } from './ReadOnlyBanner'
 import type { Song } from '@ama-midi/shared'
 
 function PanelLeftIcon({ open }: { open: boolean }) {
@@ -41,6 +49,9 @@ interface ToolbarProps {
   projectName:     string
   songId:          string
   songName:        string
+  songStatus:      SongStatus
+  canEdit:         boolean
+  readOnlyMessage?: string | null
   bpm:             number
   presenceList:    { id: string; name: string; avatarUrl?: string; title?: string | null; department?: string | null }[]
   onSuggest:       () => void
@@ -52,7 +63,7 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
-  projectId, projectName, songId, songName, bpm, presenceList,
+  projectId, projectName, songId, songName, songStatus, canEdit, readOnlyMessage, bpm,
   onSuggest, onShowShortcuts,
   leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
 }: ToolbarProps) {
@@ -62,13 +73,13 @@ export function Toolbar({
   } = useEditorStore()
 
   const { resolved: theme, setMode: setTheme } = useThemeStore()
-  const canEdit     = useCanEdit()
   const { data: notes = [] } = useNotes(songId)
-  const token       = useAuthStore(s => s.token)
+  const token = useAuthStore((s) => s.token)
+  const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
 
   const [editingBpm, setEditingBpm] = useState(false)
-  const [bpmDraft,   setBpmDraft]   = useState(String(bpm))
+  const [bpmDraft, setBpmDraft] = useState(String(bpm))
 
   async function saveBpm() {
     setEditingBpm(false)
@@ -76,66 +87,62 @@ export function Toolbar({
     if (next === bpm) return
     await apiClient(token)<Song>(`/songs/${songId}`, {
       method: 'PATCH',
-      body:   JSON.stringify({ bpm: next }),
+      body: JSON.stringify({ bpm: next }),
     })
     queryClient.invalidateQueries({ queryKey: ['song', songId] })
   }
 
   return (
-    <div className="flex items-center w-full gap-3 h-12 px-4 overflow-hidden">
+    <div className="flex w-full flex-col">
+      <div className="flex h-12 w-full items-center gap-3">
 
-      {/* LEFT */}
-      <div className="flex items-center gap-2 min-w-0">
-        <IconButton
-          size="sm"
-          tooltip={leftCollapsed ? 'Open left panel [' : 'Close left panel ['}
-          onClick={onToggleLeft}
-        >
-          <PanelLeftIcon open={!leftCollapsed} />
-        </IconButton>
+      {/* LEFT — flat breadcrumb trail */}
+      <div className="flex min-w-0 flex-1 items-center overflow-hidden">
         <EditorBreadcrumb
           projectId={projectId}
           projectName={projectName}
           songId={songId}
           songName={songName}
+          songStatus={songStatus}
         />
       </div>
 
-      {/* CENTER */}
-      <div className="flex items-center gap-3 flex-1 justify-center min-w-0 overflow-hidden">
-        {/* Playback controls */}
-        <div className="flex items-center gap-1">
-          <IconButton
-            size="sm"
-            onClick={() => { setPlayheadTime(0); setPlaying(false) }}
-            tooltip="Jump to start"
-          >
-            ⏮
-          </IconButton>
+      {/* CENTER — transport (no chrome box) */}
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => { setPlayheadTime(0); setPlaying(false) }}
+          title="Jump to start"
+          aria-label="Jump to start"
+          className="editor-toolbar-transport-btn"
+        >
+          <TrackPreviousIcon />
+        </button>
 
-          <button
-            onClick={() => setPlaying(!isPlaying)}
-            title={isPlaying ? 'Pause' : 'Play'}
-            className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] hover:bg-primary-dark transition-colors shrink-0"
-          >
-            {isPlaying ? '⏸' : '▶'}
-          </button>
+        <button
+          type="button"
+          onClick={() => setPlaying(!isPlaying)}
+          title={isPlaying ? 'Pause' : 'Play'}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+          className="editor-toolbar-play"
+        >
+          {isPlaying ? <PauseIcon /> : <PlayIcon />}
+        </button>
 
-          <IconButton
-            size="sm"
-            onClick={() => { setPlayheadTime(300); setPlaying(false) }}
-            tooltip="Jump to end"
-          >
-            ⏭
-          </IconButton>
-        </div>
+        <button
+          type="button"
+          onClick={() => { setPlayheadTime(300); setPlaying(false) }}
+          title="Jump to end"
+          aria-label="Jump to end"
+          className="editor-toolbar-transport-btn"
+        >
+          <TrackNextIcon />
+        </button>
 
-        {/* Time display */}
-        <span className="text-xs font-mono text-shell-muted w-16 tabular-nums">
+        <span className="editor-toolbar-time mx-1">
           {formatTime(playheadTime)}
         </span>
 
-        {/* BPM widget */}
         {editingBpm ? (
           <input
             autoFocus
@@ -146,62 +153,88 @@ export function Toolbar({
             onChange={(e) => setBpmDraft(e.target.value)}
             onBlur={saveBpm}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            className="w-16 px-2 py-0.5 text-xs bg-shell-bg border border-shell-border rounded text-shell-text"
+            className="h-7 w-14 rounded-md border border-white/12 bg-white/5 px-2 text-center font-mono text-xs text-[var(--toolbar-text)] outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
           />
         ) : (
           <button
-            className="text-xs font-mono text-shell-muted hover:text-shell-text px-2 py-0.5 rounded hover:bg-shell-bg"
+            type="button"
+            className="editor-toolbar-bpm"
             onClick={() => { setBpmDraft(String(bpm)); setEditingBpm(true) }}
             title="Click to edit BPM"
           >
-            ♩ {bpm}
+            <span className="opacity-60">♩</span>
+            {bpm}
           </button>
         )}
-
       </div>
 
-      {/* RIGHT */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* RIGHT — ghost actions */}
+      <div className="flex shrink-0 items-center gap-0.5">
         {canEdit && (
-          <Button
-            variant="primary"
-            size="sm"
-            rounded
+          <button
+            type="button"
             disabled={notes.length < 5}
             onClick={onSuggest}
             data-tour="ai-suggest"
+            className="editor-toolbar-suggest mr-1"
           >
-            ✨ Suggest
-          </Button>
+            + Suggest
+          </button>
         )}
 
-        <IconButton
-          size="sm"
-          tooltip={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        <button
+          type="button"
+          title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="editor-toolbar-icon"
         >
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-        </IconButton>
+        </button>
 
-        <IconButton
-          size="sm"
-          tooltip="Keyboard shortcuts"
+        <button
+          type="button"
+          title="Keyboard shortcuts"
           onClick={onShowShortcuts}
           data-tour="shortcut-help"
+          className="editor-toolbar-icon text-sm font-medium"
         >
           ?
-        </IconButton>
+        </button>
 
-        <AvatarStack users={presenceList} max={4} size="xs" />
+        <button
+          type="button"
+          title={leftCollapsed ? 'Open left panel [' : 'Close left panel ['}
+          onClick={onToggleLeft}
+          className="editor-toolbar-icon hidden lg:inline-flex"
+        >
+          <PanelLeftIcon open={!leftCollapsed} />
+        </button>
 
-        <IconButton
-          size="sm"
-          tooltip={rightCollapsed ? 'Open right panel ]' : 'Close right panel ]'}
+        <button
+          type="button"
+          title={rightCollapsed ? 'Open right panel ]' : 'Close right panel ]'}
           onClick={onToggleRight}
+          className="editor-toolbar-icon"
         >
           <PanelRightIcon open={!rightCollapsed} />
-        </IconButton>
+        </button>
+
+        {user && (
+          <div className="ml-1 pl-1">
+            <Avatar
+              src={user.avatarUrl}
+              name={user.name}
+              size="xs"
+              title={user.name}
+            />
+          </div>
+        )}
       </div>
+      </div>
+
+      {!canEdit && readOnlyMessage && (
+        <ReadOnlyBanner message={readOnlyMessage} />
+      )}
     </div>
   )
 }

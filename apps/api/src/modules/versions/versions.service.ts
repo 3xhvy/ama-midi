@@ -14,7 +14,7 @@ export class VersionsService {
   ) {}
 
   async createSnapshot(songId: string, name: string, user: AuthUser) {
-    await this.access.assertCanEditSong(songId, user)
+    await this.access.assertCanEditSongChart(songId, user)
     const notes = await this.prisma.note.findMany({
       where: { songId, deletedAt: null },
       include: { creator: { select: { name: true } } },
@@ -60,7 +60,7 @@ export class VersionsService {
   }
 
   async restoreSnapshot(songId: string, versionId: string, user: AuthUser) {
-    await this.access.assertCanEditSong(songId, user)
+    await this.access.assertCanEditSongChart(songId, user)
     const version = await this.prisma.songVersion.findUnique({ where: { id: versionId } })
     if (!version || version.songId !== songId) throw new NotFoundException('Version not found')
 

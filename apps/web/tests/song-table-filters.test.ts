@@ -19,3 +19,8 @@ test('filterProjectSongs filters by workflow status', () => {
   assert.equal(result.length, 1)
   assert.equal(result[0].id, '2')
 })
+
+test('filterProjectSongs returns empty when query and status hide all rows', () => {
+  const result = filterProjectSongs(songs, { query: 'gamma', status: 'APPROVED' })
+  assert.equal(result.length, 0)
+})

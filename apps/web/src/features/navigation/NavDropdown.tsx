@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDownIcon } from '@radix-ui/react-icons'
+import { cn } from '../../lib/utils'
 
 export interface NavDropdownItem {
   id: string
@@ -20,6 +22,8 @@ export function NavDropdown({
   dropdownId,
   maxWidthClassName = 'w-64',
   triggerClassName = 'max-w-[160px]',
+  variant = 'default',
+  accent = 'default',
 }: {
   triggerLabel: string
   searchPlaceholder: string
@@ -27,6 +31,8 @@ export function NavDropdown({
   dropdownId: string
   maxWidthClassName?: string
   triggerClassName?: string
+  variant?: 'default' | 'breadcrumb' | 'toolbar'
+  accent?: 'default' | 'project' | 'song'
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -52,7 +58,7 @@ export function NavDropdown({
 
   function openDropdown() {
     const rect = btnRef.current?.getBoundingClientRect()
-    if (rect) setDropPos({ top: rect.bottom + 4, left: rect.left })
+    if (rect) setDropPos({ top: rect.bottom + 6, left: rect.left })
     setOpen(true)
   }
 
@@ -75,50 +81,98 @@ export function NavDropdown({
     item.onSelect()
   }
 
+  const isBreadcrumb = variant === 'breadcrumb'
+  const isToolbar = variant === 'toolbar'
+
+  const accentTriggerClass = isToolbar
+    ? accent === 'song' ? 'text-[var(--toolbar-text)]' : 'text-[var(--toolbar-muted)]'
+    : isBreadcrumb
+      ? accent === 'song'
+        ? 'text-primary'
+        : 'text-shell-text'
+      : ''
+
   return (
     <>
       <button
         ref={btnRef}
         type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
         onClick={() => (open ? setOpen(false) : openDropdown())}
-        className={`flex items-center gap-1 text-shell-text font-medium text-sm hover:text-primary transition-colors ${triggerClassName}`}
+        className={cn(
+          'group flex items-center gap-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+          isToolbar
+            ? cn(
+                'min-h-[24px] rounded px-1 py-0.5 hover:text-[var(--toolbar-text)]',
+                open && 'text-[var(--toolbar-text)]',
+                accentTriggerClass,
+              )
+            : isBreadcrumb
+              ? cn(
+                  'min-h-[28px] gap-1 rounded-md px-2.5 py-1 hover:bg-primary/10',
+                  open && 'bg-primary/12 ring-1 ring-primary/25 shadow-sm',
+                  accentTriggerClass,
+                )
+              : 'text-sm font-medium text-shell-text hover:text-primary gap-1',
+          triggerClassName,
+        )}
         title={triggerLabel}
       >
-        <span className="truncate">{triggerLabel}</span>
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          className={`shrink-0 opacity-50 transition-transform ${open ? 'rotate-180' : ''}`}
+        <span
+          className={cn(
+            'truncate',
+            isToolbar && accent === 'song' && 'font-medium',
+            isBreadcrumb && 'text-sm font-semibold',
+          )}
         >
-          <path d="M1 3l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+          {triggerLabel}
+        </span>
+        <ChevronDownIcon
+          className={cn(
+            'shrink-0 transition-transform duration-150',
+            isToolbar
+              ? cn('h-3 w-3 opacity-50 group-hover:opacity-80', open && 'opacity-80')
+              : isBreadcrumb
+                ? cn(
+                    'h-3.5 w-3.5',
+                    accent === 'song' ? 'text-primary/70 group-hover:text-primary' : 'text-primary/50 group-hover:text-primary/80',
+                  )
+                : 'h-2.5 w-2.5 opacity-50',
+            open && 'rotate-180',
+            isBreadcrumb && open && 'text-primary',
+          )}
+        />
       </button>
 
       {open && (
         <div
           id={dropdownId}
+          role="listbox"
           style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, zIndex: 9999 }}
-          className={`${maxWidthClassName} bg-shell-surface border border-shell-border rounded-lg shadow-md overflow-hidden`}
+          className={cn(
+            maxWidthClassName,
+            'overflow-hidden rounded-xl border border-shell-border bg-shell-surface shadow-lg ring-1 ring-black/5 dark:ring-white/5',
+          )}
         >
-          <div className="p-2 border-b border-shell-border">
+          <div className="border-b border-shell-border bg-shell-bg/50 p-2">
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full px-2 py-1 text-xs bg-shell-bg border border-shell-border rounded text-shell-text placeholder:text-shell-muted outline-none focus:border-primary"
+              className="w-full rounded-md border border-shell-border bg-shell-surface px-2.5 py-1.5 text-xs text-shell-text placeholder:text-shell-muted outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
             />
           </div>
-          <div className="py-1 max-h-64 overflow-y-auto">
+          <div className="max-h-64 overflow-y-auto py-1">
             {filteredSections.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-shell-muted">No results</p>
+              <p className="px-3 py-3 text-xs text-shell-muted">No results</p>
             ) : (
               filteredSections.map((section) => (
                 <div key={section.title ?? section.items[0]?.id}>
                   {section.title && (
-                    <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-shell-muted">
+                    <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-shell-muted">
                       {section.title}
                     </p>
                   )}
@@ -127,16 +181,19 @@ export function NavDropdown({
                       <li key={item.id}>
                         <button
                           type="button"
+                          role="option"
+                          aria-selected={item.active}
                           onClick={() => selectItem(item)}
-                          className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                          className={cn(
+                            'w-full px-3 py-2 text-left text-xs transition-colors',
                             item.active
-                              ? 'text-primary font-medium bg-primary/5'
-                              : 'text-shell-text hover:bg-shell-bg'
-                          }`}
+                              ? 'bg-primary/8 font-medium text-primary'
+                              : 'text-shell-text hover:bg-shell-bg',
+                          )}
                         >
                           <span className="block truncate">{item.label}</span>
                           {item.description && (
-                            <span className="block truncate text-shell-muted">{item.description}</span>
+                            <span className="mt-0.5 block truncate text-[11px] text-shell-muted">{item.description}</span>
                           )}
                         </button>
                       </li>

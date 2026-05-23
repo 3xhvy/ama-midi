@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
+import { toast } from 'sonner'
 import { HOLD_DRAG_THRESHOLD_PX } from '@ama-midi/shared'
 import { useEditorStore } from '../../../store/editor.store'
 import { useNotes, useCreateNote, useDeleteNote } from '../../notes/useNotes'
@@ -22,6 +23,7 @@ import { HitZone } from './HitZone'
 import { useSections } from '../../sections/useSections'
 import { useThrottle } from '../../../hooks/useThrottle'
 import { TIME_AXIS_WIDTH } from '../../../lib/constants'
+import { getSelectionRect, selectNotesInBox, type SelectionPoint } from '../engine/selection-box'
 import type { Note, Song } from '@ama-midi/shared'
 import type { CursorData } from '../../collaboration/useSocket'
 
@@ -30,16 +32,23 @@ type PopupState =
   | { type: 'edit';   note: Note;    pos: { x: number; y: number } }
   | null
 
+type SelectionDragState = {
+  start:    SelectionPoint
+  current:  SelectionPoint
+  hasMoved: boolean
+} | null
+
 interface Props {
   songId:           string
   canEdit?:         boolean
+  readOnlyMessage?: string | null
   mutedTracks?:     Set<number>
   onNoteSelected?:  (note: Note | null) => void
   cursors?:         Map<string, CursorData>
   onCursorMove?:    (track: number, time: number) => void
 }
 
-export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove }: Props) {
+export function PianoRoll({ songId, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove }: Props) {
   const containerRef   = useRef<HTMLDivElement>(null)
   const pxPerSecondRef = useRef(3)
 
@@ -51,10 +60,11 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
     | { start: { x: number; y: number; track: number; time: number }; currentY: number }
     | null
   >(null)
+  const [selectionDrag, setSelectionDrag] = useState<SelectionDragState>(null)
   const [sectionPopover, setSectionPopover] = useState<{ time: number; pos: { x: number; y: number } } | null>(null)
 
   const { pxPerSecond, viewMode, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
-          selectedNoteIds, selectNote, toggleNoteSelection, clearSelection, setActiveTrack } = useEditorStore()
+          selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack } = useEditorStore()
   pxPerSecondRef.current = pxPerSecond
 
   useEffect(() => {
@@ -97,6 +107,10 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   const isPreview = viewMode === 'preview'
   const effectiveCanEdit = canEdit && !isPreview
 
+  function notifyReadOnly() {
+    toast.info(readOnlyMessage ?? 'This chart is read-only — you cannot add or change notes.', { id: 'read-only-chart' })
+  }
+
   const token = useAuthStore(s => s.token)
   const { data: song } = useQuery<Song>({
     queryKey: ['song', songId],
@@ -130,6 +144,15 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   const totalHeight = getTotalHeight(pxPerSecond)
   const timeGridLines = getVisibleTimeGridLines(pxPerSecond, timeFrom, timeTo)
 
+  const getCanvasPoint = useCallback((clientX: number, clientY: number): SelectionPoint | null => {
+    if (!containerRef.current) return null
+    const rect = containerRef.current.getBoundingClientRect()
+    return {
+      x: Math.max(0, Math.min(gridWidth, clientX - rect.left)),
+      y: Math.max(0, Math.min(totalHeight, clientY - rect.top + containerRef.current.scrollTop)),
+    }
+  }, [gridWidth, totalHeight])
+
   // Auto-scroll to follow playhead during playback
   useEffect(() => {
     if (!isPlaying) return
@@ -153,6 +176,7 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return
+    if (selectionDrag) return
     const rect  = containerRef.current.getBoundingClientRect()
     const x     = e.clientX - rect.left
     const y     = e.clientY - rect.top + scrollTop
@@ -162,19 +186,68 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
     setActiveTrack(track)
     if (!effectiveCanEdit) return
     setGhost({ track, time })
-  }, [effectiveCanEdit, gridWidth, pxPerSecond, scrollTop, snapMode, bpm, throttledCursorEmit, setActiveTrack])
+  }, [effectiveCanEdit, gridWidth, pxPerSecond, scrollTop, snapMode, bpm, throttledCursorEmit, setActiveTrack, selectionDrag])
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!effectiveCanEdit || !containerRef.current) return
-    if (useEditorStore.getState().activeNoteType !== 'HOLD') return
     if ((e.target as HTMLElement).closest('[data-note]')) return
+    if (e.shiftKey) {
+      e.preventDefault()
+      window.getSelection()?.removeAllRanges()
+      const start = getCanvasPoint(e.clientX, e.clientY)
+      if (!start) return
+      setGhost(null)
+      setSelectionDrag({ start, current: start, hasMoved: false })
+      return
+    }
+    if (useEditorStore.getState().activeNoteType !== 'HOLD') return
     const rect  = containerRef.current.getBoundingClientRect()
     const x     = e.clientX - rect.left
     const y     = e.clientY - rect.top + scrollTop
     const track = xToTrack(x, gridWidth)
     const time  = yToTime(y, pxPerSecond, snapMode, bpm)
     setDrag({ start: { x: e.clientX, y: e.clientY, track, time }, currentY: e.clientY })
-  }, [effectiveCanEdit, gridWidth, pxPerSecond, scrollTop, snapMode, bpm])
+  }, [effectiveCanEdit, getCanvasPoint, gridWidth, pxPerSecond, scrollTop, snapMode, bpm])
+
+  useEffect(() => {
+    if (!selectionDrag) return
+    const activeDrag = selectionDrag
+
+    function onMove(e: MouseEvent) {
+      e.preventDefault()
+      const current = getCanvasPoint(e.clientX, e.clientY)
+      if (!current) return
+      setSelectionDrag((state) => {
+        if (!state) return null
+        const moved = Math.abs(current.x - state.start.x) > 4 || Math.abs(current.y - state.start.y) > 4
+        return { ...state, current, hasMoved: state.hasMoved || moved }
+      })
+    }
+
+    function onUp(e: MouseEvent) {
+      e.preventDefault()
+      const current = getCanvasPoint(e.clientX, e.clientY) ?? activeDrag.current
+      const finalDrag = { ...activeDrag, current }
+      const rect = getSelectionRect(finalDrag.start, finalDrag.current)
+      if (finalDrag.hasMoved && rect.width >= 4 && rect.height >= 4) {
+        const ids = selectNotesInBox({
+          notes: notes.filter((note) => !mutedTracks.has(note.track)),
+          rect,
+          gridWidth,
+          pxPerSecond,
+        })
+        if (ids.length > 0) addNoteSelection(ids)
+      }
+      setSelectionDrag(null)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [addNoteSelection, getCanvasPoint, gridWidth, mutedTracks, notes, pxPerSecond, selectionDrag])
 
   useEffect(() => {
     if (!drag) return
@@ -210,7 +283,11 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   }, [drag, createNote, pxPerSecond])
 
   const handleGridClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!effectiveCanEdit || !ghost) return
+    if (e.shiftKey) return
+    if (!effectiveCanEdit || !ghost) {
+      if (!effectiveCanEdit) notifyReadOnly()
+      return
+    }
     if (useEditorStore.getState().activeNoteType === 'HOLD') return
     if (createMode === 'popup') {
       setPopup({ type: 'create', track: ghost.track, time: ghost.time, pos: { x: e.clientX, y: e.clientY } })
@@ -225,18 +302,22 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
       noteType: activeNoteType === 'SWIPE' ? 'SWIPE' : 'TAP',
       title:    `${activeNoteType} ${ghost.track}:${ghost.time}`,
     })
-  }, [effectiveCanEdit, ghost, createNote, createMode])
+  }, [effectiveCanEdit, ghost, createNote, createMode, readOnlyMessage])
 
   const handleNoteClick = useCallback((note: Note, e: React.MouseEvent) => {
     e.stopPropagation()
     if (e.shiftKey) {
+      e.preventDefault()
+      window.getSelection()?.removeAllRanges()
       toggleNoteSelection(note.id)
     } else {
       selectNote(note.id)
-      setPopup({ type: 'edit', note, pos: { x: e.clientX, y: e.clientY } })
+      if (effectiveCanEdit) {
+        setPopup({ type: 'edit', note, pos: { x: e.clientX, y: e.clientY } })
+      }
     }
     onNoteSelected?.(note)
-  }, [onNoteSelected, selectNote, toggleNoteSelection])
+  }, [onNoteSelected, selectNote, toggleNoteSelection, effectiveCanEdit])
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -291,7 +372,7 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   }
 
   return (
-    <div className="relative flex-1 overflow-hidden flex flex-col h-full">
+    <div className="relative flex-1 overflow-hidden flex flex-col h-full select-none">
       <div className="flex border-b border-canvas-border bg-canvas-surface h-8 shrink-0">
         <div className="shrink-0 border-r border-canvas-border" style={{ width: TIME_AXIS_WIDTH }} />
         <div className="flex shrink-0" style={{ width: gridWidth }}>
@@ -321,8 +402,14 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
         <div className="relative flex-1 min-h-0 overflow-hidden">
           <div
             ref={containerRef}
-            className="overflow-y-auto overflow-x-hidden w-full h-full"
+            className={`overflow-y-auto overflow-x-hidden w-full h-full select-none ${effectiveCanEdit ? 'cursor-crosshair' : 'cursor-not-allowed'}`}
             onScroll={handleScroll}
+            onMouseDownCapture={(e) => {
+              if (e.shiftKey) {
+                e.preventDefault()
+                window.getSelection()?.removeAllRanges()
+              }
+            }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onClick={handleGridClick}
@@ -377,6 +464,22 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
                 onClick={handleNoteClick}
               />
             ))}
+
+            {selectionDrag && (() => {
+              const rect = getSelectionRect(selectionDrag.start, selectionDrag.current)
+              return (
+                <div
+                  className="absolute pointer-events-none rounded border border-primary bg-primary/15"
+                  style={{
+                    left:   rect.left,
+                    top:    rect.top,
+                    width:  rect.width,
+                    height: rect.height,
+                    zIndex: 30,
+                  }}
+                />
+              )
+            })()}
 
             {effectiveCanEdit && ghost && (
               <GhostCircle

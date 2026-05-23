@@ -66,8 +66,10 @@ export class PatternPasteService {
     user: AuthUser,
   ): Promise<PatternPastePreview> {
     await this.access.assertCanEditSongChart(request.songId, user)
-    const pattern = await this.loadPattern(patternId)
-    return this.buildPreview(pattern, request.songId, request.startTime)
+    const row = await this.loadPatternRow(patternId)
+    const pattern = this.toDomainPattern(row)
+    const patternVersion = this.getPatternVersion(row)
+    return this.buildPreview(pattern, request.songId, request.startTime, patternVersion)
   }
 
   async applyPaste(
@@ -81,11 +83,11 @@ export class PatternPasteService {
     const patternVersion = this.getPatternVersion(row)
 
     if (request.patternVersion !== patternVersion) {
-      const preview = await this.buildPreview(pattern, request.songId, request.startTime)
+      const preview = await this.buildPreview(pattern, request.songId, request.startTime, patternVersion)
       throw new ConflictException({ error: 'PATTERN_VERSION_CHANGED', preview })
     }
 
-    const preview = await this.buildPreview(pattern, request.songId, request.startTime)
+    const preview = await this.buildPreview(pattern, request.songId, request.startTime, patternVersion)
     this.assertResolutionsMatchPreview(preview, request.resolutions)
 
     const resolutionMap = new Map(
@@ -221,10 +223,6 @@ export class PatternPasteService {
     return row
   }
 
-  private async loadPattern(patternId: string): Promise<NotePattern> {
-    return this.toDomainPattern(await this.loadPatternRow(patternId))
-  }
-
   private getPatternVersion(row: { createdAt: Date; updatedAt?: Date | null }): string {
     return (row.updatedAt ?? row.createdAt).toISOString()
   }
@@ -281,6 +279,7 @@ export class PatternPasteService {
     pattern: NotePattern,
     songId: string,
     startTime: number,
+    patternVersion: string,
   ): Promise<PatternPastePreview> {
     if (pattern.notes.length > MAX_PATTERN_PASTE_NOTES) {
       throw new UnprocessableEntityException(`Pattern exceeds ${MAX_PATTERN_PASTE_NOTES} notes`)
@@ -368,7 +367,7 @@ export class PatternPasteService {
 
     return {
       patternId: pattern.id,
-      patternVersion: pattern.createdAt,
+      patternVersion,
       songId,
       startTime: snappedStart,
       summary: {

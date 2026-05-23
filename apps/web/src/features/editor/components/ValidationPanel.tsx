@@ -1,19 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
-import { useAuthStore } from '../../../store/auth.store'
-import { apiClient } from '../../auth/api'
-
-interface ValidationIssue {
-  ruleId: string
-  severity: 'error' | 'warning'
-  message: string
-  track?: number
-  time?: number
-}
-
-interface ValidationResult {
-  summary: { errors: number; warnings: number }
-  issues: ValidationIssue[]
-}
+import { useValidation } from '../../validation/useValidation'
 
 interface Props {
   songId: string
@@ -21,16 +6,7 @@ interface Props {
 }
 
 export function ValidationPanel({ songId, onJumpTo }: Props) {
-  const token = useAuthStore(s => s.token)
-
-  const { data, isLoading, refetch } = useQuery<ValidationResult>({
-    queryKey: ['validation', songId],
-    queryFn: () => apiClient(token)<ValidationResult>(`/songs/${songId}/validation`),
-    staleTime: 30_000,
-  })
-
-  const issues = data?.issues ?? []
-  const summary = data?.summary ?? { errors: 0, warnings: 0 }
+  const { issues, summary, isLoading, refetch } = useValidation(songId)
 
   if (isLoading) {
     return (

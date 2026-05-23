@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { SONG_STATUS_OPTIONS } from '@ama-midi/shared'
+import { SongStatusEnum } from '@ama-midi/shared'
 import type { SongStatus } from '@ama-midi/shared'
 import { timeAgo } from '../../lib/utils'
-import { Button, Input, SongStatusBadge } from '../../components/ui'
+import { Button, Input } from '../../components/ui'
+import { SongStatusMenu } from './SongStatusMenu'
 import { songEditorPath } from '../navigation/song-editor-path'
 import type { Song } from '@ama-midi/shared'
 import { filterProjectSongs, validationHint, type SongTableStatusFilter } from './song-table-filters'
@@ -17,6 +18,11 @@ export function SongTable({ projectId, songs }: { projectId: string; songs: Song
     () => filterProjectSongs(songs, { query, status }),
     [songs, query, status],
   )
+
+  function clearFilters() {
+    setQuery('')
+    setStatus('ALL')
+  }
 
   return (
     <div className="space-y-3">
@@ -33,8 +39,10 @@ export function SongTable({ projectId, songs }: { projectId: string; songs: Song
           className="rounded-lg border border-shell-border bg-shell-surface px-3 py-2 text-sm text-shell-text"
         >
           <option value="ALL">All statuses</option>
-          {SONG_STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+          {SongStatusEnum.entries.map((entry) => (
+            <option key={entry.key} value={entry.key}>
+              {entry.labelFallback}
+            </option>
           ))}
         </select>
       </div>
@@ -55,8 +63,17 @@ export function SongTable({ projectId, songs }: { projectId: string; songs: Song
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-shell-muted">
-                  No songs match your filters.
+                <td colSpan={7} className="px-3 py-8 text-center text-shell-muted">
+                  {query || status !== 'ALL' ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <span>No songs match. Clear filters?</span>
+                      <Button size="sm" variant="secondary" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    </div>
+                  ) : (
+                    'No songs yet.'
+                  )}
                 </td>
               </tr>
             ) : (
@@ -64,7 +81,7 @@ export function SongTable({ projectId, songs }: { projectId: string; songs: Song
                 <tr key={song.id} className="border-t border-shell-border hover:bg-shell-bg">
                   <td className="px-3 py-2 font-medium text-shell-text">{song.name}</td>
                   <td className="px-3 py-2">
-                    <SongStatusBadge status={song.status as SongStatus} />
+                    <SongStatusMenu songId={song.id} projectId={projectId} status={song.status as SongStatus} />
                   </td>
                   <td className="px-3 py-2 text-shell-muted">{song.assignedComposerName ?? '—'}</td>
                   <td className="px-3 py-2 text-shell-muted">{song.assignedQaName ?? '—'}</td>
