@@ -14,12 +14,23 @@
 
   /* Editor surface (piano roll dark zone) */
   --color-editor-bg: #13111E;
-  --color-editor-surface: #1E1B2E;
+  --color-editor-surface: #181628;
   --color-editor-border: #2D2847;
   --color-editor-text: #E2DEFF;
   --color-editor-muted: #6B6585;
-  --color-grid-line: rgba(255, 255, 255, 0.06);
-  --color-grid-line-bold: rgba(255, 255, 255, 0.12);
+  --color-grid-line: rgba(255, 255, 255, 0.05);
+  --color-grid-line-bold: rgba(255, 255, 255, 0.10);
+  --color-grid-line-bar: rgba(255, 255, 255, 0.18);
+
+  /* Track identity colors */
+  --color-track-1: #FF7B7B;
+  --color-track-2: #FFB347;
+  --color-track-3: #7ED56F;
+  --color-track-4: #40E0D0;
+  --color-track-5: #5B9BFF;
+  --color-track-6: #9B7FFF;
+  --color-track-7: #FF78BE;
+  --color-track-8: #FF9F6B;
 
   /* App surface (light zones) */
   --color-bg: #F8F7FF;
@@ -73,11 +84,12 @@
   --canvas-muted: var(--color-editor-muted);
   --canvas-grid: var(--color-grid-line);
   --canvas-grid-bold: var(--color-grid-line-bold);
+  --canvas-grid-bar: var(--color-grid-line-bar);
 }
 
 .dark {
   --shell-bg: #13111E;
-  --shell-surface: #1E1B2E;
+  --shell-surface: #181628;
   --shell-border: #2D2847;
   --shell-text: #E2DEFF;
   --shell-muted: #6B6585;
