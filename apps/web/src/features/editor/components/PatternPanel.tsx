@@ -79,10 +79,14 @@ export function PatternPanel({ songId, chartId }: Props) {
       toast.error('Enter a paste time between 0.0s and 300.0s')
       return
     }
+    if (!chartId) {
+      toast.error('No chart selected')
+      return
+    }
 
     setStep('VALIDATING')
     previewPaste.mutate(
-      { songId, startTime: pasteTime },
+      { songId, chartId, startTime: pasteTime },
       {
         onSuccess: (next) => {
           setPreview(next)
@@ -99,7 +103,7 @@ export function PatternPanel({ songId, chartId }: Props) {
   }
 
   function handleApply() {
-    if (!preview || !pasteTarget) return
+    if (!preview || !pasteTarget || !chartId) return
 
     const replacedCount = Object.values(resolutions).filter((action) => action === 'REPLACE_WITH_PATTERN').length
     const skippedCount = preview.conflicts.length - replacedCount
@@ -108,6 +112,7 @@ export function PatternPanel({ songId, chartId }: Props) {
     applyPaste.mutate(
       {
         songId,
+        chartId,
         startTime: preview.startTime,
         patternVersion: preview.patternVersion,
         resolutions: preview.conflicts.map((conflict) => ({

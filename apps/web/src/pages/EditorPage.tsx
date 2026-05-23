@@ -112,7 +112,7 @@ export function EditorPage() {
   const updateNote = useUpdateNote(chartId)
   const { data: allNotes = [] } = useNotes(chartId)
   const { data: sections = [] } = useSections(songId!)
-  const { presenceList, cursors, emitCursorMove } = useSocket(songId!, projectId)
+  const { presenceList, cursors, emitCursorMove } = useSocket(songId!, chartId, projectId)
   const token = useAuthStore((s) => s.token)
 
   const { data: song } = useQuery<Song>({

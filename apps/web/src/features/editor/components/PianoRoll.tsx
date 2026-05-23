@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
+import { cn } from '../../../lib/utils'
 import { toast } from 'sonner'
 import { HOLD_DRAG_THRESHOLD_PX } from '@ama-midi/shared'
 import { useEditorStore } from '../../../store/editor.store'
@@ -6,7 +7,7 @@ import { useNotes, useCreateNote, useDeleteNote } from '../../notes/useNotes'
 import { useAuthStore } from '../../../store/auth.store'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../../auth/api'
-import { xToTrack, yToTime, timeToY, trackToX, getTrackLayout, getVisibleTimeGridLines, resolveLayoutGridWidth, MIN_GRID_WIDTH } from '../engine'
+import { xToTrack, yToTime, timeToY, trackToX, getVisibleTimeGridLines, resolveLayoutGridWidth, MIN_GRID_WIDTH } from '../engine'
 import { getTotalHeight, getPrefetchTimeRange } from '../engine'
 import { NoteCircle  } from './NoteCircle'
 import { GhostCircle } from './GhostCircle'
@@ -52,13 +53,13 @@ interface Props {
 }
 
 export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove }: Props) {
-  const containerRef        = useRef<HTMLDivElement>(null)
-  const trackAreaRef        = useRef<HTMLDivElement>(null)
+  const containerRef          = useRef<HTMLDivElement>(null)
+  const trackAreaRef          = useRef<HTMLDivElement>(null)
   const headerTracksScrollRef = useRef<HTMLDivElement>(null)
   const pxPerSecondRef = useRef(3)
 
   const [scrollTop,    setScrollTop]    = useState(0)
-  const [gridMetrics,  setGridMetrics]  = useState({ width: 800, scrollbarGutter: 0 })
+  const [gridMetrics,  setGridMetrics]  = useState({ width: 0, scrollbarGutter: 0 })
   const [ghost,        setGhost]        = useState<{ track: number; time: number } | null>(null)
   const [popup,        setPopup]        = useState<PopupState>(null)
   const [drag,         setDrag]         = useState<
@@ -71,28 +72,6 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const { pxPerSecond, viewMode, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
           selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack } = useEditorStore()
   pxPerSecondRef.current = pxPerSecond
-
-  useEffect(() => {
-    const el = trackAreaRef.current
-    if (!el) return
-
-    const updateMetrics = () => {
-      const width = el.clientWidth
-      const scrollbarGutter = containerRef.current
-        ? Math.max(0, containerRef.current.offsetWidth - containerRef.current.clientWidth)
-        : 0
-      setGridMetrics((current) => (
-        current.width === width && current.scrollbarGutter === scrollbarGutter
-          ? current
-          : { width, scrollbarGutter }
-      ))
-    }
-
-    updateMetrics()
-    const observer = new ResizeObserver(updateMetrics)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   // Ctrl/Cmd + scroll wheel to zoom
   useEffect(() => {
@@ -133,21 +112,38 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   )
 
   const viewportHeight = containerRef.current?.clientHeight ?? 600
-  const measuredWidth  = trackAreaRef.current?.clientWidth ?? gridMetrics.width
-  const layoutGridWidth = resolveLayoutGridWidth(measuredWidth)
-  const scrollbarGutter = gridMetrics.scrollbarGutter
-  const trackLayout    = getTrackLayout({
-    editorWidth: layoutGridWidth + TIME_AXIS_WIDTH,
-    timeAxisWidth: TIME_AXIS_WIDTH,
-    zoom,
-  })
-  const tw             = trackLayout.trackWidth
-
   const { timeFrom, timeTo } = getPrefetchTimeRange(scrollTop, viewportHeight, pxPerSecond)
   const { data: notes = [], isLoading } = useNotes(chartId, timeFrom, timeTo)
   const { data: sections = [] } = useSections(songId)
   const createNote = useCreateNote(chartId)
   const deleteNote = useDeleteNote(chartId)
+
+  useEffect(() => {
+    if (isLoading) return
+    const area = trackAreaRef.current
+    const scroll = containerRef.current
+    if (!area || !scroll) return
+
+    const updateMetrics = () => {
+      const width = scroll.clientWidth
+      const scrollbarGutter = Math.max(0, scroll.offsetWidth - scroll.clientWidth)
+      setGridMetrics((current) => (
+        current.width === width && current.scrollbarGutter === scrollbarGutter
+          ? current
+          : { width, scrollbarGutter }
+      ))
+    }
+
+    updateMetrics()
+    const observer = new ResizeObserver(updateMetrics)
+    observer.observe(area)
+    observer.observe(scroll)
+    return () => observer.disconnect()
+  }, [isLoading])
+
+  const measuredWidth  = gridMetrics.width || containerRef.current?.clientWidth || 0
+  const layoutGridWidth = measuredWidth > 0 ? resolveLayoutGridWidth(measuredWidth) : MIN_GRID_WIDTH
+  const tw             = layoutGridWidth / 8
 
   const totalHeight = getTotalHeight(pxPerSecond)
   const timeGridLines = getVisibleTimeGridLines(pxPerSecond, timeFrom, timeTo)
@@ -394,18 +390,21 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
           ref={headerTracksScrollRef}
           className="overflow-x-hidden flex-1 min-w-0"
         >
-          <div className="flex w-full" style={{ minWidth: MIN_GRID_WIDTH }}>
+          <div className="flex shrink-0 h-full" style={{ width: layoutGridWidth }}>
             {Array.from({ length: 8 }, (_, i) => i + 1).map((track) => (
               <div
                 key={track}
-                className={`flex-1 min-w-0 flex items-center justify-center text-xs border-r border-canvas-border transition-opacity select-none ${mutedTracks.has(track) ? 'opacity-30 text-canvas-muted' : 'text-canvas-muted'}`}
+                style={{ width: tw }}
+                className={cn(
+                  'shrink-0 flex items-center justify-center text-xs border-r border-canvas-border transition-opacity select-none',
+                  mutedTracks.has(track) ? 'opacity-30 text-canvas-muted' : 'text-canvas-muted',
+                )}
               >
                 T{track}
               </div>
             ))}
           </div>
         </div>
-        {scrollbarGutter > 0 && <div className="shrink-0" style={{ width: scrollbarGutter }} />}
       </div>
 
 
@@ -421,7 +420,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
         <div ref={trackAreaRef} className="relative flex-1 min-h-0 overflow-hidden">
           <div
             ref={containerRef}
-            className={`overflow-y-auto overflow-x-auto w-full h-full select-none ${effectiveCanEdit ? 'cursor-crosshair' : 'cursor-not-allowed'}`}
+            className={`overflow-y-auto overflow-x-auto w-full h-full select-none [scrollbar-gutter:stable] ${effectiveCanEdit ? 'cursor-crosshair' : 'cursor-not-allowed'}`}
             onScroll={handleScroll}
             onMouseDownCapture={(e) => {
               if (e.shiftKey) {
@@ -437,7 +436,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
               setActiveTrack(null)
             }}
           >
-            <div className="relative w-full" style={{ height: totalHeight, minWidth: MIN_GRID_WIDTH }}>
+            <div className="relative" style={{ height: totalHeight, width: layoutGridWidth }}>
               <GridLines
                 timeGridLines={timeGridLines}
                 gridWidth={layoutGridWidth}

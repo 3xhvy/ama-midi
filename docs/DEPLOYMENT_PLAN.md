@@ -8,14 +8,16 @@ Modeled on the [Owen backend](https://github.com/3xhvy/owen-backend) deployment 
 
 ## Executive Summary
 
-| Component | Where it runs |
-|---|---|
-| **React SPA** | `ama-midi-web` container → `127.0.0.1:8080` |
-| **NestJS API + Socket.io** | `ama-midi-api` container → `127.0.0.1:3001` |
-| **PostgreSQL 15** | `ama-midi-postgres` container (Docker internal only) |
-| **Redis 7** | `ama-midi-redis` container (Docker internal only) |
-| **TLS + reverse proxy** | Host Nginx on VPS (ports 80/443) |
-| **CI/CD** | GitHub Actions → GHCR → SSH deploy |
+
+| Component                  | Where it runs                                        |
+| -------------------------- | ---------------------------------------------------- |
+| **React SPA**              | `ama-midi-web` container → `127.0.0.1:8080`          |
+| **NestJS API + Socket.io** | `ama-midi-api` container → `127.0.0.1:3001`          |
+| **PostgreSQL 15**          | `ama-midi-postgres` container (Docker internal only) |
+| **Redis 7**                | `ama-midi-redis` container (Docker internal only)    |
+| **TLS + reverse proxy**    | Host Nginx on VPS (ports 80/443)                     |
+| **CI/CD**                  | GitHub Actions → GHCR → SSH deploy                   |
+
 
 Everything runs on **one VPS**. Postgres is in Docker with a persistent volume — not exposed to the internet.
 
@@ -49,19 +51,148 @@ Internet
 
 ---
 
+## Existing multi-app VPS (shared `default` nginx)
+
+Use this path when the VPS already runs other apps (ohomi, task, etc.) behind `/etc/nginx/sites-enabled/default` with TLS on `hvy-dev.uk`.
+
+### Port map (no conflicts with ohomi `:8888` or task `:9000`)
+
+| Service | Docker bind | Nginx upstream |
+|---|---|---|
+| AMA-MIDI web | `127.0.0.1:8080` | `ama_midi_web` |
+| AMA-MIDI API | `127.0.0.1:3001` | `ama_midi_api` |
+| Redis | Docker internal only | — |
+| PostgreSQL | External (your DB host) | — |
+
+### 1. Append nginx block to `default`
+
+Copy the snippet from `deploy/nginx/ama-midi.conf` into `/etc/nginx/sites-enabled/default` (after the existing `upstream` blocks, before or after the `task.hvy-dev.uk` server block):
+
+```bash
+# On VPS — paste deploy/nginx/ama-midi.conf contents into default, then:
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+No separate site file, no new certbot run — reuse `/etc/letsencrypt/live/hvy-dev.uk/` like `task.hvy-dev.uk`. Ensure DNS has an **A record** for `ama-midi.hvy-dev.uk` → VPS IP.
+
+HTTP → HTTPS is already handled by your global `listen 80` redirect block.
+
+### 2. App directory and env
+
+```bash
+sudo mkdir -p /opt/ama-midi
+sudo chown -R $USER:$USER /opt/ama-midi
+cd /opt/ama-midi
+
+# Only need these files on the VPS (not the full monorepo):
+#   docker-compose.prod.yml
+#   .env.prod
+```
+
+```bash
+cp .env.prod.example .env.prod   # or create manually
+nano .env.prod
+chmod 600 .env.prod
+```
+
+Production values for `ama-midi.hvy-dev.uk`:
+
+```env
+GITHUB_OWNER=3xhvy
+IMAGE_TAG=latest
+NODE_ENV=production
+PORT=3001
+FRONTEND_URL=https://ama-midi.hvy-dev.uk
+
+# External Postgres — use a host reachable FROM INSIDE the api container
+# (often the VPS public/private IP, not localhost)
+DATABASE_URL=postgresql://USER:PASS@DB_HOST:5432/DB_NAME?schema=public
+
+REDIS_URL=redis://redis:6379
+JWT_SECRET=<openssl rand -hex 32>
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=https://ama-midi.hvy-dev.uk/auth/google/callback
+ANTHROPIC_API_KEY=...   # optional
+```
+
+Google OAuth console:
+
+| Setting | Value |
+|---|---|
+| Authorized JavaScript origins | `https://ama-midi.hvy-dev.uk` |
+| Authorized redirect URIs | `https://ama-midi.hvy-dev.uk/auth/google/callback` |
+
+GitHub Actions `APP_URL` variable: `https://ama-midi.hvy-dev.uk`
+
+### 3. GHCR login and start containers
+
+```bash
+echo "ghp_YOUR_PAT" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+
+cd /opt/ama-midi
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f api
+```
+
+If Postgres is **external**, remove the `postgres` entry from `depends_on` in `docker-compose.prod.yml` (only `redis` is required). Migrations run automatically on API start (`prisma migrate deploy`).
+
+### 4. Verify
+
+```bash
+curl -s http://127.0.0.1:3001/health          # API direct
+curl -sI http://127.0.0.1:8080/               # web direct
+curl -s https://ama-midi.hvy-dev.uk/health    # through nginx
+```
+
+Browser: login → song list → editor → WebSocket (`/socket.io`) → create note.
+
+### 5. Deploy updates
+
+Manual (same as GitHub Actions deploy step):
+
+```bash
+cd /opt/ama-midi
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Or push to `main` after configuring the `AMA-MIDI` GitHub environment (SSH key + `VM_*` vars).
+
+### Checklist (existing nginx VPS)
+
+```txt
+[ ] DNS: ama-midi.hvy-dev.uk → VPS IP
+[ ] /opt/ama-midi: docker-compose.prod.yml + .env.prod (chmod 600)
+[ ] .env.prod: DATABASE_URL points to external Postgres (reachable from container)
+[ ] default nginx: ama_midi_web + ama_midi_api upstreams + server block added
+[ ] sudo nginx -t && reload
+[ ] GHCR login on VPS
+[ ] docker compose up -d → api healthy, web running
+[ ] curl https://ama-midi.hvy-dev.uk/health
+[ ] Google OAuth console updated
+[ ] Browser smoke test passed
+```
+
+---
+
 ## Repository Files
 
-| File | Purpose |
-|---|---|
-| `apps/api/Dockerfile` | Multi-stage API build; runs `prisma generate`, migrate on start |
-| `apps/api/docker-entrypoint.sh` | `prisma migrate deploy` then `node dist/main` |
-| `apps/web/Dockerfile` | Multi-stage Vite build → nginx static server |
-| `apps/web/nginx.conf` | SPA `try_files` fallback inside web container |
-| `docker-compose.prod.yml` | Production compose (postgres + redis + api + web) |
-| `.env.prod.example` | Template for VPS secrets |
-| `deploy/nginx/ama-midi.conf` | Host nginx site config template |
-| `.github/workflows/deploy.yml` | GHCR build + SSH deploy on `main` push |
-| `.github/workflows/ci.yml` | PR/main test + build |
+
+| File                            | Purpose                                                         |
+| ------------------------------- | --------------------------------------------------------------- |
+| `apps/api/Dockerfile`           | Multi-stage API build; runs `prisma generate`, migrate on start |
+| `apps/api/docker-entrypoint.sh` | `prisma migrate deploy` then `node dist/main`                   |
+| `apps/web/Dockerfile`           | Multi-stage Vite build → nginx static server                    |
+| `apps/web/nginx.conf`           | SPA `try_files` fallback inside web container                   |
+| `docker-compose.prod.yml`       | Production compose (postgres + redis + api + web)               |
+| `.env.prod.example`             | Template for VPS secrets                                        |
+| `deploy/nginx/ama-midi.conf`    | Snippet to append to shared `/etc/nginx/sites-enabled/default` |
+| `.github/workflows/deploy.yml`  | GHCR build + SSH deploy on `main` push                          |
+| `.github/workflows/ci.yml`      | PR/main test + build                                            |
+
 
 ---
 
@@ -114,8 +245,9 @@ cp .env.prod.example .env.prod
 nano .env.prod          # fill in all secrets (see Phase 2)
 chmod 600 .env.prod
 
-# Install host nginx site (replace domain first)
-sudo sed -i 's/ama-midi.example.com/YOUR_DOMAIN/g' /tmp/ama-midi.conf
+# Option A — shared default file (ohomi/task VPS): append deploy/nginx/ama-midi.conf
+#   into /etc/nginx/sites-enabled/default, then nginx -t && reload
+# Option B — dedicated site file:
 sudo cp /tmp/ama-midi.conf /etc/nginx/sites-available/ama-midi
 sudo ln -sf /etc/nginx/sites-available/ama-midi /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
@@ -167,10 +299,12 @@ ANTHROPIC_API_KEY=...   # optional
 
 ### Google OAuth console
 
-| Setting | Value |
-|---|---|
-| Authorized JavaScript origins | `https://YOUR_DOMAIN` |
-| Authorized redirect URIs | `https://YOUR_DOMAIN/auth/google/callback` |
+
+| Setting                       | Value                                      |
+| ----------------------------- | ------------------------------------------ |
+| Authorized JavaScript origins | `https://YOUR_DOMAIN`                      |
+| Authorized redirect URIs      | `https://YOUR_DOMAIN/auth/google/callback` |
+
 
 ---
 
@@ -184,18 +318,22 @@ Repository → Settings → Actions → General → Workflow permissions → **R
 
 **Secrets**
 
-| Name | Description |
-|---|---|
+
+| Name         | Description                               |
+| ------------ | ----------------------------------------- |
 | `VM_SSH_KEY` | Private SSH key for deploy user (ed25519) |
+
 
 **Variables**
 
-| Name | Example | Description |
-|---|---|---|
-| `VM_HOST` | `203.0.113.10` | VPS IP or hostname |
-| `VM_USERNAME` | `deploy` | SSH user |
-| `VM_SSH_PORT` | `22` or `24700` | SSH port |
-| `APP_URL` | `https://ama-midi.hvy-dev.uk` | Used as `VITE_WS_URL` at web build time |
+
+| Name          | Example                       | Description                             |
+| ------------- | ----------------------------- | --------------------------------------- |
+| `VM_HOST`     | `203.0.113.10`                | VPS IP or hostname                      |
+| `VM_USERNAME` | `deploy`                      | SSH user                                |
+| `VM_SSH_PORT` | `22` or `24700`               | SSH port                                |
+| `APP_URL`     | `https://ama-midi.hvy-dev.uk` | Used as `VITE_WS_URL` at web build time |
+
 
 ### 3.3 Generate deploy SSH key
 
@@ -250,12 +388,12 @@ curl -s https://YOUR_DOMAIN/health
 
 Browser checks:
 
-- [ ] Google OAuth login completes
-- [ ] Song list loads
-- [ ] Editor opens
-- [ ] WebSocket connects (DevTools → Network → WS → `/socket.io`)
-- [ ] Note create/delete works
-- [ ] Real-time sync in two tabs
+- Google OAuth login completes
+- Song list loads
+- Editor opens
+- WebSocket connects (DevTools → Network → WS → `/socket.io`)
+- Note create/delete works
+- Real-time sync in two tabs
 
 ---
 
@@ -283,14 +421,16 @@ docker compose -f docker-compose.prod.yml restart api
 
 ## Port reference
 
-| Location | Port | Exposed to |
-|---|---|---|
-| VPS public | 22 (or 24700) | Your IP (SSH) |
-| VPS public | 80, 443 | Internet |
-| VPS localhost | 3001 | Host nginx only |
-| VPS localhost | 8080 | Host nginx only |
-| Docker internal | 5432 | api container only (via `postgres` hostname) |
-| Docker internal | 6379 | api container only (via `redis` hostname) |
+
+| Location        | Port          | Exposed to                                   |
+| --------------- | ------------- | -------------------------------------------- |
+| VPS public      | 22 (or 24700) | Your IP (SSH)                                |
+| VPS public      | 80, 443       | Internet                                     |
+| VPS localhost   | 3001          | Host nginx only                              |
+| VPS localhost   | 8080          | Host nginx only                              |
+| Docker internal | 5432          | api container only (via `postgres` hostname) |
+| Docker internal | 6379          | api container only (via `redis` hostname)    |
+
 
 ---
 
@@ -298,25 +438,29 @@ docker compose -f docker-compose.prod.yml restart api
 
 Host nginx (`deploy/nginx/ama-midi.conf`) routes:
 
-| Path | Upstream | Notes |
-|---|---|---|
-| `/` | web `:8080` | React SPA |
-| `/auth/*` | api `:3001` | OAuth + JWT |
-| `/songs/*` | api `:3001` | Song/note CRUD |
-| `/users/*` | api `:3001` | User profile |
-| `/patterns/*` | api `:3001` | Note patterns |
-| `/health` | api `:3001` | Health check |
-| `/projects/*` | api `:3001` | Future project routes |
+
+| Path           | Upstream    | Notes                      |
+| -------------- | ----------- | -------------------------- |
+| `/`            | web `:8080` | React SPA                  |
+| `/auth/*`      | api `:3001` | OAuth + JWT                |
+| `/songs/*`     | api `:3001` | Song/note CRUD             |
+| `/users/*`     | api `:3001` | User profile               |
+| `/patterns/*`  | api `:3001` | Note patterns              |
+| `/health`      | api `:3001` | Health check               |
+| `/projects/*`  | api `:3001` | Future project routes      |
 | `/socket.io/*` | api `:3001` | WebSocket upgrade required |
+
 
 ---
 
 ## Local vs production compose
 
-| Command | Use case |
-|---|---|
-| `docker compose up` | Local dev (same stack, dev passwords in compose) |
-| `docker compose -f docker-compose.prod.yml up` | Production on VPS (GHCR images + `.env.prod`) |
+
+| Command                                        | Use case                                         |
+| ---------------------------------------------- | ------------------------------------------------ |
+| `docker compose up`                            | Local dev (same stack, dev passwords in compose) |
+| `docker compose -f docker-compose.prod.yml up` | Production on VPS (GHCR images + `.env.prod`)    |
+
 
 ---
 
@@ -411,15 +555,15 @@ docker login ghcr.io
 
 ## Security checklist
 
-- [ ] `.env.prod` is `chmod 600` and never committed
-- [ ] Postgres and Redis **not** published to host (no `ports:` on those services)
-- [ ] VPS does not expose 3001/8080/5432/6379 publicly
-- [ ] UFW allows only 22, 80, 443
-- [ ] SSH key-only auth (disable password login)
-- [ ] `POSTGRES_PASSWORD` and `JWT_SECRET` are strong random values
-- [ ] HTTPS enabled with valid cert
-- [ ] Google OAuth redirect URIs match production domain exactly
-- [ ] Daily `pg_dump` backups configured
+- `.env.prod` is `chmod 600` and never committed
+- Postgres and Redis **not** published to host (no `ports:` on those services)
+- VPS does not expose 3001/8080/5432/6379 publicly
+- UFW allows only 22, 80, 443
+- SSH key-only auth (disable password login)
+- `POSTGRES_PASSWORD` and `JWT_SECRET` are strong random values
+- HTTPS enabled with valid cert
+- Google OAuth redirect URIs match production domain exactly
+- Daily `pg_dump` backups configured
 
 ---
 
@@ -464,12 +608,15 @@ docker compose -f docker-compose.prod.yml up -d
 
 ## Comparison with Owen backend
 
-| Aspect | Owen | AMA-MIDI |
-|---|---|---|
-| Images | 1 (`owen-backend`) | 2 (`ama-midi-api`, `ama-midi-web`) |
-| Database | External MySQL (RDBS) | PostgreSQL in Docker on same VPS |
-| Nginx | Host nginx → `:8888` | Host nginx → `:8080` + `:3001` |
-| WebSocket | No | Yes — `/socket.io/` proxy block |
-| Migrations | On app startup | `docker-entrypoint.sh` runs `prisma migrate deploy` |
-| SSH port | 24700 | Configurable via `VM_SSH_PORT` |
-| Deploy path | `/opt/owen-backend` | `/opt/ama-midi` |
+
+| Aspect      | Owen                  | AMA-MIDI                                            |
+| ----------- | --------------------- | --------------------------------------------------- |
+| Images      | 1 (`owen-backend`)    | 2 (`ama-midi-api`, `ama-midi-web`)                  |
+| Database    | External MySQL (RDBS) | PostgreSQL in Docker on same VPS                    |
+| Nginx       | Host nginx → `:8888`  | Host nginx → `:8080` + `:3001`                      |
+| WebSocket   | No                    | Yes — `/socket.io/` proxy block                     |
+| Migrations  | On app startup        | `docker-entrypoint.sh` runs `prisma migrate deploy` |
+| SSH port    | 24700                 | Configurable via `VM_SSH_PORT`                      |
+| Deploy path | `/opt/owen-backend`   | `/opt/ama-midi`                                     |
+
+

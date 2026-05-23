@@ -81,7 +81,7 @@ describe('PatternPasteService', () => {
 
   describe('previewPaste', () => {
     it('previews all notes as creatable when no existing note overlaps', async () => {
-      const preview = await service.previewPaste('pattern-1', { songId: 'song-1', startTime: 10 }, mockUser)
+      const preview = await service.previewPaste('pattern-1', { songId: 'song-1', chartId: 'chart-1', startTime: 10 }, mockUser)
 
       expect(mockAccess.assertCanEditSongChart).toHaveBeenCalledWith('song-1', mockUser)
       expect(preview.summary.totalPatternNotes).toBe(2)
@@ -108,7 +108,7 @@ describe('PatternPasteService', () => {
         },
       ])
 
-      const preview = await service.previewPaste('pattern-1', { songId: 'song-1', startTime: 10 }, mockUser)
+      const preview = await service.previewPaste('pattern-1', { songId: 'song-1', chartId: 'chart-1', startTime: 10 }, mockUser)
 
       expect(preview.summary.conflictCount).toBe(1)
       expect(preview.conflicts[0]).toMatchObject({
@@ -124,7 +124,7 @@ describe('PatternPasteService', () => {
     })
 
     it('returns latest patternVersion from pattern updatedAt', async () => {
-      const preview = await service.previewPaste('pattern-1', { songId: 'song-1', startTime: 10 }, mockUser)
+      const preview = await service.previewPaste('pattern-1', { songId: 'song-1', chartId: 'chart-1', startTime: 10 }, mockUser)
       expect(preview.patternVersion).toBe('2026-05-23T12:00:00.000Z')
     })
 
@@ -146,7 +146,7 @@ describe('PatternPasteService', () => {
         },
       ])
 
-      const preview = await service.previewPaste('pattern-1', { songId: 'song-1', startTime: 10 }, mockUser)
+      const preview = await service.previewPaste('pattern-1', { songId: 'song-1', chartId: 'chart-1', startTime: 10 }, mockUser)
 
       expect(preview.conflicts[0].conflictId).toBe('stable-id')
     })
@@ -162,7 +162,7 @@ describe('PatternPasteService', () => {
       })
 
       await expect(
-        service.previewPaste('pattern-1', { songId: 'song-1', startTime: 0 }, mockUser),
+        service.previewPaste('pattern-1', { songId: 'song-1', chartId: 'chart-1', startTime: 0 }, mockUser),
       ).rejects.toThrow(UnprocessableEntityException)
     })
   })
@@ -204,6 +204,7 @@ describe('PatternPasteService', () => {
 
       const result = await service.applyPaste('pattern-1', {
         songId: 'song-1',
+        chartId: 'chart-1',
         startTime: 10,
         patternVersion,
         resolutions: [{ conflictId: 'existing-1', action: 'KEEP_EXISTING' }],
@@ -263,6 +264,7 @@ describe('PatternPasteService', () => {
 
       const result = await service.applyPaste('pattern-1', {
         songId: 'song-1',
+        chartId: 'chart-1',
         startTime: 10,
         patternVersion,
         resolutions: [{ conflictId: 'existing-1', action: 'REPLACE_WITH_PATTERN' }],
@@ -279,6 +281,7 @@ describe('PatternPasteService', () => {
       await expect(
         service.applyPaste('pattern-1', {
           songId: 'song-1',
+          chartId: 'chart-1',
           startTime: 10,
           patternVersion: 'stale-version',
           resolutions: [],
@@ -312,6 +315,7 @@ describe('PatternPasteService', () => {
       await expect(
         service.applyPaste('pattern-1', {
           songId: 'song-1',
+          chartId: 'chart-1',
           startTime: 10,
           patternVersion,
           resolutions: [{ conflictId: 'wrong-id', action: 'KEEP_EXISTING' }],
@@ -372,6 +376,7 @@ describe('PatternPasteService', () => {
 
       await service.applyPaste('pattern-1', {
         songId: 'song-1',
+        chartId: 'chart-1',
         startTime: 10,
         patternVersion,
         resolutions: [{ conflictId: 'existing-1', action: 'REPLACE_WITH_PATTERN' }],

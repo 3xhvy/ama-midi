@@ -14,6 +14,9 @@ export class PatternPastePreviewDto {
   @IsUUID()
   songId!: string
 
+  @IsUUID()
+  chartId!: string
+
   @IsNumber()
   @Min(0)
   @Max(300)
@@ -23,6 +26,9 @@ export class PatternPastePreviewDto {
 export class PatternPasteApplyDto {
   @IsUUID()
   songId!: string
+
+  @IsUUID()
+  chartId!: string
 
   @IsNumber()
   @Min(0)

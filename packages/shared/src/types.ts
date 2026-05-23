@@ -303,6 +303,7 @@ export type ConflictAction = 'KEEP_EXISTING' | 'REPLACE_WITH_PATTERN'
 
 export interface PatternPastePreviewRequest {
   songId: string
+  chartId: string
   startTime: number
 }
 
@@ -357,6 +358,7 @@ export interface PatternPastePreview {
 
 export interface PatternPasteApplyRequest {
   songId: string
+  chartId: string
   startTime: number
   patternVersion: string
   resolutions: Array<{

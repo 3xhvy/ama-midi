@@ -67,7 +67,7 @@ export class PatternPasteService {
     user: AuthUser,
   ): Promise<PatternPastePreview> {
     await this.access.assertCanEditSongChart(request.songId, user)
-    const chartId = await this.resolveDefaultChartId(request.songId)
+    const chartId = await this.resolveChartId(request.songId, request.chartId)
     const row = await this.loadPatternRow(patternId)
     const pattern = this.toDomainPattern(row)
     const patternVersion = this.getPatternVersion(row)
@@ -80,7 +80,7 @@ export class PatternPasteService {
     user: AuthUser,
   ): Promise<PatternPasteApplyResult> {
     await this.access.assertCanEditSongChart(request.songId, user)
-    const chartId = await this.resolveDefaultChartId(request.songId)
+    const chartId = await this.resolveChartId(request.songId, request.chartId)
     const row = await this.loadPatternRow(patternId)
     const pattern = this.toDomainPattern(row)
     const patternVersion = this.getPatternVersion(row)
@@ -423,13 +423,12 @@ export class PatternPasteService {
     }
   }
 
-  private async resolveDefaultChartId(songId: string): Promise<string> {
+  private async resolveChartId(songId: string, chartId: string): Promise<string> {
     const chart = await this.prisma.songChart.findFirst({
-      where: { songId },
-      orderBy: { createdAt: 'asc' },
+      where: { id: chartId, songId },
       select: { id: true },
     })
-    if (!chart) throw new NotFoundException('No chart found for song')
+    if (!chart) throw new NotFoundException('Chart not found for song')
     return chart.id
   }
 }

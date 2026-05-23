@@ -23,7 +23,7 @@ export interface CursorData {
   lastSeen: number
 }
 
-export function useSocket(songId: string, projectId?: string) {
+export function useSocket(songId: string, chartId?: string, projectId?: string) {
   const [presenceList, setPresenceList] = useState<PresenceUser[]>([])
   const [isConnected,  setIsConnected]  = useState(false)
   const [cursors,      setCursors]      = useState<Map<string, CursorData>>(new Map())
@@ -116,29 +116,42 @@ export function useSocket(songId: string, projectId?: string) {
     })
 
     socket.on('note-created', (note: Note) => {
-      queryClient.setQueryData<Note[]>(['notes', songId], old => {
-        if (!old) return [note]
-        if (old.find(n => n.id === note.id)) return old
-        return [...old, note]
-      })
-      queryClient.invalidateQueries({ queryKey: ['notes', songId], exact: false })
+      const noteChartId = note.chartId ?? chartId
+      if (!noteChartId) return
+      queryClient.setQueriesData<Note[]>(
+        { queryKey: ['notes', noteChartId], exact: false },
+        (old) => {
+          if (!old) return [note]
+          if (old.find((n) => n.id === note.id)) return old
+          return [...old, note]
+        },
+      )
     })
 
     socket.on('note-updated', (note: Note) => {
-      queryClient.setQueryData<Note[]>(['notes', songId], old =>
-        old ? old.map(n => n.id === note.id ? note : n) : [note]
+      const noteChartId = note.chartId ?? chartId
+      if (!noteChartId) return
+      queryClient.setQueriesData<Note[]>(
+        { queryKey: ['notes', noteChartId], exact: false },
+        (old) => (old ? old.map((n) => (n.id === note.id ? note : n)) : [note]),
       )
     })
 
     socket.on('note-deleted', ({ noteId }: { noteId: string }) => {
-      queryClient.setQueryData<Note[]>(['notes', songId], old =>
-        old ? old.filter(n => n.id !== noteId) : []
+      queryClient.setQueriesData<Note[]>(
+        {
+          predicate: (query) =>
+            Array.isArray(query.queryKey) && query.queryKey[0] === 'notes',
+        },
+        (old) => (old ? old.filter((n) => n.id !== noteId) : old),
       )
     })
 
     socket.on('notes-batch-applied', (payload: NotesBatchAppliedPayload) => {
+      const batchChartId = payload.created[0]?.chartId ?? chartId
+      if (!batchChartId) return
       queryClient.setQueriesData<Note[]>(
-        { queryKey: ['notes', songId], exact: false },
+        { queryKey: ['notes', batchChartId], exact: false },
         (old) => {
           if (!old) return payload.created
           const deleted = new Set(payload.deletedIds)
@@ -178,7 +191,7 @@ export function useSocket(songId: string, projectId?: string) {
       socketRef.current = null
       toast.dismiss('ws-disconnect')
     }
-  }, [songId, projectId, token, queryClient])
+  }, [songId, chartId, projectId, token, queryClient])
 
   function emitCursorMove(track: number, time: number) {
     socketRef.current?.emit('cursor-move', { songId, track, time })
