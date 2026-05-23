@@ -484,6 +484,7 @@ export class NoteCopyService {
     return {
       id: row.id,
       songId: row.songId,
+      chartId: row.songId,
       track: row.track,
       time: row.time,
       title: row.title,
