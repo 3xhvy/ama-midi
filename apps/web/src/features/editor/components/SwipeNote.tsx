@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { cn } from '../../../lib/utils'
 import { trackToX, timeToY, trackWidth } from '../engine'
 import { NoteTooltip } from './NoteTooltip'
+import { trackColor } from '@ama-midi/shared'
 import type { NoteVariantProps } from './TapNote'
 
 export function SwipeNote({
@@ -15,17 +15,17 @@ export function SwipeNote({
   const tw = trackWidth(gridWidth)
   const cx = x + tw / 2
 
-  const ringClass = isSelected ? 'ring-2 ring-white' : ''
-
   return (
     <>
       <div
         data-note={note.id}
-        className={cn(
-          'absolute w-4 h-4 rounded-full cursor-pointer hover:scale-125 transition-transform animate-note-appear',
-          ringClass,
-        )}
-        style={{ left: cx - 8, top: y - 8, backgroundColor: note.color }}
+        className="absolute w-4 h-4 rounded-full cursor-pointer hover:scale-125 transition-transform animate-note-appear"
+        style={{
+          left: cx - 8,
+          top: y - 8,
+          backgroundColor: trackColor(note.track),
+          boxShadow: isSelected ? '0 0 0 2px rgba(255,255,255,0.90)' : undefined,
+        }}
         title={`${note.title} | Track ${note.track} | ${note.time}s | SWIPE →`}
         onClick={(e) => onClick(note, e)}
         onMouseEnter={() => setHovered(true)}
@@ -40,7 +40,7 @@ export function SwipeNote({
           height:       0,
           borderTop:    '4px solid transparent',
           borderBottom: '4px solid transparent',
-          borderLeft:   `6px solid ${note.color}`,
+          borderLeft:   `6px solid ${trackColor(note.track)}`,
         }}
       />
       {hovered && <NoteTooltip note={note} position={{ x: cx, y: y - 24 }} />}

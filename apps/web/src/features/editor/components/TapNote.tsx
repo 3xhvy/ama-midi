@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { cn } from '../../../lib/utils'
 import { trackToX, timeToY, trackWidth } from '../engine'
 import { NoteTooltip } from './NoteTooltip'
-import type { Note } from '@ama-midi/shared'
+import { trackColor, type Note } from '@ama-midi/shared'
 
 export interface NoteVariantProps {
   note:        Note
@@ -31,16 +31,19 @@ export function TapNote({
     (n) => n.id !== note.id && n.track === note.track && Math.abs(n.time - note.time) < 0.3,
   )
 
-  const ringClass =
+  const qaRingClass =
     viewMode === 'qa'
       ? isNearBoundary
         ? 'ring-2 ring-orange-400'
         : hasCloseNeighbor
           ? 'ring-2 ring-yellow-400'
           : ''
-      : isSelected
-        ? 'ring-2 ring-white'
-        : ''
+      : ''
+
+  const hasQaRing = viewMode === 'qa' && (isNearBoundary || hasCloseNeighbor)
+  const selectionShadow = isSelected && !hasQaRing
+    ? { boxShadow: '0 0 0 2px rgba(255,255,255,0.90)' }
+    : undefined
 
   const displayTime = viewMode === 'developer' ? note.time : Math.round(note.time * 10) / 10
 
@@ -50,9 +53,9 @@ export function TapNote({
         data-note={note.id}
         className={cn(
           'absolute w-4 h-4 rounded-full cursor-pointer hover:scale-125 transition-transform animate-note-appear group',
-          ringClass,
+          qaRingClass,
         )}
-        style={{ left: cx - 8, top: cy - 8, backgroundColor: note.color }}
+        style={{ left: cx - 8, top: cy - 8, backgroundColor: trackColor(note.track), ...selectionShadow }}
         title={`${note.title} | Track ${note.track} | ${displayTime}s`}
         onClick={(e) => onClick(note, e)}
         onMouseEnter={() => setHovered(true)}
