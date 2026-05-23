@@ -115,6 +115,10 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     environment: AMA-MIDI
+    env:
+      VM_HOST: ${{ vars.VM_HOST }}
+      VM_USERNAME: ${{ vars.VM_USERNAME }}
+      VM_SSH_PORT: ${{ vars.VM_SSH_PORT }}
 
     steps:
       - name: Notify - Deploy Started
@@ -140,7 +144,8 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p ${{ vars.VM_SSH_PORT }} -H ${{ vars.VM_HOST }} >> ~/.ssh/known_hosts
+          PORT="${VM_SSH_PORT:-24700}"
+          ssh-keyscan -p "$PORT" -H "$VM_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy to VM
         run: |
@@ -171,8 +176,8 @@ jobs:
             '  sleep "$SLEEP_SECONDS"' \
             '  ELAPSED=$((ELAPSED + SLEEP_SECONDS))' \
             'done' \
-            | ssh -p ${{ vars.VM_SSH_PORT }} -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-                ${{ vars.VM_USERNAME }}@${{ vars.VM_HOST }} 'bash -s'
+            | ssh -p "${VM_SSH_PORT:-24700}" -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+                "${VM_USERNAME}@${VM_HOST}" 'bash -s'
 
       - name: Notify - Deploy Result
         if: always()
