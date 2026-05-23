@@ -1,5 +1,5 @@
 export * from './types'
 export * from './tier-thresholds'
 export { analyzeChart } from './analyze-chart'
-export { validateChart } from './validate-chart'
+export { validateChart, validateChartWithNotes } from './validate-chart'
 export { maxCombo, computeNpsOverTime } from './factors'
