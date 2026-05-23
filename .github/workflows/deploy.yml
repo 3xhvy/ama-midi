@@ -151,7 +151,7 @@ jobs:
         run: |
           printf '%s\n' \
             'set -e' \
-            'cd /opt/ama-midi' \
+            'cd /opt/amanotes' \
             'echo "Pulling latest images..."' \
             'docker compose -f docker-compose.prod.yml pull' \
             'echo "Starting containers..."' \
