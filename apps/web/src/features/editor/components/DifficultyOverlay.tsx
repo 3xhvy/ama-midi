@@ -1,16 +1,35 @@
 import { useMemo } from 'react'
+import { analyzeChart, segmentScoreToColor } from '../engine/difficulty-calculator'
 import { timeToY } from '../engine'
-import { computeNpsOverTime, npsToColor } from '../engine/difficulty-calculator'
 import type { Note } from '@ama-midi/shared'
 
 interface Props {
   notes:       Note[]
+  bpm:         number
+  timeSignature: string
+  speedMultiplier: number
   pxPerSecond: number
   width:       number
 }
 
-export function DifficultyOverlay({ notes, pxPerSecond, width }: Props) {
-  const bands = useMemo(() => computeNpsOverTime(notes, 2, 0.5), [notes])
+export function DifficultyOverlay({
+  notes,
+  bpm,
+  timeSignature,
+  speedMultiplier,
+  pxPerSecond,
+  width,
+}: Props) {
+  const segments = useMemo(
+    () =>
+      analyzeChart({
+        notes,
+        bpm,
+        timeSignature,
+        speedMultiplier,
+      }).segments,
+    [notes, bpm, timeSignature, speedMultiplier],
+  )
 
   return (
     <svg
@@ -19,16 +38,20 @@ export function DifficultyOverlay({ notes, pxPerSecond, width }: Props) {
       height="100%"
       style={{ zIndex: 1 }}
     >
-      {bands.map(({ time, nps }) => (
-        <rect
-          key={time}
-          x={0}
-          y={timeToY(time, pxPerSecond)}
-          width={width}
-          height={pxPerSecond * 0.5}
-          fill={npsToColor(nps)}
-        />
-      ))}
+      {segments.map((seg) => {
+        const startSec = seg.startTimeMs / 1000
+        const endSec = seg.endTimeMs / 1000
+        return (
+          <rect
+            key={`${seg.startTimeMs}-${seg.endTimeMs}`}
+            x={0}
+            y={timeToY(startSec, pxPerSecond)}
+            width={width}
+            height={Math.max(1, (endSec - startSec) * pxPerSecond)}
+            fill={segmentScoreToColor(seg.difficultyScore)}
+          />
+        )
+      })}
     </svg>
   )
 }
