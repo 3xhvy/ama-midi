@@ -3,8 +3,10 @@ import { AuthGuard } from '@nestjs/passport'
 import { Throttle } from '@nestjs/throttler'
 import { NotesService } from './notes.service'
 import { NoteQueryService } from './note-query.service'
+import { NoteCopyService } from './note-copy.service'
 import { CreateNoteDto } from './dto/create-note.dto'
 import { UpdateNoteDto } from './dto/update-note.dto'
+import { NoteCopyApplyDto, NoteCopyPreviewDto } from './dto/note-copy.dto'
 import type { Request } from 'express'
 import type { AuthUser } from '@ama-midi/shared'
 
@@ -14,6 +16,7 @@ export class NotesController {
   constructor(
     private readonly notes: NotesService,
     private readonly query: NoteQueryService,
+    private readonly noteCopy: NoteCopyService,
   ) {}
 
   @Get('notes')
@@ -27,6 +30,25 @@ export class NotesController {
       timeFrom: timeFrom !== undefined ? parseFloat(timeFrom) : undefined,
       timeTo: timeTo !== undefined ? parseFloat(timeTo) : undefined,
     })
+  }
+
+  @Post('notes/copy-preview')
+  previewCopy(
+    @Param('songId') songId: string,
+    @Body() body: NoteCopyPreviewDto,
+    @Req() req: Request,
+  ) {
+    return this.noteCopy.previewCopy(songId, body, req.user as AuthUser)
+  }
+
+  @Post('notes/copy-apply')
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  applyCopy(
+    @Param('songId') songId: string,
+    @Body() body: NoteCopyApplyDto,
+    @Req() req: Request,
+  ) {
+    return this.noteCopy.applyCopy(songId, body, req.user as AuthUser)
   }
 
   @Post('notes')
