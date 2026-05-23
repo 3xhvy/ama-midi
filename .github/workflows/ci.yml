@@ -40,6 +40,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Build shared package
+        run: pnpm --filter @ama-midi/shared build
+
       - name: Generate Prisma client
         working-directory: apps/api
         run: npx prisma generate
