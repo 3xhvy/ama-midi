@@ -77,6 +77,12 @@ enum SongDifficulty {
   MASTER
 }
 
+enum ValidationSeverity {
+  INFO
+  WARN
+  ERROR
+}
+
 model User {
   id              String   @id @default(uuid())
   email           String   @unique
@@ -160,7 +166,6 @@ model Song {
   name               String
   category           SongCategory   @default(PROTOTYPE)
   status             SongStatus     @default(DRAFT)
-  difficulty         SongDifficulty @default(NORMAL)
   assignedComposerId String?
   assignedQaId       String?
   sourceSongId       String?
@@ -179,6 +184,7 @@ model Song {
   sourceSong       Song?                     @relation("SongImportSource", fields: [sourceSongId], references: [id])
   importedSongs    Song[]                    @relation("SongImportSource")
   allowedMembers   ProjectMemberSongAccess[]
+  charts           SongChart[]
   notes            Note[]
   noteEvents       NoteEvent[]
   versions         SongVersion[]
@@ -194,8 +200,66 @@ model Song {
   @@map("songs")
 }
 
+model SongChart {
+  id                     String         @id @default(uuid())
+  songId                 String
+  name                   String         @default("Main")
+  speedMultiplier        Float          @default(1.0)
+  computedDifficulty     SongDifficulty @default(NORMAL)
+  averageDifficultyScore Float          @default(0)
+  peakDifficultyScore    Float          @default(0)
+  analyzedAt             DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  song     Song                     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  notes    Note[]
+  segments ChartDifficultySegment[]
+  warnings ChartValidationWarning[]
+
+  @@index([songId])
+  @@map("song_charts")
+}
+
+model ChartDifficultySegment {
+  id                     String         @id @default(uuid())
+  chartId                String
+  startTimeMs            Int
+  endTimeMs              Int
+  notesPerSecond         Float
+  averageLaneJump        Float
+  offbeatRatio           Float
+  holdNoteRatio          Float
+  simultaneousNoteRatio  Float
+  patternComplexityScore Float
+  difficultyScore        Float
+  difficultyLevel        SongDifficulty
+
+  chart SongChart @relation(fields: [chartId], references: [id], onDelete: Cascade)
+
+  @@index([chartId, startTimeMs])
+  @@map("chart_difficulty_segments")
+}
+
+model ChartValidationWarning {
+  id          String             @id @default(uuid())
+  chartId     String
+  code        String
+  severity    ValidationSeverity
+  startTimeMs Int?
+  endTimeMs   Int?
+  message     String
+  metadata    Json?
+
+  chart SongChart @relation(fields: [chartId], references: [id], onDelete: Cascade)
+
+  @@index([chartId, severity])
+  @@map("chart_validation_warnings")
+}
+
 model Note {
   id          String    @id @default(uuid())
+  chartId     String
   songId      String
   track       Int       // 1–8
   time        Float     // 0.0–300.0, 0.1s resolution
@@ -209,11 +273,13 @@ model Note {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  song    Song @relation(fields: [songId], references: [id], onDelete: Cascade)
-  creator User @relation(fields: [createdBy], references: [id])
+  chart   SongChart @relation(fields: [chartId], references: [id], onDelete: Cascade)
+  song    Song      @relation(fields: [songId], references: [id], onDelete: Cascade)
+  creator User      @relation(fields: [createdBy], references: [id])
 
+  @@index([chartId, time])
+  @@index([chartId, track])
   @@index([songId, time])
-  @@index([songId, track])
   @@map("notes")
 }
 
