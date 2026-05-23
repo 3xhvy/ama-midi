@@ -13,6 +13,8 @@ const access = {
   getProjectPermission: jest.fn(),
 }
 
+const templates = { materialize: jest.fn() }
+
 const composer: AuthUser = {
   id: 'c1',
   email: 'c@example.com',
@@ -26,7 +28,11 @@ describe('SongsService status workflow', () => {
   let service: SongsService
 
   beforeEach(() => {
-    service = new SongsService(prisma as unknown as PrismaService, access as unknown as ProjectAccessService)
+    service = new SongsService(
+      prisma as unknown as PrismaService,
+      access as unknown as ProjectAccessService,
+      templates as never,
+    )
     jest.clearAllMocks()
     access.assertCanViewSong.mockResolvedValue({ id: 'song1', projectId: 'p1' })
     access.getProjectPermission.mockResolvedValue('EDIT')

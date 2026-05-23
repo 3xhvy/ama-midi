@@ -19,6 +19,8 @@ const access = {
   getAccessibleSongWhere: jest.fn(),
 }
 
+const templates = { materialize: jest.fn() }
+
 const user: AuthUser = {
   id: 'u1',
   email: 'u1@example.com',
@@ -32,7 +34,11 @@ describe('SongsService project flow', () => {
   let service: SongsService
 
   beforeEach(() => {
-    service = new SongsService(prisma as unknown as PrismaService, access as unknown as ProjectAccessService)
+    service = new SongsService(
+      prisma as unknown as PrismaService,
+      access as unknown as ProjectAccessService,
+      templates as never,
+    )
     jest.clearAllMocks()
   })
 
@@ -82,5 +88,42 @@ describe('SongsService project flow', () => {
       timeSignature: '4/4',
       startType: 'IMPORT',
     }, user)).rejects.toBeInstanceOf(BadRequestException)
+  })
+
+  it('materializes template when startType is TEMPLATE', async () => {
+    const row = {
+      id: 'song1',
+      projectId: 'project1',
+      name: 'Tap Starter',
+      category: 'PROTOTYPE',
+      status: 'DRAFT',
+      difficulty: 'NORMAL',
+      createdBy: 'u1',
+      assignedComposerId: null,
+      assignedQaId: null,
+      sourceSongId: null,
+      archivedAt: null,
+      bpm: 120,
+      timeSignature: '4/4',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+      creator: { name: 'Composer', avatarUrl: null },
+      assignedComposer: null,
+      assignedQa: null,
+      _count: { notes: 0 },
+    }
+    prisma.song.create.mockResolvedValue(row)
+
+    await service.createInProject('project1', {
+      name: 'Tap Starter',
+      category: 'PROTOTYPE',
+      difficulty: 'NORMAL',
+      bpm: 120,
+      timeSignature: '4/4',
+      startType: 'TEMPLATE',
+      templateId: 'tap-starter',
+    }, user)
+
+    expect(templates.materialize).toHaveBeenCalledWith('tap-starter', 'song1', 'u1')
   })
 })

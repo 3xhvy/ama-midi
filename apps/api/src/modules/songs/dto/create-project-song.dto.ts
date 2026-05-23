@@ -50,8 +50,9 @@ export class CreateProjectSongDto {
   @IsIn(['BLANK', 'TEMPLATE', 'IMPORT'])
   startType!: 'BLANK' | 'TEMPLATE' | 'IMPORT'
 
-  @IsOptional()
+  @ValidateIf((dto) => dto.startType === 'TEMPLATE')
   @IsString()
+  @MinLength(1)
   templateId?: string
 
   @ValidateIf((dto) => dto.startType === 'IMPORT')

@@ -4,6 +4,7 @@ import { ProjectAccessService } from '../project-access/project-access.service'
 import { UpdateSongDto } from './dto/update-song.dto'
 import { UpdateSongStatusDto } from './dto/update-song-status.dto'
 import { CreateProjectSongDto } from './dto/create-project-song.dto'
+import { SongTemplateService } from './song-template.service'
 import type { AuthUser, Song, SongWorkflowInfo } from '@ama-midi/shared'
 import {
   canTransitionSongStatus,
@@ -17,6 +18,7 @@ export class SongsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: ProjectAccessService,
+    private readonly templates: SongTemplateService,
   ) {}
 
   async findAll(user: AuthUser): Promise<Song[]> {
@@ -72,6 +74,11 @@ export class SongsService {
       data: createData,
       include: this.songInclude(),
     })
+
+    if (dto.startType === 'TEMPLATE') {
+      if (!dto.templateId) throw new BadRequestException('templateId is required for TEMPLATE start')
+      await this.templates.materialize(dto.templateId, row.id, user.id)
+    }
 
     if (dto.import) await this.copyImportedData(row.id, dto.import)
     return this.toSong(row)
