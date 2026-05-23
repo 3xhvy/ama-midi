@@ -20,7 +20,6 @@ export function PatternPanel({ songId }: Props) {
           track:    pn.track,
           time:     playheadTime + pn.timeOffset,
           title:    `${pattern.name} ${pn.track}`,
-          color:    pn.color,
           noteType: pn.noteType,
           duration: pn.duration,
         })

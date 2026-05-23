@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { Note } from '@ama-midi/shared'
+import { trackColor } from '@ama-midi/shared'
 
 interface Props {
   playheadTime: number
@@ -54,7 +55,7 @@ export function LiveContextStrip({ playheadTime, notes }: Props) {
             <span
               key={n.id}
               className="text-[9px] px-1 rounded font-mono text-white"
-              style={{ backgroundColor: n.color + 'CC' }}
+              style={{ backgroundColor: trackColor(n.track) + 'CC' }}
             >
               T{n.track}@{n.time}s
             </span>

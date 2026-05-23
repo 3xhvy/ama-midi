@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { NOTE_PRESET_COLORS } from '@ama-midi/shared'
 import { useCreateNote, useDeleteNote, useUpdateNote } from '../../notes/useNotes'
-import { Modal, Button, Input, ColorPicker } from '../../../components/ui'
+import { Modal, Button, Input } from '../../../components/ui'
 import type { Note, NoteType } from '@ama-midi/shared'
 
 interface Props {
@@ -31,7 +30,6 @@ export function NotePopup({
 
   const [title,       setTitle]       = useState(note?.title ?? '')
   const [description, setDescription] = useState(note?.description ?? '')
-  const [color,       setColor]       = useState<string>(note?.color ?? NOTE_PRESET_COLORS[0])
   const [noteType,    setNoteType]    = useState<NoteType>(
     mode === 'edit' ? (note?.noteType ?? 'HOLD') : 'HOLD',
   )
@@ -45,7 +43,7 @@ export function NotePopup({
     if (mode === 'create') {
       createNote.mutate(
         {
-          track: initialTrack!, time: initialTime!, title: title.trim(), description, color,
+          track: initialTrack!, time: initialTime!, title: title.trim(), description,
           noteType,
           duration: noteType === 'HOLD' ? duration : undefined,
         },
@@ -54,7 +52,7 @@ export function NotePopup({
     } else if (mode === 'edit' && note) {
       updateNote.mutate(
         {
-          noteId: note.id, title: title.trim(), description, color,
+          noteId: note.id, title: title.trim(), description,
           noteType,
           duration: noteType === 'HOLD' ? duration : undefined,
         },
@@ -107,15 +105,6 @@ export function NotePopup({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional description"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-shell-muted mb-1">Color</label>
-              <ColorPicker
-                colors={NOTE_PRESET_COLORS}
-                value={color}
-                onChange={setColor}
               />
             </div>
 

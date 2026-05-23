@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsHexColor, IsEnum, IsNumber, Min, Max } from 'class-validator'
+import { IsString, IsOptional, IsEnum, IsNumber, Min, Max } from 'class-validator'
 
 export class UpdateNoteDto {
   @IsOptional()
@@ -8,11 +8,6 @@ export class UpdateNoteDto {
   @IsOptional()
   @IsString()
   description?: string
-
-  @IsOptional()
-  @IsHexColor()
-  color?: string
-  // track and time are NOT updatable — position is immutable
 
   @IsEnum(['TAP', 'HOLD', 'SWIPE'] as const)
   @IsOptional()

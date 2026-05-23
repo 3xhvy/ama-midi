@@ -5,12 +5,7 @@ import { useEditorStore } from '../../../store/editor.store'
 import { apiClient } from '../../auth/api'
 import { useCreateNote } from '../../notes/useNotes'
 import { trackToX, timeToY, trackWidth } from '../engine'
-
-interface NoteSuggestion {
-  track: number
-  time: number
-  color: string
-}
+import { trackColor, type NoteSuggestion } from '@ama-midi/shared'
 
 interface Props {
   songId:      string
@@ -53,7 +48,7 @@ export function AiSuggestions({ songId, gridWidth, pxPerSecond, scrollTop }: Pro
   async function accept(s: NoteSuggestion, idx: number) {
     dismiss(idx)
     createNote.mutate(
-      { track: s.track, time: s.time, color: s.color, title: 'AI Suggestion' },
+      { track: s.track, time: s.time, title: 'AI Suggestion' },
       {
         onError: (err: Error & { status?: number }) => {
           if (err.status === 409) toast.error('That spot was just taken — try another suggestion')
@@ -70,6 +65,7 @@ export function AiSuggestions({ songId, gridWidth, pxPerSecond, scrollTop }: Pro
         const x  = trackToX(s.track, gridWidth)
         const y  = timeToY(s.time, pxPerSecond) - scrollTop
         const cx = x + tw / 2 - 8
+        const color = trackColor(s.track)
         return (
           <div
             key={i}
@@ -78,7 +74,7 @@ export function AiSuggestions({ songId, gridWidth, pxPerSecond, scrollTop }: Pro
           >
             <div
               className="w-4 h-4 rounded-full border-2 animate-ghost-pulse"
-              style={{ backgroundColor: `${s.color}33`, borderColor: s.color }}
+              style={{ backgroundColor: `${color}33`, borderColor: color }}
             />
             <div className="absolute left-1/2 -translate-x-1/2 top-5 hidden group-hover:flex gap-1 z-30 whitespace-nowrap">
               <button

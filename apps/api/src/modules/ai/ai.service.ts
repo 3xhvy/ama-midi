@@ -23,7 +23,7 @@ export class AiService {
 
     const lastNote = recentNotes[0]
     const noteSummary = recentNotes
-      .map((n) => ({ track: n.track, time: n.time, color: n.color }))
+      .map((n) => ({ track: n.track, time: n.time }))
       .reverse()
 
     const message = await this.client.messages.create({
@@ -33,14 +33,14 @@ export class AiService {
       messages: [
         {
           role: 'user',
-          content: `Here are the last notes placed: ${JSON.stringify(noteSummary)}. Suggest 4 next notes that continue this rhythmic and track pattern. Each suggestion needs: track (1-8 integer), time (float, must be after ${lastNote.time}, max 300), color (hex string). Return only a JSON array: [{"track":2,"time":6.0,"color":"#3B82F6"}]`,
+          content: `Here are the last notes placed: ${JSON.stringify(noteSummary)}. Suggest 4 next notes that continue this rhythmic and track pattern. Each suggestion needs: track (1-8 integer), time (float, must be after ${lastNote.time}, max 300). Return only a JSON array: [{"track":2,"time":6.0}]`,
         },
       ],
     })
 
     const text = message.content[0].type === 'text' ? message.content[0].text : '[]'
 
-    let suggestions: Array<{ track: number; time: number; color: string }> = []
+    let suggestions: Array<{ track: number; time: number }> = []
     try {
       const parsed = JSON.parse(text.trim()) as unknown
       suggestions = Array.isArray(parsed)
@@ -51,13 +51,10 @@ export class AiService {
               (s.track as number) <= 8 &&
               typeof s.time === 'number' &&
               (s.time as number) >= 0 &&
-              (s.time as number) <= 300 &&
-              typeof s.color === 'string' &&
-              /^#[0-9a-fA-F]{6}$/.test(s.color as string),
+              (s.time as number) <= 300,
           ).map((s) => ({
             track: s.track as number,
             time: s.time as number,
-            color: s.color as string,
           }))
         : []
     } catch {

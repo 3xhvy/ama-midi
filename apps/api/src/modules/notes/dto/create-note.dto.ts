@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, Min, Max, IsNumber, IsHexColor, IsEnum } from 'class-validator'
+import { IsString, IsNotEmpty, IsOptional, IsInt, Min, Max, IsNumber, IsEnum } from 'class-validator'
 
 export class CreateNoteDto {
   @IsString()
@@ -18,10 +18,6 @@ export class CreateNoteDto {
   @Min(0)
   @Max(300)
   time!: number
-
-  @IsOptional()
-  @IsHexColor()
-  color?: string
 
   @IsEnum(['TAP', 'HOLD', 'SWIPE'] as const)
   @IsOptional()

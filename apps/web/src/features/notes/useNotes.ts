@@ -24,7 +24,7 @@ export function useCreateNote(songId: string) {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: (body: { track: number; time: number; title: string; color?: string; description?: string; noteType?: string; duration?: number }) =>
+    mutationFn: (body: { track: number; time: number; title: string; description?: string; noteType?: string; duration?: number }) =>
       apiClient(token)<Note>(`/songs/${songId}/notes`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -59,7 +59,7 @@ export function useUpdateNote(songId: string) {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ noteId, ...body }: { noteId: string; title?: string; description?: string; color?: string; noteType?: string; duration?: number }) =>
+    mutationFn: ({ noteId, ...body }: { noteId: string; title?: string; description?: string; noteType?: string; duration?: number }) =>
       apiClient(token)<Note>(`/songs/${songId}/notes/${noteId}`, {
         method: 'PATCH',
         body: JSON.stringify(body),

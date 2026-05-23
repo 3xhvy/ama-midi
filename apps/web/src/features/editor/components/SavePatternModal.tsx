@@ -22,7 +22,6 @@ export function SavePatternModal({ songId, selectedNotes, onClose }: Props) {
       track:      n.track,
       timeOffset: n.time - earliest,
       noteType:   n.noteType ?? 'TAP',
-      color:      n.color,
       duration:   n.duration,
     }))
     await create.mutateAsync({
