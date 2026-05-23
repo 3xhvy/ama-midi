@@ -8,19 +8,21 @@
 
 ## Summary Table
 
-| Pattern | Status | Strength |
-|---|---|---|
-| A. Modular Monolith | ✅ Present | Strong |
-| B. Event-Driven Internal Architecture | ⚠️ Partial | Weak — synchronous calls, no EventEmitter |
-| C. Event Sourcing-lite / Ledger Pattern | ✅ Present | Strong |
-| D. Optimistic UI + Server Authority | ✅ Present | Strong |
-| E. Outbox Pattern | ❌ Missing | Not prepared |
-| F. CQRS for Editor Read Performance | ⚠️ Partial | Query params only, no query service layer |
-| Backend Domain Modules (complete set) | ⚠️ Partial | 7 of 11 recommended modules planned |
-| Database Versioning + Publishing Tables | ⚠️ Partial | Snapshot only, no publish workflow |
-| Frontend Feature-based Folders | ✅ Present | Strong |
-| Frontend Editor Engine Separation | ⚠️ Missing | All logic in PianoRoll component |
-| Real-time Scaling (Redis adapter) | ✅ Present | Strong |
+
+| Pattern                                 | Status     | Strength                                  |
+| --------------------------------------- | ---------- | ----------------------------------------- |
+| A. Modular Monolith                     | ✅ Present  | Strong                                    |
+| B. Event-Driven Internal Architecture   | ⚠️ Partial | Weak — synchronous calls, no EventEmitter |
+| C. Event Sourcing-lite / Ledger Pattern | ✅ Present  | Strong                                    |
+| D. Optimistic UI + Server Authority     | ✅ Present  | Strong                                    |
+| E. Outbox Pattern                       | ❌ Missing  | Not prepared                              |
+| F. CQRS for Editor Read Performance     | ⚠️ Partial | Query params only, no query service layer |
+| Backend Domain Modules (complete set)   | ⚠️ Partial | 7 of 11 recommended modules planned       |
+| Database Versioning + Publishing Tables | ⚠️ Partial | Snapshot only, no publish workflow        |
+| Frontend Feature-based Folders          | ✅ Present  | Strong                                    |
+| Frontend Editor Engine Separation       | ⚠️ Missing | All logic in PianoRoll component          |
+| Real-time Scaling (Redis adapter)       | ✅ Present  | Strong                                    |
+
 
 ---
 
@@ -55,19 +57,21 @@ The ADR in `feature_list_erd.md` (Decision 1) explicitly states:
 
 **Modules planned in Linear vs recommended:**
 
-| Module | Linear Issue | Status |
-|---|---|---|
-| AuthModule | OHO-212 | Backlog |
-| UserModule | (implied in spec) | No dedicated issue |
-| SongModule | OHO-213 | Backlog |
-| NoteModule | OHO-214 | Backlog |
-| CollaborationModule (realtime) | OHO-217 | Backlog |
-| LedgerModule | OHO-219 | Backlog |
-| AiModule | OHO-223 | Backlog |
-| VersionModule | (schema exists, no module issue) | No dedicated issue |
-| ExportModule | Not planned | Out of scope |
-| ValidationModule | (QA view only — frontend) | No backend issue |
-| NotificationModule | Not planned | Out of scope |
+
+| Module                         | Linear Issue                     | Status             |
+| ------------------------------ | -------------------------------- | ------------------ |
+| AuthModule                     | OHO-212                          | Backlog            |
+| UserModule                     | (implied in spec)                | No dedicated issue |
+| SongModule                     | OHO-213                          | Backlog            |
+| NoteModule                     | OHO-214                          | Backlog            |
+| CollaborationModule (realtime) | OHO-217                          | Backlog            |
+| LedgerModule                   | OHO-219                          | Backlog            |
+| AiModule                       | OHO-223                          | Backlog            |
+| VersionModule                  | (schema exists, no module issue) | No dedicated issue |
+| ExportModule                   | Not planned                      | Out of scope       |
+| ValidationModule               | (QA view only — frontend)        | No backend issue   |
+| NotificationModule             | Not planned                      | Out of scope       |
+
 
 **Action needed:** Create Linear issues for `VersionModule` and `ValidationModule` (backend rule engine). `ExportModule` and `NotificationModule` are correctly deferred.
 
@@ -136,6 +140,7 @@ This pattern is low cost to add now and is the key that makes the internal archi
 ## Pattern C — Event Sourcing-lite / Ledger Pattern ✅
 
 **Recommended:**
+
 - `notes` table = current state only
 - `note_events` table = history, audit, undo, replay source
 
@@ -168,6 +173,7 @@ model NoteEvent {
 The raw SQL schema in `feature_list_erd.md` confirms `before_data JSONB` and `after_data JSONB`.
 
 OHO-219 (History Panel) implements:
+
 - `GET /songs/:songId/events` — history endpoint, newest first, paginated
 - `POST /songs/:songId/events/undo` — compensating event (deletes last NOTE_CREATED, writes NOTE_DELETED)
 
@@ -184,6 +190,7 @@ This is a textbook ledger pattern. No action needed.
 ## Pattern D — Optimistic UI + Server Authority ✅
 
 **Recommended:**
+
 - Frontend shows ghost note immediately (optimistic)
 - DB `UNIQUE(song_id, track, time)` is the authority
 - On 409: rollback ghost, show conflict toast
@@ -286,35 +293,39 @@ notes/
 
 ### Backend modules
 
-| Recommended Module | Present | Notes |
-|---|---|---|
-| `AuthModule` | ✅ OHO-212 | Google OAuth + JWT + RolesGuard |
-| `UserModule` | ⚠️ Implied | No dedicated Linear issue; user profile endpoints needed |
-| `SongModule` | ✅ OHO-213 | CRUD, creator/admin permissions |
-| `NoteModule` | ✅ OHO-214 | CRUD, conflict handling, event writes |
-| `CollaborationModule` | ✅ OHO-217 | Socket.io gateway, Redis adapter, presence |
-| `LedgerModule` | ✅ OHO-219 | History endpoint, undo, compensating events |
-| `AiModule` | ✅ OHO-223 | Claude API, ghost note suggestions |
-| `VersionModule` | ⚠️ Schema only | `song_versions` table in schema but no module issue |
-| `ValidationModule` | ❌ Frontend only | QA view (OHO-220) is client-side; no backend rule engine |
-| `ExportModule` | ❌ Deferred | Correctly out of scope for MVP |
-| `NotificationModule` | ❌ Deferred | Correctly out of scope for MVP |
+
+| Recommended Module    | Present         | Notes                                                    |
+| --------------------- | --------------- | -------------------------------------------------------- |
+| `AuthModule`          | ✅ OHO-212       | Google OAuth + JWT + RolesGuard                          |
+| `UserModule`          | ⚠️ Implied      | No dedicated Linear issue; user profile endpoints needed |
+| `SongModule`          | ✅ OHO-213       | CRUD, creator/admin permissions                          |
+| `NoteModule`          | ✅ OHO-214       | CRUD, conflict handling, event writes                    |
+| `CollaborationModule` | ✅ OHO-217       | Socket.io gateway, Redis adapter, presence               |
+| `LedgerModule`        | ✅ OHO-219       | History endpoint, undo, compensating events              |
+| `AiModule`            | ✅ OHO-223       | Claude API, ghost note suggestions                       |
+| `VersionModule`       | ⚠️ Schema only  | `song_versions` table in schema but no module issue      |
+| `ValidationModule`    | ❌ Frontend only | QA view (OHO-220) is client-side; no backend rule engine |
+| `ExportModule`        | ❌ Deferred      | Correctly out of scope for MVP                           |
+| `NotificationModule`  | ❌ Deferred      | Correctly out of scope for MVP                           |
+
 
 ### Database tables
 
-| Recommended Table | Present | Notes |
-|---|---|---|
-| `users` | ✅ | In Prisma schema (OHO-210) |
-| `songs` | ✅ | In Prisma schema |
-| `notes` with unique constraint | ✅ | `@@unique([songId, track, time])` |
-| `note_events` ledger | ✅ | `beforeState`, `afterState` JSONB |
-| `song_versions` snapshot | ✅ | `snapshot_data JSONB` — snapshot pattern |
-| `editor_sessions` (presence) | ✅ | In raw SQL schema |
-| `publish_requests` | ❌ | Not planned, correctly deferred |
-| `validation_issues` | ❌ | Not planned |
-| `outbox_events` | ❌ | Not planned, should be prepared |
-| `export_jobs` | ❌ | Not planned, correctly deferred |
-| `ai_suggestions` | ❌ | Not planned — current approach uses transient response, not persisted |
+
+| Recommended Table              | Present | Notes                                                                 |
+| ------------------------------ | ------- | --------------------------------------------------------------------- |
+| `users`                        | ✅       | In Prisma schema (OHO-210)                                            |
+| `songs`                        | ✅       | In Prisma schema                                                      |
+| `notes` with unique constraint | ✅       | `@@unique([songId, track, time])`                                     |
+| `note_events` ledger           | ✅       | `beforeState`, `afterState` JSONB                                     |
+| `song_versions` snapshot       | ✅       | `snapshot_data JSONB` — snapshot pattern                              |
+| `editor_sessions` (presence)   | ✅       | In raw SQL schema                                                     |
+| `publish_requests`             | ❌       | Not planned, correctly deferred                                       |
+| `validation_issues`            | ❌       | Not planned                                                           |
+| `outbox_events`                | ❌       | Not planned, should be prepared                                       |
+| `export_jobs`                  | ❌       | Not planned, correctly deferred                                       |
+| `ai_suggestions`               | ❌       | Not planned — current approach uses transient response, not persisted |
+
 
 ---
 
@@ -364,6 +375,7 @@ features/editor/
 **What is planned:**
 
 OHO-215 (Piano Roll) puts all logic in a `PianoRoll` React component:
+
 - Grid click → coordinate conversion → POST → optimistic state
 - Virtualization via `@tanstack/virtual`
 - Note positioning computed inline
@@ -392,6 +404,7 @@ These are pure functions — easy to test, easy to reuse across zoom levels and 
 ## Real-time Scaling ✅
 
 **Recommended:**
+
 - Socket.io room per song
 - Redis Pub/Sub between API instances (for horizontal scaling later)
 - WebSocket is notification only — all writes go through API + DB
@@ -399,6 +412,7 @@ These are pure functions — easy to test, easy to reuse across zoom levels and 
 **Present in project — strong match:**
 
 OHO-217 explicitly plans:
+
 - `@socket.io/redis-adapter` connected to Redis
 - JWT auth in WebSocket handshake
 - `join-song` → client joins `song:{songId}` room
@@ -423,16 +437,18 @@ No action needed.
 
 ## Future Feature Readiness
 
-| Future Feature | Pattern Needed | Current Readiness |
-|---|---|---|
-| Multi-user editing (deeper) | Presence + optimistic + Redis | ✅ Planned (OHO-217) |
-| Undo / redo | Command Pattern + Ledger + Compensating Event | ✅ Planned (OHO-219) |
-| Song versioning | Snapshot Pattern | ⚠️ Table exists, no module |
-| AI note generation (persist) | Async Job + Review-before-apply | ⚠️ Transient only (OHO-223) |
-| Export to game format | Job Queue + Export Artifact | ❌ Not planned |
-| QA validation (backend) | Rule Engine Pattern | ❌ Frontend only (OHO-220) |
-| Approval/publish workflow | Publish Request table | ❌ Not planned |
-| Analytics / density cache | CQRS read models | ❌ Not planned |
+
+| Future Feature               | Pattern Needed                                | Current Readiness           |
+| ---------------------------- | --------------------------------------------- | --------------------------- |
+| Multi-user editing (deeper)  | Presence + optimistic + Redis                 | ✅ Planned (OHO-217)         |
+| Undo / redo                  | Command Pattern + Ledger + Compensating Event | ✅ Planned (OHO-219)         |
+| Song versioning              | Snapshot Pattern                              | ⚠️ Table exists, no module  |
+| AI note generation (persist) | Async Job + Review-before-apply               | ⚠️ Transient only (OHO-223) |
+| Export to game format        | Job Queue + Export Artifact                   | ❌ Not planned               |
+| QA validation (backend)      | Rule Engine Pattern                           | ❌ Frontend only (OHO-220)   |
+| Approval/publish workflow    | Publish Request table                         | ❌ Not planned               |
+| Analytics / density cache    | CQRS read models                              | ❌ Not planned               |
+
 
 ---
 
@@ -440,10 +456,10 @@ No action needed.
 
 Per the recommendation, the first modules to extract from the monolith would be:
 
-1. **`collaboration-service`** — WebSocket is stateful and grows with user count, independent of note business logic
-2. **`export-service`** — CPU-heavy file generation should not block API workers
-3. **`ai-service`** — External API calls with variable latency and cost
-4. **`validation-service`** — Rule-heavy, can run async after note mutations
+1. `**collaboration-service`** — WebSocket is stateful and grows with user count, independent of note business logic
+2. `**export-service**` — CPU-heavy file generation should not block API workers
+3. `**ai-service**` — External API calls with variable latency and cost
+4. `**validation-service**` — Rule-heavy, can run async after note mutations
 
 Keep together longest: `SongModule`, `NoteModule`, `LedgerModule`, `VersionModule` — these are transaction-heavy and strongly relational.
 
@@ -454,35 +470,30 @@ Keep together longest: `SongModule`, `NoteModule`, `LedgerModule`, `VersionModul
 ### High priority (add before Day 1 application code)
 
 1. **Install `@nestjs/event-emitter`** and design the internal event contract in `packages/shared/src/events.ts`:
-   ```typescript
+  ```typescript
    export interface NoteCreatedEvent { songId: string; noteId: string; userId: string; afterState: Note }
    export interface NoteUpdatedEvent { songId: string; noteId: string; userId: string; beforeState: Partial<Note>; afterState: Partial<Note> }
    export interface NoteDeletedEvent { songId: string; noteId: string; userId: string; beforeState: Note }
-   ```
-
+  ```
 2. **Extract editor engine functions** into `features/editor/engine/` pure TypeScript files before building the PianoRoll component.
 
 ### Medium priority (Day 2)
 
-3. **Add `UserModule`** as a dedicated module with a Linear issue (user profile, list users for collaborators).
-
-4. **Add `NoteQueryService`** alongside `NoteService` in `NoteModule` for the viewport-based read methods.
-
-5. **Create `VersionModule`** Linear issue for the `song_versions` table operations (create snapshot, list snapshots, restore).
+1. **Add `UserModule`** as a dedicated module with a Linear issue (user profile, list users for collaborators).
+2. **Add `NoteQueryService`** alongside `NoteService` in `NoteModule` for the viewport-based read methods.
+3. **Create `VersionModule`** Linear issue for the `song_versions` table operations (create snapshot, list snapshots, restore).
 
 ### Low priority (prepare but don't activate — Day 3 or README)
 
-6. **Add `outbox_events` to Prisma schema** as a prepared-but-unused table. Document in README trade-offs.
-
-7. **Add `ValidationModule` skeleton** with a `ValidationRule` interface even if no rules are implemented yet:
-   ```typescript
+1. **Add `outbox_events` to Prisma schema** as a prepared-but-unused table. Document in README trade-offs.
+2. **Add `ValidationModule` skeleton** with a `ValidationRule` interface even if no rules are implemented yet:
+  ```typescript
    interface ValidationRule {
      name: string;
      run(notes: Note[]): ValidationIssue[];
    }
-   ```
-
-8. **Persist AI suggestions** — consider adding `ai_suggestions` and `ai_suggestion_notes` tables so accepted/rejected suggestions can be reviewed in history. Current transient approach loses this audit trail.
+  ```
+3. **Persist AI suggestions** — consider adding `ai_suggestions` and `ai_suggestion_notes` tables so accepted/rejected suggestions can be reviewed in history. Current transient approach loses this audit trail.
 
 ---
 
@@ -498,10 +509,13 @@ This is stronger than "I will use microservices because it scales."
 
 ## Phase Alignment
 
-| Phase | Recommended | AMA-MIDI Status |
-|---|---|---|
-| Phase 1: Modular monolith + clean module boundaries | ✅ | Architecture spec defines this |
-| Phase 2: Internal domain events + ledger + Redis WebSocket | ⚠️ | Ledger ✅, Redis ✅, EventEmitter ❌ |
-| Phase 3: Outbox + background workers + export/AI/validation jobs | ❌ | Correctly deferred |
-| Phase 4: CQRS read models + caching for large songs | ⚠️ | Chunked queries ✅, service layer ❌ |
-| Phase 5: Extract high-load modules if needed | ❌ | Correctly deferred |
+
+| Phase                                                            | Recommended | AMA-MIDI Status                    |
+| ---------------------------------------------------------------- | ----------- | ---------------------------------- |
+| Phase 1: Modular monolith + clean module boundaries              | ✅           | Architecture spec defines this     |
+| Phase 2: Internal domain events + ledger + Redis WebSocket       | ⚠️          | Ledger ✅, Redis ✅, EventEmitter ❌  |
+| Phase 3: Outbox + background workers + export/AI/validation jobs | ❌           | Correctly deferred                 |
+| Phase 4: CQRS read models + caching for large songs              | ⚠️          | Chunked queries ✅, service layer ❌ |
+| Phase 5: Extract high-load modules if needed                     | ❌           | Correctly deferred                 |
+
+
