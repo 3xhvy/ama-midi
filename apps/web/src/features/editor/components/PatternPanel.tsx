@@ -8,7 +8,7 @@ import {
 import { useEditorStore } from '../../../store/editor.store'
 import { Button, Modal } from '../../../components/ui'
 import { toast } from 'sonner'
-import type { ConflictAction, NotePattern, PatternPasteConflict, PatternPastePreview } from '@ama-midi/shared'
+import type { ConflictAction, NotePattern, PatternPastePreview } from '@ama-midi/shared'
 import {
   formatPatternPasteTime,
   parsePatternPasteTimeDraft,
@@ -16,6 +16,7 @@ import {
   stepPatternPasteTimeDraft,
 } from './pattern-placement'
 import { ConflictReviewModal } from './ConflictReviewModal'
+import { mergeResolutions, patternPreviewToPlacement } from './placement-preview'
 
 interface Props { songId: string }
 
@@ -73,20 +74,6 @@ export function PatternPanel({ songId }: Props) {
     setPasteTimeDraft(formatPatternPasteTime(playheadTime))
   }
 
-  function mergeResolutions(
-    oldResolutions: Record<string, ConflictAction>,
-    newConflicts: PatternPasteConflict[],
-  ): Record<string, ConflictAction> {
-    const result: Record<string, ConflictAction> = {}
-    for (const c of newConflicts) {
-      if (oldResolutions[c.conflictId] === 'REPLACE_WITH_PATTERN') {
-        result[c.conflictId] = 'REPLACE_WITH_PATTERN'
-      }
-      // All other conflicts start unresolved (undefined)
-    }
-    return result
-  }
-
   function handleValidate() {
     if (pasteTime == null || !pasteTarget) {
       toast.error('Enter a paste time between 0.0s and 300.0s')
@@ -140,7 +127,7 @@ export function PatternPanel({ songId }: Props) {
           const nextPreview = err?.body?.preview as PatternPastePreview | undefined
           if (err?.status === 409 && nextPreview) {
             setPreview(nextPreview)
-            setResolutions(mergeResolutions(resolutions, nextPreview.conflicts))
+            setResolutions(mergeResolutions(resolutions, patternPreviewToPlacement(nextPreview).conflicts))
             setConflictChanged(true)
             toast.warning('Paste changed while you were reviewing. Review the updated conflicts.')
             return
@@ -277,12 +264,14 @@ export function PatternPanel({ songId }: Props) {
 
           {step === 'REVIEW' && preview && pasteTarget && (
             <ConflictReviewModal
-              preview={preview}
+              preview={patternPreviewToPlacement(preview)}
+              title={`Paste Pattern — ${pasteTarget.name}`}
+              incomingLabel="Pattern"
+              applyLabel="Paste"
               resolutions={resolutions}
               onResolve={handleResolve}
               onApply={handleApply}
               onCancel={resetPasteState}
-              patternName={pasteTarget.name}
               hasConflictChanged={conflictChanged}
               onDismissConflictBanner={() => setConflictChanged(false)}
             />

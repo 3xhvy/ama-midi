@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
-import type { ConflictAction, PatternPastePreview } from '@ama-midi/shared'
+import { useState } from 'react'
+import { useCallback, useEffect } from 'react'
+import type { ConflictAction, PlacementPreview } from '@ama-midi/shared'
 import { trackColor } from '@ama-midi/shared'
 import { ConflictListItem } from './ConflictListItem'
 import { ConflictDiffCards } from './ConflictDiffCards'
@@ -7,30 +8,33 @@ import { ConflictContextStrip } from './ConflictContextStrip'
 import { formatTime } from './conflict-formatters'
 
 interface Props {
-  preview:                  PatternPastePreview
+  preview:                  PlacementPreview
+  title:                    string
+  incomingLabel?:           string
+  applyLabel?:              string
   resolutions:              Record<string, ConflictAction>
   onResolve:                (conflictId: string, action: ConflictAction) => void
   onApply:                  () => void
   onCancel:                 () => void
-  patternName:              string
   hasConflictChanged?:      boolean
   onDismissConflictBanner?: () => void
 }
 
 export function ConflictReviewModal({
   preview,
+  title,
+  incomingLabel = 'Incoming',
+  applyLabel = 'Apply',
   resolutions,
   onResolve,
   onApply,
   onCancel,
-  patternName,
   hasConflictChanged,
   onDismissConflictBanner,
 }: Props) {
   const conflicts = preview.conflicts
   const [activeIndex, setActiveIndex] = useState(0)
 
-  // Derived values
   const unresolved   = conflicts.filter(c => resolutions[c.conflictId] === undefined)
   const keepCount    = conflicts.filter(c => resolutions[c.conflictId] === 'KEEP_EXISTING').length
   const replaceCount = conflicts.filter(c => resolutions[c.conflictId] === 'REPLACE_WITH_PATTERN').length
@@ -44,8 +48,6 @@ export function ConflictReviewModal({
 
   function resolveAndAdvance(conflictId: string, action: ConflictAction) {
     onResolve(conflictId, action)
-    // Find next unresolved after current index (pre-update snapshot — current conflict
-    // is still in resolutions as undefined, but we skip it by starting at activeIndex + 1)
     const next = conflicts.findIndex((c, i) => i > activeIndex && resolutions[c.conflictId] === undefined)
     if (next !== -1) setActiveIndex(next)
   }
@@ -86,6 +88,12 @@ export function ConflictReviewModal({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
+  const subtitle = preview.anchorTime != null
+    ? `At ${formatTime(preview.anchorTime)} · ${preview.summary.totalNotes} notes`
+    : `${preview.summary.totalNotes} notes`
+
+  const replaceButtonLabel = `Replace With ${incomingLabel}`
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -103,15 +111,14 @@ export function ConflictReviewModal({
         }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex-shrink-0 px-6 py-4 border-b" style={{ borderColor: 'var(--modal-border)' }}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-sm font-semibold" style={{ color: 'var(--modal-text)' }}>
-                Paste Pattern — {patternName}
+                {title}
               </h2>
               <p className="text-xs mt-0.5" style={{ color: 'var(--modal-muted)' }}>
-                Pasting at {formatTime(preview.startTime)} · {preview.summary.totalPatternNotes} pattern notes
+                {subtitle}
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
@@ -136,7 +143,6 @@ export function ConflictReviewModal({
           </div>
         </div>
 
-        {/* Body */}
         <div className="flex flex-row flex-1 overflow-hidden">
           {!hasConflicts && (
             <div className="flex-1 flex items-center justify-center p-8">
@@ -148,7 +154,6 @@ export function ConflictReviewModal({
 
           {hasConflicts && (
           <>
-          {/* Left panel */}
           <div className="w-[220px] flex-shrink-0 border-r overflow-y-auto" style={{ borderColor: 'var(--modal-border)' }}>
             <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: 'var(--modal-border)' }}>
               <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Conflicts</span>
@@ -173,9 +178,7 @@ export function ConflictReviewModal({
             ))}
           </div>
 
-          {/* Right detail panel */}
           <div className="flex-1 flex flex-col overflow-y-auto p-5 gap-4">
-            {/* 409 banner */}
             {hasConflictChanged && (
               <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
                 <span className="text-xs text-amber-800">⚠ Conflicts changed — review again</span>
@@ -189,7 +192,6 @@ export function ConflictReviewModal({
               </div>
             )}
 
-            {/* Detail header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span
@@ -225,16 +227,14 @@ export function ConflictReviewModal({
               </div>
             </div>
 
-            {/* Diff cards */}
             <ConflictDiffCards
               conflict={activeConflict}
               resolution={resolutions[activeConflict.conflictId]}
+              incomingLabel={incomingLabel}
             />
 
-            {/* Context strip */}
             <ConflictContextStrip conflict={activeConflict} preview={preview} />
 
-            {/* Action buttons */}
             <div className="flex gap-3 mt-auto">
               <button
                 type="button"
@@ -256,7 +256,7 @@ export function ConflictReviewModal({
                     : 'bg-white text-slate-500 border-slate-200 hover:bg-red-50 hover:border-red-200'
                 }`}
               >
-                {resolutions[activeConflict.conflictId] === 'REPLACE_WITH_PATTERN' ? '✕ ' : ''}Replace With Pattern
+                {resolutions[activeConflict.conflictId] === 'REPLACE_WITH_PATTERN' ? '✕ ' : ''}{replaceButtonLabel}
               </button>
             </div>
           </div>
@@ -264,7 +264,6 @@ export function ConflictReviewModal({
           )}
         </div>
 
-        {/* Footer */}
         <div
           className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-t"
           style={{ borderColor: 'var(--modal-border)' }}
@@ -294,7 +293,7 @@ export function ConflictReviewModal({
                   : 'bg-[#6C63FF] text-white hover:bg-[#5a52e0]'
               }`}
             >
-              {allResolved ? `Paste ${createCount} notes →` : 'Resolve all to apply'}
+              {allResolved ? `${applyLabel} ${createCount} notes →` : 'Resolve all to apply'}
             </button>
           </div>
         </div>
