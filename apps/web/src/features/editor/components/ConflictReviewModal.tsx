@@ -40,6 +40,7 @@ export function ConflictReviewModal({
   const applyDisabled = !allResolved || (createCount + replaceCount === 0)
 
   const activeConflict = conflicts[activeIndex]
+  const hasConflicts = conflicts.length > 0
 
   function resolveAndAdvance(conflictId: string, action: ConflictAction) {
     onResolve(conflictId, action)
@@ -53,10 +54,12 @@ export function ConflictReviewModal({
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
     switch (e.key) {
       case 'ArrowLeft':
+        if (!hasConflicts) break
         e.preventDefault()
         setActiveIndex(i => Math.max(0, i - 1))
         break
       case 'ArrowRight':
+        if (!hasConflicts) break
         e.preventDefault()
         setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))
         break
@@ -76,14 +79,12 @@ export function ConflictReviewModal({
         break
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conflicts, activeIndex, resolutions, activeConflict, applyDisabled, onCancel, onApply])
+  }, [conflicts, activeIndex, resolutions, activeConflict, applyDisabled, onCancel, onApply, hasConflicts])
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
-
-  if (!activeConflict) return null
 
   return (
     <div
@@ -137,6 +138,16 @@ export function ConflictReviewModal({
 
         {/* Body */}
         <div className="flex flex-row flex-1 overflow-hidden">
+          {!hasConflicts && (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <p className="text-sm" style={{ color: 'var(--modal-muted)' }}>
+                No conflicts — {preview.summary.creatableNotes} notes will be created.
+              </p>
+            </div>
+          )}
+
+          {hasConflicts && (
+          <>
           {/* Left panel */}
           <div className="w-[220px] flex-shrink-0 border-r overflow-y-auto" style={{ borderColor: 'var(--modal-border)' }}>
             <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: 'var(--modal-border)' }}>
@@ -249,6 +260,8 @@ export function ConflictReviewModal({
               </button>
             </div>
           </div>
+          </>
+          )}
         </div>
 
         {/* Footer */}
