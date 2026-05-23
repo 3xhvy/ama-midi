@@ -46,7 +46,6 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
 
   const [scrollTop,    setScrollTop]    = useState(0)
   const [ghost,        setGhost]        = useState<{ track: number; time: number } | null>(null)
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [popup,        setPopup]        = useState<PopupState>(null)
   const [drag,         setDrag]         = useState<
     | { start: { x: number; y: number; track: number; time: number }; currentY: number }
@@ -54,7 +53,8 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   >(null)
   const [sectionPopover, setSectionPopover] = useState<{ time: number; pos: { x: number; y: number } } | null>(null)
 
-  const { pxPerSecond, viewMode, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode } = useEditorStore()
+  const { pxPerSecond, viewMode, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
+          selectedNoteIds, selectNote, toggleNoteSelection, clearSelection, setActiveTrack } = useEditorStore()
   pxPerSecondRef.current = pxPerSecond
 
   // Ctrl/Cmd + scroll wheel to zoom
@@ -142,9 +142,10 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
     const track = xToTrack(x, gridWidth)
     const time  = yToTime(y, pxPerSecond, snapMode, bpm)
     throttledCursorEmit(track, time)
+    setActiveTrack(track)
     if (!effectiveCanEdit) return
     setGhost({ track, time })
-  }, [effectiveCanEdit, gridWidth, pxPerSecond, scrollTop, snapMode, bpm, throttledCursorEmit])
+  }, [effectiveCanEdit, gridWidth, pxPerSecond, scrollTop, snapMode, bpm, throttledCursorEmit, setActiveTrack])
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!effectiveCanEdit || !containerRef.current) return
@@ -211,30 +212,35 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
 
   const handleNoteClick = useCallback((note: Note, e: React.MouseEvent) => {
     e.stopPropagation()
-    setSelectedNote(note)
+    if (e.shiftKey) {
+      toggleNoteSelection(note.id)
+    } else {
+      selectNote(note.id)
+      setPopup({ type: 'edit', note, pos: { x: e.clientX, y: e.clientY } })
+    }
     onNoteSelected?.(note)
-    setPopup({ type: 'edit', note, pos: { x: e.clientX, y: e.clientY } })
-  }, [onNoteSelected])
+  }, [onNoteSelected, selectNote, toggleNoteSelection])
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      if ((e.key === 'e' || e.key === 'E') && selectedNote && effectiveCanEdit && !popup) {
-        setPopup({ type: 'edit', note: selectedNote, pos: { x: window.innerWidth / 2 - 160, y: window.innerHeight / 2 - 230 } })
+      if ((e.key === 'e' || e.key === 'E') && selectedNoteIds.size === 1 && effectiveCanEdit && !popup) {
+        const note = notes.find(n => selectedNoteIds.has(n.id))
+        if (note) setPopup({ type: 'edit', note, pos: { x: window.innerWidth / 2 - 160, y: window.innerHeight / 2 - 230 } })
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNote && effectiveCanEdit && !popup) {
-        deleteNote.mutate(selectedNote.id)
-        setSelectedNote(null)
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNoteIds.size > 0 && effectiveCanEdit && !popup) {
+        notes.filter(n => selectedNoteIds.has(n.id)).forEach(n => deleteNote.mutate(n.id))
+        clearSelection()
         onNoteSelected?.(null)
       }
       if (e.key === 'Escape' && !popup) {
-        setSelectedNote(null)
+        clearSelection()
         onNoteSelected?.(null)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedNote, effectiveCanEdit, deleteNote, popup, onNoteSelected])
+  }, [selectedNoteIds, effectiveCanEdit, deleteNote, popup, onNoteSelected, notes, clearSelection])
 
   const visibleNotes = notes.filter((n) => !mutedTracks.has(n.track))
 
@@ -293,13 +299,25 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onClick={handleGridClick}
-            onMouseLeave={() => effectiveCanEdit && setGhost(null)}
+            onMouseLeave={() => {
+              if (effectiveCanEdit) setGhost(null)
+              setActiveTrack(null)
+            }}
           >
             <div className="relative" style={{ height: totalHeight }}>
               <GridLines
                 virtualItems={rowVirtualizer.getVirtualItems()}
                 gridWidth={gridWidth}
                 beatLines={beatLines}
+              />
+
+              {/* Vignette — soft top/bottom fade to reduce edge harshness */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(19,17,30,0.30) 0%, transparent 6%, transparent 94%, rgba(19,17,30,0.30) 100%)',
+                  zIndex: 1,
+                }}
               />
 
               {heatmapEnabled && (
@@ -328,7 +346,7 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
                 gridWidth={gridWidth}
                 pxPerSecond={pxPerSecond}
                 viewMode={viewMode}
-                isSelected={selectedNote?.id === note.id}
+                isSelected={selectedNoteIds.has(note.id)}
                 allNotes={notes}
                 onClick={handleNoteClick}
               />
