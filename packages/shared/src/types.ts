@@ -59,7 +59,6 @@ export interface ImportSongOptions {
 export interface CreateProjectSongInput {
   name: string
   category: SongCategory
-  difficulty: SongDifficulty
   bpm: number
   timeSignature: string
   assignedComposerId?: string | null
@@ -140,6 +139,7 @@ export interface SongWorkflowInfo {
 export interface Note {
   id: string
   songId: string
+  chartId: string
   track: number
   time: number
   title: string
