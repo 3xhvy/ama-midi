@@ -44,9 +44,33 @@ export function EditorShell({
           </aside>
         )}
 
+        {/* Left separator */}
+        {!isMobile && !leftCollapsed && (
+          <div
+            className="shrink-0 self-stretch"
+            style={{
+              width: 2,
+              background: 'linear-gradient(180deg, transparent, var(--color-primary) 30%, var(--color-primary) 70%, transparent)',
+              opacity: 0.20,
+            }}
+          />
+        )}
+
         <main className="flex-1 overflow-hidden bg-canvas-bg flex flex-col min-h-0">
           {children}
         </main>
+
+        {/* Right separator */}
+        {!isMobile && !isTablet && !rightCollapsed && (
+          <div
+            className="shrink-0 self-stretch"
+            style={{
+              width: 2,
+              background: 'linear-gradient(180deg, transparent, var(--color-primary) 30%, var(--color-primary) 70%, transparent)',
+              opacity: 0.20,
+            }}
+          />
+        )}
 
         {/* Desktop right panel — always mounted, width slides */}
         {!isMobile && !isTablet && (
