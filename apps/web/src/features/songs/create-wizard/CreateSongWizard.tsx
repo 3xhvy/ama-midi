@@ -92,6 +92,13 @@ export function CreateSongWizard({
   const importSourceName = allSongs.find((s) => s.id === importOptions.sourceSongId)?.name ?? null
   const templateName = templateId ? getSongTemplate(templateId)?.name ?? null : null
 
+  const canAdvanceStart =
+    validateStartStep(
+      startType,
+      templateId,
+      startType === 'IMPORT' ? importOptions : null,
+    ) === null
+
   function applySetupFields(fields: SetupFields) {
     setName(fields.name)
     setCategory(fields.category)
@@ -269,7 +276,7 @@ export function CreateSongWizard({
             </Button>
           )}
           {step !== 'review' ? (
-            <Button size="sm" onClick={goNext}>
+            <Button size="sm" onClick={goNext} disabled={step === 'start' && !canAdvanceStart}>
               Next
             </Button>
           ) : (
@@ -282,7 +289,12 @@ export function CreateSongWizard({
               >
                 Create
               </Button>
-              <Button size="sm" onClick={() => create(true)} loading={createSong.isPending}>
+              <Button
+                size="sm"
+                autoFocus
+                onClick={() => create(true)}
+                loading={createSong.isPending}
+              >
                 Create and Open
               </Button>
             </>
