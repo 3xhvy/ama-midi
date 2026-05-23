@@ -9,6 +9,7 @@ import { ProjectDashboardPage } from './features/projects/ProjectDashboardPage'
 import { ProjectPage } from './features/projects/ProjectPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { EditorPage } from './pages/EditorPage'
+import { AnalysisBoardPage } from './features/analysis/AnalysisBoardPage'
 import { LegacySongEditorRedirect } from './pages/LegacySongEditorRedirect'
 import { AuthCallbackPage }  from './pages/AuthCallbackPage'
 import { ProfileSetupPage }  from './pages/ProfileSetupPage'
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/projects" element={<RequireAuth><ProjectDashboardPage /></RequireAuth>} />
           <Route path="/projects/:projectId" element={<RequireAuth><ProjectPage /></RequireAuth>} />
           <Route path="/projects/:projectId/songs/:songId" element={<RequireAuth><EditorPage /></RequireAuth>} />
+          <Route path="/projects/:projectId/songs/:songId/charts/:chartId/analysis" element={<RequireAuth><AnalysisBoardPage /></RequireAuth>} />
           <Route path="/songs" element={<RequireAuth><SongListPage /></RequireAuth>} />
           <Route path="/songs/:songId" element={<RequireAuth><LegacySongEditorRedirect /></RequireAuth>} />
         </Routes>
