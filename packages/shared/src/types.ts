@@ -1,21 +1,26 @@
-export type UserRole = 'ADMIN' | 'COMPOSER' | 'VIEWER'
-export type NoteEventType = 'NOTE_CREATED' | 'NOTE_UPDATED' | 'NOTE_DELETED'
-export type NoteType = 'TAP' | 'HOLD' | 'SWIPE'
+import type {
+  NoteEventType,
+  NoteType,
+  ProjectPermission,
+  ProjectStatus,
+  SongCategory,
+  SongDifficulty,
+  SongScope,
+  SongStatus,
+  UserRole,
+} from './enums'
 
-export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
-export type ProjectPermission = 'READ' | 'EDIT' | 'ADMIN'
-export type SongScope = 'ALL_SONGS' | 'SELECTED_SONGS' | 'NO_SONGS'
-export type SongStatus = 'DRAFT' | 'IN_REVIEW' | 'NEEDS_FIX' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED'
-export type SongCategory =
-  | 'MAIN_CAMPAIGN'
-  | 'EVENT'
-  | 'TUTORIAL'
-  | 'LIVE_OPS'
-  | 'PROTOTYPE'
-  | 'QA_TEST'
-  | 'TEMPLATE'
-  | 'REFERENCE'
-export type SongDifficulty = 'EASY' | 'NORMAL' | 'HARD' | 'EXPERT' | 'MASTER'
+export type {
+  NoteEventType,
+  NoteType,
+  ProjectPermission,
+  ProjectStatus,
+  SongCategory,
+  SongDifficulty,
+  SongScope,
+  SongStatus,
+  UserRole,
+} from './enums'
 
 export interface Project {
   id: string
@@ -121,6 +126,15 @@ export interface DashboardFeed {
   recentSongs: DashboardSongRow[]
   assignedToMe: DashboardSongRow[]
   needsReview: DashboardSongRow[]
+}
+
+import type { ChartReadOnlyReason } from './chart-edit-access'
+
+export interface SongWorkflowInfo {
+  status: SongStatus
+  allowedTransitions: SongStatus[]
+  canEditChart: boolean
+  readOnlyReason: ChartReadOnlyReason | null
 }
 
 export interface Note {
