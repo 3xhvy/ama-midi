@@ -36,8 +36,8 @@ export function GridLines({
             top:        line.y,
             height:     1,
             background: line.weight === 'measure'
-              ? 'rgba(255,255,255,0.10)'
-              : 'rgba(255,255,255,0.04)',
+              ? 'var(--canvas-grid-bar)'
+              : 'var(--canvas-grid-bold)',
           }}
         />
       ))}
