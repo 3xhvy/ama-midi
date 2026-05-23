@@ -1,0 +1,96 @@
+# Production compose for a single VPS.
+# Host nginx (outside Docker) terminates TLS and proxies to api/web.
+# PostgreSQL and Redis run in Docker — not exposed to the public internet.
+
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    container_name: ama-midi-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ama_midi}
+      POSTGRES_USER: ${POSTGRES_USER:-ama_midi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ama-midi
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: '5'
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    container_name: ama-midi-redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - ama-midi
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+  api:
+    image: ghcr.io/${GITHUB_OWNER:-3xhvy}/ama-midi-api:${IMAGE_TAG:-latest}
+    pull_policy: always
+    restart: always
+    container_name: ama-midi-api
+    ports:
+      - '127.0.0.1:3001:3001'
+    env_file:
+      - .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ama-midi
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:3001/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: '10'
+
+  web:
+    image: ghcr.io/${GITHUB_OWNER:-3xhvy}/ama-midi-web:${IMAGE_TAG:-latest}
+    pull_policy: always
+    restart: always
+    container_name: ama-midi-web
+    ports:
+      - '127.0.0.1:8080:80'
+    networks:
+      - ama-midi
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: '5'
+
+networks:
+  ama-midi:
+
+volumes:
+  postgres_data:
+  redis_data:
