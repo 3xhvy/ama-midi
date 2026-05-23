@@ -6,11 +6,13 @@ export function ProjectListSection({
   projects,
   isLoading,
   compact = false,
+  layout = 'grid',
   onCreateProject,
 }: {
   projects: Project[]
   isLoading: boolean
   compact?: boolean
+  layout?: 'grid' | 'full'
   onCreateProject?: () => void
 }) {
   if (isLoading) return <p className="text-sm text-shell-muted">Loading projects…</p>
@@ -29,8 +31,15 @@ export function ProjectListSection({
     )
   }
 
+  const gridClass =
+    layout === 'full'
+      ? 'grid-cols-1'
+      : compact
+        ? 'md:grid-cols-2'
+        : 'md:grid-cols-2 xl:grid-cols-3'
+
   return (
-    <div className={`grid gap-3 ${compact ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
+    <div className={`grid gap-3 ${gridClass}`}>
       {projects.map((project) => <ProjectCard key={project.id} project={project} />)}
     </div>
   )

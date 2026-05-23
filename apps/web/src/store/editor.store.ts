@@ -1,6 +1,5 @@
 import { create } from 'zustand'
-import type { SnapMode } from '../features/editor/engine/beat-calculator'
-import type { NoteType } from '@ama-midi/shared'
+import type { SnapMode, NoteType, SuggestNotesRequest } from '@ama-midi/shared'
 
 type ViewMode = 'composer' | 'developer' | 'qa' | 'preview'
 type Zoom = 1 | 2 | 4 | 8
@@ -33,7 +32,7 @@ interface EditorStore {
   rightCollapsed: boolean
   playheadTime:   number
   isPlaying:      boolean
-  triggerAiSuggest: (() => void) | null
+  triggerAiSuggest: ((request?: SuggestNotesRequest) => Promise<void>) | null
   snapMode:           SnapMode
   activeNoteType:     NoteType
   heatmapEnabled:     boolean
@@ -54,7 +53,7 @@ interface EditorStore {
   setRightCollapsed:   (collapsed: boolean) => void
   setPlayheadTime:     (time: number) => void
   setPlaying:          (playing: boolean) => void
-  setTriggerAiSuggest: (fn: (() => void) | null) => void
+  setTriggerAiSuggest: (fn: ((request?: SuggestNotesRequest) => Promise<void>) | null) => void
   setSnapMode:         (mode: SnapMode) => void
   setActiveNoteType:   (type: NoteType) => void
   setHeatmapEnabled:   (enabled: boolean) => void

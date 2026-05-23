@@ -5,7 +5,7 @@ import { useEditorStore } from '../../../store/editor.store'
 import { apiClient } from '../../auth/api'
 import { useCreateNote } from '../../notes/useNotes'
 import { trackToX, timeToY, trackWidth } from '../engine'
-import { trackColor, type NoteSuggestion } from '@ama-midi/shared'
+import { trackColor, type NoteSuggestion, type SuggestNotesRequest } from '@ama-midi/shared'
 
 interface Props {
   songId:      string
@@ -19,7 +19,7 @@ export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, scrollT
   const [suggestions, setSuggestions] = useState<NoteSuggestion[]>([])
   const token = useAuthStore(s => s.token)
   const createNote = useCreateNote(chartId)
-  const { setTriggerAiSuggest } = useEditorStore()
+  const { setTriggerAiSuggest, playheadTime, snapMode } = useEditorStore()
 
   useEffect(() => {
     setTriggerAiSuggest(handleSuggest)
@@ -27,11 +27,16 @@ export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, scrollT
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [songId])
 
-  async function handleSuggest() {
+  async function handleSuggest(request?: SuggestNotesRequest) {
     try {
       const result = await apiClient(token)<{ suggestions: NoteSuggestion[] }>(
         `/songs/${songId}/suggest-notes`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+          body: JSON.stringify(
+            request ?? { mode: 'continue_pattern', playheadTime, snapMode },
+          ),
+        },
       )
       setSuggestions(result.suggestions)
       if (result.suggestions.length === 0) {

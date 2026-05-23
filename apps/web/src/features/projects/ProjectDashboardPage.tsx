@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { ProjectStatusEnum } from '@ama-midi/shared'
 import { AppShell } from '../../components/layout'
 import { Button, Input, Modal } from '../../components/ui'
-import { BackNavLink } from '../navigation/BackNavLink'
 import { useProjects, useCreateProject } from './useProjects'
 import { ProjectListSection } from './ProjectListSection'
 import { filterProjects, type ProjectDirectoryStatusFilter } from './project-directory-filters'
@@ -30,7 +29,6 @@ export function ProjectDashboardPage() {
     <AppShell variant="management">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
-          <BackNavLink to="/" label="Dashboard" className="mb-2" />
           <p className="text-xs font-medium uppercase tracking-wide text-shell-muted">Management</p>
           <h1 className="mt-1 text-2xl font-semibold text-shell-text">Projects</h1>
           <p className="mt-1 text-sm text-shell-muted">Browse and enter production workspaces.</p>

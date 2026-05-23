@@ -1,10 +1,41 @@
 import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../../components/layout'
-import { Button } from '../../components/ui'
+import { Badge, Button } from '../../components/ui'
+import { cn } from '../../lib/utils'
 import { useDashboard } from './useDashboard'
 import { DashboardSongList } from './DashboardSongList'
+import { DashboardStatCard } from './DashboardStatCard'
+import { DashboardStatusBreakdown } from './DashboardStatusBreakdown'
+import { uniqueDashboardSongs } from './dashboard-status-breakdown'
 import { useProjects } from '../projects/useProjects'
 import { ProjectListSection } from '../projects/ProjectListSection'
+
+const QUEUE_SECTIONS = [
+  {
+    key: 'needsReview',
+    title: 'Needs Review',
+    accent: 'border-l-amber-500',
+    badge: 'warning' as const,
+    emptyLoading: 'Loading review queue...',
+    emptyDefault: 'No songs need review.',
+  },
+  {
+    key: 'assignedToMe',
+    title: 'Assigned to Me',
+    accent: 'border-l-blue-500',
+    badge: 'info' as const,
+    emptyLoading: 'Loading assignments...',
+    emptyDefault: 'No assigned songs.',
+  },
+  {
+    key: 'recentSongs',
+    title: 'Recent Songs',
+    accent: 'border-l-primary',
+    badge: 'muted' as const,
+    emptyLoading: 'Loading recent songs...',
+    emptyDefault: 'No recent songs yet.',
+  },
+] as const
 
 export function DashboardPage() {
   const navigate = useNavigate()
@@ -15,57 +46,84 @@ export function DashboardPage() {
   const assignedToMe = data?.assignedToMe ?? []
   const needsReview = data?.needsReview ?? []
   const activeProjects = projects.filter((project) => project.status === 'ACTIVE')
+  const allQueueSongs = uniqueDashboardSongs(needsReview, assignedToMe, recentSongs)
+
+  const queues = {
+    needsReview,
+    assignedToMe,
+    recentSongs,
+  }
 
   return (
     <AppShell variant="management">
-      <header className="mb-5 flex flex-col gap-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-shell-muted">Management</p>
-        <h1 className="text-2xl font-semibold text-shell-text">Dashboard</h1>
-        <p className="text-sm text-shell-muted">Cross-project production work, reviews, and recent activity.</p>
+      <header className="relative mb-5 overflow-hidden rounded-lg border border-shell-border bg-shell-surface px-4 py-4">
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/10 via-amber-500/5 to-emerald-500/10"
+          aria-hidden
+        />
+        <div className="relative">
+          <p className="text-xs font-medium uppercase tracking-wide text-primary">Management</p>
+          <h1 className="mt-1 text-2xl font-semibold text-shell-text">Dashboard</h1>
+          <p className="mt-1 max-w-2xl text-sm text-shell-muted">
+            Cross-project production work, reviews, and recent activity at a glance.
+          </p>
+        </div>
       </header>
 
       <section className="mb-5 grid gap-2 md:grid-cols-4" aria-label="Production summary">
-        {[
-          { label: 'Needs review', value: needsReview.length },
-          { label: 'Assigned to me', value: assignedToMe.length },
-          { label: 'Recent songs', value: recentSongs.length },
-          { label: 'Active projects', value: activeProjects.length },
-        ].map((item) => (
-          <div key={item.label} className="rounded-md border border-shell-border bg-shell-surface px-3 py-2">
-            <p className="text-xs text-shell-muted">{item.label}</p>
-            <p className="mt-0.5 text-lg font-semibold text-shell-text">{item.value}</p>
-          </div>
-        ))}
+        <DashboardStatCard label="Needs review" value={needsReview.length} accent="amber" icon="!" />
+        <DashboardStatCard label="Assigned to me" value={assignedToMe.length} accent="blue" icon="◎" />
+        <DashboardStatCard label="Recent songs" value={recentSongs.length} accent="purple" icon="♪" />
+        <DashboardStatCard label="Active projects" value={activeProjects.length} accent="green" icon="▣" />
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <div className="space-y-5">
-          <section>
-            <h2 className="mb-2 text-sm font-semibold text-shell-text">Needs Review</h2>
-            <DashboardSongList songs={needsReview} emptyLabel={isLoading ? 'Loading review queue...' : 'No songs need review.'} />
-          </section>
-
-          <section>
-            <h2 className="mb-2 text-sm font-semibold text-shell-text">Assigned to Me</h2>
-            <DashboardSongList songs={assignedToMe} emptyLabel={isLoading ? 'Loading assignments...' : 'No assigned songs.'} />
-          </section>
-
-          <section>
-            <h2 className="mb-2 text-sm font-semibold text-shell-text">Recent Songs</h2>
-            <DashboardSongList songs={recentSongs} emptyLabel={isLoading ? 'Loading recent songs...' : 'No recent songs yet.'} />
-          </section>
-        </div>
-
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-shell-text">My Projects</h2>
-            <Button size="sm" variant="secondary" onClick={() => navigate('/projects')}>
-              View all
-            </Button>
-          </div>
-          <ProjectListSection projects={projects.slice(0, 6)} isLoading={projectsLoading} compact />
-        </section>
+      <div className="mb-5">
+        <DashboardStatusBreakdown songs={allQueueSongs} />
       </div>
+
+      <div className="grid gap-5 md:grid-cols-2">
+        {QUEUE_SECTIONS.map((section) => {
+          const songs = queues[section.key]
+          return (
+            <section
+              key={section.key}
+              className={cn(
+                'rounded-lg border border-shell-border border-l-4 bg-shell-surface/50 pl-1',
+                section.accent,
+                section.key === 'recentSongs' && 'md:col-span-2',
+              )}
+            >
+              <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-shell-text">{section.title}</h2>
+                  <Badge variant={section.badge} size="sm">
+                    {songs.length}
+                  </Badge>
+                </div>
+              </div>
+              <div className="px-3 pb-3">
+                <DashboardSongList
+                  songs={songs}
+                  emptyLabel={isLoading ? section.emptyLoading : section.emptyDefault}
+                />
+              </div>
+            </section>
+          )
+        })}
+      </div>
+
+      <section className="mt-5 rounded-lg border border-shell-border bg-gradient-to-b from-primary/5 to-shell-surface p-3">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-shell-text">My Projects</h2>
+            <p className="text-xs text-shell-muted">{projects.length} total</p>
+          </div>
+          <Button size="sm" variant="secondary" onClick={() => navigate('/projects')}>
+            View all
+          </Button>
+        </div>
+        <ProjectListSection projects={projects.slice(0, 6)} isLoading={projectsLoading} layout="full" />
+      </section>
     </AppShell>
   )
 }

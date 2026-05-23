@@ -10,7 +10,7 @@ export function DashboardSongList({ songs, emptyLabel }: { songs: DashboardSongR
 
   if (!songs.length) {
     return (
-      <div className="rounded-md border border-dashed border-shell-border bg-shell-surface px-3 py-3 text-sm text-shell-muted">
+      <div className="rounded-md border border-dashed border-shell-border bg-shell-bg/60 px-3 py-3 text-sm text-shell-muted">
         {emptyLabel}
       </div>
     )
@@ -24,8 +24,9 @@ export function DashboardSongList({ songs, emptyLabel }: { songs: DashboardSongR
             type="button"
             onClick={() => navigate(songEditorPath(song.projectId, song.id))}
             className="grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-shell-bg"
+            style={{ boxShadow: `inset 3px 0 0 ${SongStatusEnum.color(song.status)}` }}
           >
-            <div className="min-w-0">
+            <div className="min-w-0 pl-1">
               <p className="truncate text-sm font-medium text-shell-text">{song.name}</p>
               <p className="truncate text-xs text-shell-muted">{song.projectName}</p>
             </div>

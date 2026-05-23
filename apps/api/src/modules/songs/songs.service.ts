@@ -278,11 +278,16 @@ export class SongsService {
     }
   }
 
+  private normalizeAvatarUrl(url: string | null | undefined): string | undefined {
+    const trimmed = url?.trim()
+    return trimmed || undefined
+  }
+
   private songInclude() {
     return {
       creator: { select: { name: true, avatarUrl: true } },
-      assignedComposer: { select: { name: true } },
-      assignedQa: { select: { name: true } },
+      assignedComposer: { select: { name: true, avatarUrl: true } },
+      assignedQa: { select: { name: true, avatarUrl: true } },
       charts: { orderBy: { createdAt: 'asc' as const } },
       _count: { select: { notes: { where: { deletedAt: null } } } },
     } as const
@@ -304,8 +309,8 @@ export class SongsService {
     createdAt: Date
     updatedAt: Date
     creator: { name: string; avatarUrl: string | null }
-    assignedComposer?: { name: string } | null
-    assignedQa?: { name: string } | null
+    assignedComposer?: { name: string; avatarUrl: string | null } | null
+    assignedQa?: { name: string; avatarUrl: string | null } | null
     charts?: Array<{
       id: string
       songId: string
@@ -341,13 +346,15 @@ export class SongsService {
       status: s.status,
       assignedComposerId: s.assignedComposerId,
       assignedComposerName: s.assignedComposer?.name ?? null,
+      assignedComposerAvatarUrl: this.normalizeAvatarUrl(s.assignedComposer?.avatarUrl),
       assignedQaId: s.assignedQaId,
       assignedQaName: s.assignedQa?.name ?? null,
+      assignedQaAvatarUrl: this.normalizeAvatarUrl(s.assignedQa?.avatarUrl),
       sourceSongId: s.sourceSongId,
       archivedAt: s.archivedAt?.toISOString() ?? null,
       createdBy: s.createdBy,
       creatorName: s.creator.name,
-      creatorAvatarUrl: s.creator.avatarUrl ?? undefined,
+      creatorAvatarUrl: this.normalizeAvatarUrl(s.creator.avatarUrl),
       noteCount: s._count.notes,
       charts,
       chartSummary: charts ? ChartsService.chartSummary(charts) : undefined,

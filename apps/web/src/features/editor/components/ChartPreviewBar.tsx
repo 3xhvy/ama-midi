@@ -55,7 +55,7 @@ export function ChartPreviewBar({ songId }: Props) {
         <span className="font-medium">AI chart preview</span>
         <span className="ml-2 text-shell-muted">
           {notes.length} notes
-          {sections.length > 0 ? ` · ${sections.length} sections` : ''}
+          {(sections?.length ?? 0) > 0 ? ` · ${sections?.length} sections` : ''}
           {replaceExisting ? ' · will replace existing' : ''}
         </span>
       </div>

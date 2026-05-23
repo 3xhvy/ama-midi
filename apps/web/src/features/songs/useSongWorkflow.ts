@@ -18,17 +18,22 @@ export function useUpdateSongStatus(songId?: string, projectId?: string) {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: (status: SongStatus) =>
-      apiClient(token)<Song>(`/songs/${songId}/status`, {
+    mutationFn: (input: SongStatus | { status: SongStatus; silent?: boolean }) => {
+      const status = typeof input === 'string' ? input : input.status
+      return apiClient(token)<Song>(`/songs/${songId}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
-      }),
-    onSuccess: (song) => {
+      })
+    },
+    onSuccess: (song, input) => {
+      const silent = typeof input === 'object' && input.silent
       qc.setQueryData(['song', songId], song)
       qc.invalidateQueries({ queryKey: ['song-workflow', songId] })
       qc.invalidateQueries({ queryKey: ['project-songs', projectId] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
-      toast.success(`Status updated to ${SongStatusEnum.label(song.status)}`)
+      if (!silent) {
+        toast.success(`Status updated to ${SongStatusEnum.label(song.status)}`)
+      }
     },
     onError: () => {
       toast.error('Could not update song status')
