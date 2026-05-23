@@ -6,9 +6,9 @@
     "dev": "nest start --watch",
     "prebuild": "prisma generate",
     "build": "nest build",
-    "start": "node dist/main",
+    "start": "node dist/src/main",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main",
     "pretest": "prisma generate",
     "test": "jest",
     "seed": "ts-node --project tsconfig.json prisma/seed.ts"
