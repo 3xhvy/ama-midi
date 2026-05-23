@@ -61,6 +61,13 @@ export class VersionsService {
 
   async restoreSnapshot(songId: string, versionId: string, user: AuthUser) {
     await this.access.assertCanEditSongChart(songId, user)
+    const chart = await this.prisma.songChart.findFirst({
+      where: { songId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    })
+    if (!chart) throw new NotFoundException('No chart found for song')
+    const chartId = chart.id
     const version = await this.prisma.songVersion.findUnique({ where: { id: versionId } })
     if (!version || version.songId !== songId) throw new NotFoundException('Version not found')
 
@@ -79,6 +86,7 @@ export class VersionsService {
         userId: user.id,
         beforeState: {
           id: note.id,
+          chartId: note.chartId,
           songId: note.songId,
           track: note.track,
           time: note.time,
@@ -94,6 +102,7 @@ export class VersionsService {
       try {
         const created = await this.prisma.note.create({
           data: {
+            chartId,
             songId,
             track: n.track as number,
             time: n.time as number,
@@ -109,6 +118,7 @@ export class VersionsService {
           userId: user.id,
           afterState: {
             id: created.id,
+            chartId: created.chartId,
             songId: created.songId,
             track: created.track,
             time: created.time,
