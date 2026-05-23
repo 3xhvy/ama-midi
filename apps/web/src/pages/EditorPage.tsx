@@ -9,6 +9,10 @@ import { TrackHeader }        from '../features/editor/components/TrackHeader'
 import { computeNps }         from '../features/editor/components/LiveContextStrip'
 import { MultiSelectBar }     from '../features/editor/components/MultiSelectBar'
 import { SavePatternModal }   from '../features/editor/components/SavePatternModal'
+import { CopyToModal }        from '../features/editor/components/CopyToModal'
+import { ConflictReviewModal } from '../features/editor/components/ConflictReviewModal'
+import { mergeResolutions, noteCopyPreviewToPlacement } from '../features/editor/components/placement-preview'
+import { useApplyNoteCopy }   from '../features/editor/hooks/useNoteCopy'
 import { PatternPanel }       from '../features/editor/components/PatternPanel'
 import { SectionJumpList }    from '../features/editor/components/SectionJumpList'
 import { BottomBarStats }     from '../features/editor/components/BottomBarStats'
@@ -29,7 +33,8 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useIsMobile } from '../hooks/useMediaQuery'
 import { useAuthStore } from '../store/auth.store'
 import { apiClient } from '../features/auth/api'
-import { type Note, type NoteType, type Song, trackColor } from '@ama-midi/shared'
+import { type Note, type NoteType, type Song, type ConflictAction, type NoteCopyPreview, type NoteCopyPreviewRequest, trackColor } from '@ama-midi/shared'
+import { toast } from 'sonner'
 import { useProject } from '../features/projects/useProjects'
 import { recordRecentProject, recordRecentSong } from '../features/navigation/recent-navigation'
 import { useValidation } from '../features/validation/useValidation'
@@ -98,6 +103,14 @@ export function EditorPage() {
   const [mutedTracks,         setMutedTracks]         = useState<Set<number>>(new Set())
   const [showShortcuts,       setShowShortcuts]       = useState(false)
   const [showSavePattern,     setShowSavePattern]     = useState(false)
+  const [showCopyTo,          setShowCopyTo]          = useState(false)
+  const [copyPreview,         setCopyPreview]         = useState<NoteCopyPreview | null>(null)
+  const [copyRequest,         setCopyRequest]         = useState<NoteCopyPreviewRequest | null>(null)
+  const [copyResolutions,     setCopyResolutions]     = useState<Record<string, ConflictAction>>({})
+  const [copyConflictChanged, setCopyConflictChanged] = useState(false)
+  const [copyStep,            setCopyStep]            = useState<'INPUT' | 'REVIEW' | 'APPLYING'>('INPUT')
+
+  const applyNoteCopy = useApplyNoteCopy(songId!)
 
   const jumpToRef = useRef<((time: number, track?: number) => void) | null>(null)
 
@@ -159,6 +172,71 @@ export function EditorPage() {
   )
 
   const selectedNoteObjects = allNotes.filter(n => selectedNoteIds.has(n.id))
+
+  function resetCopyState() {
+    setShowCopyTo(false)
+    setCopyPreview(null)
+    setCopyRequest(null)
+    setCopyResolutions({})
+    setCopyConflictChanged(false)
+    setCopyStep('INPUT')
+  }
+
+  function handleCopyPreviewReady(preview: NoteCopyPreview, request: NoteCopyPreviewRequest) {
+    setCopyPreview(preview)
+    setCopyRequest(request)
+    setCopyResolutions({})
+    setCopyConflictChanged(false)
+    setCopyStep('REVIEW')
+    setShowCopyTo(false)
+  }
+
+  function handleCopyResolve(conflictId: string, action: ConflictAction) {
+    setCopyResolutions((prev) => ({ ...prev, [conflictId]: action }))
+  }
+
+  function handleApplyCopy() {
+    if (!copyPreview || !copyRequest) return
+
+    const skippedCount = copyPreview.conflicts.length
+      - Object.values(copyResolutions).filter((action) => action === 'REPLACE_WITH_PATTERN').length
+
+    setCopyStep('APPLYING')
+    applyNoteCopy.mutate(
+      {
+        ...copyRequest,
+        selectionVersion: copyPreview.selectionVersion,
+        resolutions: copyPreview.conflicts.map((conflict) => ({
+          conflictId: conflict.conflictId,
+          action: copyResolutions[conflict.conflictId] ?? 'KEEP_EXISTING',
+        })),
+      },
+      {
+        onSuccess: (result) => {
+          const verb = copyPreview.operation === 'MOVE' ? 'Moved' : 'Copied'
+          toast.success(
+            `${verb} ${result.createdCount} notes, replaced ${result.replacedCount}, skipped ${skippedCount}`,
+          )
+          resetCopyState()
+          clearSelection()
+        },
+        onError: (err: any) => {
+          setCopyStep('REVIEW')
+          const nextPreview = err?.body?.preview as NoteCopyPreview | undefined
+          if (err?.status === 409 && nextPreview) {
+            setCopyPreview(nextPreview)
+            setCopyResolutions(mergeResolutions(copyResolutions, nextPreview.conflicts))
+            setCopyConflictChanged(true)
+            toast.warning('Copy changed while you were reviewing. Review the updated conflicts.')
+            return
+          }
+          toast.error('Could not apply copy/move')
+        },
+      },
+    )
+  }
+
+  const copyReviewTitle = copyPreview?.operation === 'MOVE' ? 'Move Notes' : 'Copy Notes'
 
   const leftPanel = (
     <>
@@ -281,12 +359,36 @@ export function EditorPage() {
       <MultiSelectBar
         count={selectedNoteIds.size}
         onSavePattern={() => setShowSavePattern(true)}
+        onCopyTo={() => setShowCopyTo(true)}
+        copyDisabled={!canEdit}
         onDelete={() => {
           selectedNoteObjects.forEach(n => deleteNote.mutate(n.id))
           clearSelection()
         }}
         onDeselect={clearSelection}
       />
+      {showCopyTo && canEdit && (
+        <CopyToModal
+          songId={songId!}
+          selectedNotes={selectedNoteObjects}
+          onCancel={resetCopyState}
+          onPreviewReady={handleCopyPreviewReady}
+        />
+      )}
+      {copyStep === 'REVIEW' && copyPreview && (
+        <ConflictReviewModal
+          preview={noteCopyPreviewToPlacement(copyPreview)}
+          title={copyReviewTitle}
+          incomingLabel="Incoming"
+          applyLabel={copyPreview.operation === 'MOVE' ? 'Move' : 'Copy'}
+          resolutions={copyResolutions}
+          onResolve={handleCopyResolve}
+          onApply={handleApplyCopy}
+          onCancel={resetCopyState}
+          hasConflictChanged={copyConflictChanged}
+          onDismissConflictBanner={() => setCopyConflictChanged(false)}
+        />
+      )}
       {showSavePattern && (
         <SavePatternModal
           songId={songId!}
