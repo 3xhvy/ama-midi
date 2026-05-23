@@ -70,7 +70,7 @@ export function EditorPage() {
   const updateNote = useUpdateNote(songId!)
   const { data: allNotes = [] } = useNotes(songId!)
   const { data: sections = [] } = useSections(songId!)
-  const { presenceList, cursors, emitCursorMove } = useSocket(songId!)
+  const { presenceList, cursors, emitCursorMove } = useSocket(songId!, projectId)
   const canEdit = useCanEdit()
   const token = useAuthStore((s) => s.token)
 

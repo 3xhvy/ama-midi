@@ -3,10 +3,11 @@ import { SectionsController } from './sections.controller'
 import { SectionsService } from './sections.service'
 import { SectionsListener } from './sections.listener'
 import { PrismaModule } from '../prisma/prisma.module'
+import { ProjectAccessModule } from '../project-access/project-access.module'
 import { RealtimeModule } from '../realtime/realtime.module'
 
 @Module({
-  imports:     [PrismaModule, RealtimeModule],
+  imports:     [PrismaModule, ProjectAccessModule, RealtimeModule],
   controllers: [SectionsController],
   providers:   [SectionsService, SectionsListener],
 })

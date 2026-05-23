@@ -1,17 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import type { Note } from '@ama-midi/shared'
+import { ProjectAccessService } from '../project-access/project-access.service'
+import type { AuthUser, Note } from '@ama-midi/shared'
 
 @Injectable()
 export class NoteQueryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: ProjectAccessService,
+  ) {}
 
   async findBySong(
     songId: string,
+    user: AuthUser,
     opts: { timeFrom?: number; timeTo?: number } = {},
   ): Promise<Note[]> {
-    const song = await this.prisma.song.findUnique({ where: { id: songId } })
-    if (!song) throw new NotFoundException('Song not found')
+    await this.access.assertCanViewSong(songId, user)
 
     const timeFilter =
       opts.timeFrom !== undefined || opts.timeTo !== undefined
@@ -40,7 +44,6 @@ export class NoteQueryService {
       time: n.time,
       title: n.title,
       description: n.description,
-      color: n.color,
       createdBy: n.createdBy,
       creatorName: n.creator.name,
       createdAt: n.createdAt.toISOString(),

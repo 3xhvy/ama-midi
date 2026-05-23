@@ -4,6 +4,7 @@ const prisma = new PrismaClient()
 
 const SEED_SONG_ID = 'seed-song-00000000-0000-0000-0000-000000000001'
 const SEED_USER_ID = 'seed-user-00000000-0000-0000-0000-000000000001'
+const SEED_PROJECT_ID = 'seed-proj-00000000-0000-0000-0000-000000000001'
 
 async function main() {
   await prisma.user.upsert({
@@ -17,11 +18,25 @@ async function main() {
     },
   })
 
+  await prisma.project.upsert({
+    where: { id: SEED_PROJECT_ID },
+    update: {},
+    create: {
+      id: SEED_PROJECT_ID,
+      name: 'Seed Project',
+      ownerId: SEED_USER_ID,
+      members: {
+        create: { userId: SEED_USER_ID, permission: 'ADMIN', songScope: 'ALL_SONGS' },
+      },
+    },
+  })
+
   await prisma.song.upsert({
     where: { id: SEED_SONG_ID },
     update: {},
     create: {
       id: SEED_SONG_ID,
+      projectId: SEED_PROJECT_ID,
       name: 'Seed Song (10k notes)',
       createdBy: SEED_USER_ID,
     },
@@ -35,11 +50,8 @@ async function main() {
     track: number
     time: number
     title: string
-    color: string
     createdBy: string
   }> = []
-
-  const colors = ['#6C63FF', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#EC4899', '#8B5CF6', '#3B82F6']
 
   let t = 0
   while (notes.length < 10000) {
@@ -53,7 +65,6 @@ async function main() {
         track,
         time,
         title: `Note ${notes.length + 1}`,
-        color: colors[track - 1],
         createdBy: SEED_USER_ID,
       })
     }

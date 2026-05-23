@@ -15,12 +15,12 @@ export class VersionsController {
     @Body('name') name: string,
     @Req() req: Request,
   ) {
-    return this.versions.createSnapshot(songId, name || 'Snapshot', (req.user as AuthUser).id)
+    return this.versions.createSnapshot(songId, name || 'Snapshot', req.user as AuthUser)
   }
 
   @Get()
-  list(@Param('songId') songId: string) {
-    return this.versions.listSnapshots(songId)
+  list(@Param('songId') songId: string, @Req() req: Request) {
+    return this.versions.listSnapshots(songId, req.user as AuthUser)
   }
 
   @Post(':versionId/restore')
@@ -29,6 +29,6 @@ export class VersionsController {
     @Param('versionId') versionId: string,
     @Req() req: Request,
   ) {
-    return this.versions.restoreSnapshot(songId, versionId, (req.user as AuthUser).id)
+    return this.versions.restoreSnapshot(songId, versionId, req.user as AuthUser)
   }
 }

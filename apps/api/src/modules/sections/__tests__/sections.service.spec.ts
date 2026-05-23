@@ -2,6 +2,17 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { SectionsService } from '../sections.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { ProjectAccessService } from '../../project-access/project-access.service'
+import type { AuthUser } from '@ama-midi/shared'
+
+const mockUser: AuthUser = {
+  id: 'user1',
+  email: 'u@test.com',
+  name: 'User',
+  role: 'COMPOSER',
+  profileComplete: true,
+  tourComplete: true,
+}
 
 const mockPrisma = {
   sectionMarker: {
@@ -14,6 +25,10 @@ const mockPrisma = {
 }
 
 const mockEmitter = { emit: jest.fn() }
+const mockAccess = {
+  assertCanViewSong: jest.fn(),
+  assertCanEditSong: jest.fn(),
+}
 
 describe('SectionsService', () => {
   let service: SectionsService
@@ -24,6 +39,7 @@ describe('SectionsService', () => {
         SectionsService,
         { provide: PrismaService,  useValue: mockPrisma },
         { provide: EventEmitter2,  useValue: mockEmitter },
+        { provide: ProjectAccessService, useValue: mockAccess },
       ],
     }).compile()
     service = module.get<SectionsService>(SectionsService)
@@ -37,7 +53,7 @@ describe('SectionsService', () => {
     ]
     mockPrisma.sectionMarker.findMany.mockResolvedValue(rows)
 
-    const result = await service.list('song1')
+    const result = await service.list('song1', mockUser)
     expect(result).toHaveLength(2)
     expect(result[0].label).toBe('Intro')
     expect(mockPrisma.sectionMarker.findMany).toHaveBeenCalledWith(
@@ -49,7 +65,7 @@ describe('SectionsService', () => {
     const row = { id: 's1', songId: 'song1', time: 0, label: 'Intro', color: '#6C63FF', createdAt: new Date() }
     mockPrisma.sectionMarker.create.mockResolvedValue(row)
 
-    await service.create('user1', 'song1', { time: 0, label: 'Intro', color: '#6C63FF' })
+    await service.create(mockUser, 'song1', { time: 0, label: 'Intro', color: '#6C63FF' })
 
     expect(mockEmitter.emit).toHaveBeenCalledWith('section.created', expect.objectContaining({ songId: 'song1' }))
   })
@@ -59,7 +75,7 @@ describe('SectionsService', () => {
     mockPrisma.sectionMarker.findUnique.mockResolvedValue(row)
     mockPrisma.sectionMarker.delete.mockResolvedValue(row)
 
-    await service.delete('song1', 's1')
+    await service.delete('song1', 's1', mockUser)
 
     expect(mockEmitter.emit).toHaveBeenCalledWith('section.deleted', expect.objectContaining({ songId: 'song1' }))
   })

@@ -22,4 +22,14 @@ export class RealtimeListener {
   onNoteDeleted({ songId, noteId }: NoteDeletedEvent) {
     this.gateway.broadcastToSong(songId, 'note-deleted', { noteId })
   }
+
+  @OnEvent('project.member.updated')
+  handleProjectMemberUpdated(payload: { projectId: string; memberId: string }) {
+    this.gateway.server.to(`project:${payload.projectId}`).emit('project.member.updated', payload)
+  }
+
+  @OnEvent('project.member.removed')
+  handleProjectMemberRemoved(payload: { projectId: string; memberId: string }) {
+    this.gateway.server.to(`project:${payload.projectId}`).emit('project.member.removed', payload)
+  }
 }

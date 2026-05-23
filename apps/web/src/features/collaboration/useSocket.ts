@@ -23,7 +23,7 @@ export interface CursorData {
   lastSeen: number
 }
 
-export function useSocket(songId: string) {
+export function useSocket(songId: string, projectId?: string) {
   const [presenceList, setPresenceList] = useState<PresenceUser[]>([])
   const [isConnected,  setIsConnected]  = useState(false)
   const [cursors,      setCursors]      = useState<Map<string, CursorData>>(new Map())
@@ -49,7 +49,9 @@ export function useSocket(songId: string) {
   useEffect(() => {
     if (!token || !songId) return
 
-    const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3001'
+    const WS_URL =
+      import.meta.env.VITE_WS_URL ??
+      (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001')
     const socket: Socket = io(WS_URL, {
       auth: { token },
       transports: ['websocket'],
@@ -59,6 +61,7 @@ export function useSocket(songId: string) {
     socket.on('connect', () => {
       setIsConnected(true)
       socket.emit('join-song', { songId })
+      if (projectId) socket.emit('join-project', { projectId })
     })
 
     socket.on('disconnect', () => {
@@ -135,13 +138,25 @@ export function useSocket(songId: string) {
       queryClient.invalidateQueries({ queryKey: ['sections', songId] })
     })
 
+    if (projectId) {
+      socket.on('project.member.updated', () => {
+        queryClient.invalidateQueries({ queryKey: ['project-members', projectId] })
+        queryClient.invalidateQueries({ queryKey: ['project-songs', projectId] })
+      })
+      socket.on('project.member.removed', () => {
+        queryClient.invalidateQueries({ queryKey: ['project-members', projectId] })
+        queryClient.invalidateQueries({ queryKey: ['project-songs', projectId] })
+      })
+    }
+
     return () => {
       socket.emit('leave-song', { songId })
+      if (projectId) socket.emit('leave-project', { projectId })
       socket.disconnect()
       socketRef.current = null
       toast.dismiss('ws-disconnect')
     }
-  }, [songId, token, queryClient])
+  }, [songId, projectId, token, queryClient])
 
   function emitCursorMove(track: number, time: number) {
     socketRef.current?.emit('cursor-move', { songId, track, time })

@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { PrismaService } from '../prisma/prisma.service'
+import { ProjectAccessService } from '../project-access/project-access.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { AuthUser, Note, NoteCreatedEvent, NoteDeletedEvent, NoteUpdatedEvent } from '@ama-midi/shared'
 import { UpdateNoteDto } from './dto/update-note.dto'
@@ -11,7 +12,7 @@ function snapTime(time: number): number {
 
 function toNote(n: {
   id: string; songId: string; track: number; time: number
-  title: string; description: string; color: string; createdBy: string
+  title: string; description: string; createdBy: string
   noteType?: string; duration?: number | null
   createdAt: Date; updatedAt: Date
   creator?: { name: string }
@@ -23,7 +24,6 @@ function toNote(n: {
     time: n.time,
     title: n.title,
     description: n.description,
-    color: n.color,
     createdBy: n.createdBy,
     creatorName: n.creator?.name ?? '',
     createdAt: n.createdAt.toISOString(),
@@ -38,13 +38,15 @@ export class NotesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly access: ProjectAccessService,
   ) {}
 
   async create(
     songId: string,
-    body: { track: number; time: number; title: string; description?: string; color?: string; noteType?: string; duration?: number },
+    body: { track: number; time: number; title: string; description?: string; noteType?: string; duration?: number },
     user: AuthUser,
   ): Promise<Note> {
+    await this.access.assertCanEditSong(songId, user)
     const time = snapTime(body.time)
 
     if (body.noteType === 'HOLD' && (body.duration == null || body.duration <= 0)) {
@@ -59,7 +61,6 @@ export class NotesService {
           time,
           title: body.title,
           description: body.description ?? '',
-          color: body.color ?? '#6C63FF',
           noteType: (body.noteType as any) ?? 'TAP',
           duration: body.duration ?? null,
           createdBy: user.id,
@@ -87,6 +88,7 @@ export class NotesService {
   }
 
   async softDelete(songId: string, noteId: string, user: AuthUser): Promise<void> {
+    await this.access.assertCanEditSong(songId, user)
     const note = await this.prisma.note.findFirst({
       where: { id: noteId, songId, deletedAt: null },
       include: { creator: { select: { name: true } } },
@@ -108,6 +110,7 @@ export class NotesService {
   }
 
   async undo(songId: string, user: AuthUser): Promise<{ noteId: string }> {
+    await this.access.assertCanEditSong(songId, user)
     const lastEvent = await this.prisma.noteEvent.findFirst({
       where: { songId, userId: user.id, eventType: 'NOTE_CREATED' },
       orderBy: { createdAt: 'desc' },
@@ -134,6 +137,7 @@ export class NotesService {
       include: { creator: { select: { name: true } } },
     })
     if (!existing) throw new NotFoundException('Note not found')
+    await this.access.assertCanEditSong(existing.songId, user)
     if (existing.createdBy !== user.id && user.role !== 'ADMIN') throw new ForbiddenException()
 
     const updated = await this.prisma.note.update({
@@ -153,7 +157,8 @@ export class NotesService {
     return note
   }
 
-  async getEvents(songId: string, cursor?: string, limit = 50) {
+  async getEvents(songId: string, user: AuthUser, cursor?: string, limit = 50) {
+    await this.access.assertCanViewSong(songId, user)
     const events = await this.prisma.noteEvent.findMany({
       where: { songId, ...(cursor ? { id: { lt: cursor } } : {}) },
       orderBy: { createdAt: 'desc' },

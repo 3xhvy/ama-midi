@@ -19,10 +19,11 @@ export class NotesController {
   @Get('notes')
   findAll(
     @Param('songId') songId: string,
+    @Req() req: Request,
     @Query('timeFrom') timeFrom?: string,
     @Query('timeTo') timeTo?: string,
   ) {
-    return this.query.findBySong(songId, {
+    return this.query.findBySong(songId, req.user as AuthUser, {
       timeFrom: timeFrom !== undefined ? parseFloat(timeFrom) : undefined,
       timeTo: timeTo !== undefined ? parseFloat(timeTo) : undefined,
     })
@@ -66,9 +67,10 @@ export class NotesController {
   @Get('events')
   getEvents(
     @Param('songId') songId: string,
+    @Req() req: Request,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.notes.getEvents(songId, cursor, parseInt(limit || '50', 10))
+    return this.notes.getEvents(songId, req.user as AuthUser, cursor, parseInt(limit || '50', 10))
   }
 }

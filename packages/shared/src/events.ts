@@ -6,6 +6,10 @@ export const NOTE_EVENTS = {
   DELETED: 'note.deleted',
 } as const
 
+export const PROJECT_MEMBER_UPDATED = 'project.member.updated'
+export const PROJECT_MEMBER_REMOVED = 'project.member.removed'
+export const PROJECT_SONG_ACCESS_UPDATED = 'project.song.access.updated'
+
 export interface NoteCreatedEvent {
   songId: string
   noteId: string

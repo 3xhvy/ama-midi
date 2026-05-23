@@ -31,6 +31,52 @@ enum OutboxStatus {
   FAILED
 }
 
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum ProjectPermission {
+  READ
+  EDIT
+  ADMIN
+}
+
+enum SongScope {
+  ALL_SONGS
+  SELECTED_SONGS
+  NO_SONGS
+}
+
+enum SongStatus {
+  DRAFT
+  IN_REVIEW
+  NEEDS_FIX
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SongCategory {
+  MAIN_CAMPAIGN
+  EVENT
+  TUTORIAL
+  LIVE_OPS
+  PROTOTYPE
+  QA_TEST
+  TEMPLATE
+  REFERENCE
+}
+
+enum SongDifficulty {
+  EASY
+  NORMAL
+  HARD
+  EXPERT
+  MASTER
+}
+
 model User {
   id              String   @id @default(uuid())
   email           String   @unique
@@ -50,28 +96,101 @@ model User {
   editorSessions EditorSession[]
   sectionMarkers SectionMarker[]
   patterns       NotePattern[]
+  ownedProjects  Project[]       @relation("ProjectOwner")
+  projectMembers ProjectMember[]
+  composedSongs  Song[]          @relation("SongComposer")
+  qaSongs        Song[]          @relation("SongQa")
 
   @@map("users")
 }
 
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  ownerId     String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  archivedAt  DateTime?
+
+  owner   User            @relation("ProjectOwner", fields: [ownerId], references: [id])
+  members ProjectMember[]
+  songs   Song[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id         String            @id @default(uuid())
+  projectId  String
+  userId     String
+  permission ProjectPermission
+  songScope  SongScope
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  project       Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selectedSongs ProjectMemberSongAccess[]
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+model ProjectMemberSongAccess {
+  id              String @id @default(uuid())
+  projectMemberId String
+  songId          String
+
+  projectMember ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
+  song          Song          @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([projectMemberId, songId])
+  @@index([songId])
+  @@map("project_member_song_access")
+}
+
 model Song {
-  id            String   @id @default(uuid())
-  name          String
-  createdBy     String
-  bpm           Int      @default(120)
-  timeSignature String   @default("4/4")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String         @id @default(uuid())
+  projectId          String
+  name               String
+  category           SongCategory   @default(PROTOTYPE)
+  status             SongStatus     @default(DRAFT)
+  difficulty         SongDifficulty @default(NORMAL)
+  assignedComposerId String?
+  assignedQaId       String?
+  sourceSongId       String?
+  importOptions      Json?
+  archivedAt         DateTime?
+  createdBy          String
+  bpm                Int            @default(120)
+  timeSignature      String         @default("4/4")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
-  creator        User            @relation(fields: [createdBy], references: [id])
-  notes          Note[]
-  noteEvents     NoteEvent[]
-  versions       SongVersion[]
-  sessions       EditorSession[]
-  outboxEvents   OutboxEvent[]
-  sectionMarkers SectionMarker[]
-  patterns       NotePattern[]
+  project          Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator          User                      @relation(fields: [createdBy], references: [id])
+  assignedComposer User?                     @relation("SongComposer", fields: [assignedComposerId], references: [id])
+  assignedQa       User?                     @relation("SongQa", fields: [assignedQaId], references: [id])
+  sourceSong       Song?                     @relation("SongImportSource", fields: [sourceSongId], references: [id])
+  importedSongs    Song[]                    @relation("SongImportSource")
+  allowedMembers   ProjectMemberSongAccess[]
+  notes            Note[]
+  noteEvents       NoteEvent[]
+  versions         SongVersion[]
+  sessions         EditorSession[]
+  outboxEvents     OutboxEvent[]
+  sectionMarkers   SectionMarker[]
+  patterns         NotePattern[]
 
+  @@index([projectId, status])
+  @@index([projectId, category])
+  @@index([assignedComposerId])
+  @@index([assignedQaId])
   @@map("songs")
 }
 
@@ -82,7 +201,6 @@ model Note {
   time        Float     // 0.0–300.0, 0.1s resolution
   title       String
   description String    @default("")
-  color       String    @default("#6C63FF")
   noteType    NoteType  @default(TAP)
   duration    Float?
   createdBy   String

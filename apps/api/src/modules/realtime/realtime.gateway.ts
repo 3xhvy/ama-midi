@@ -105,6 +105,31 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     client.emit('presence-list', users)
   }
 
+  @SubscribeMessage('join-project')
+  async handleJoinProject(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { projectId: string },
+  ) {
+    if (!client.data.user || !data.projectId) return
+    if (client.data.user.role !== 'ADMIN') {
+      const membership = await this.prisma.projectMember.findUnique({
+        where: { projectId_userId: { projectId: data.projectId, userId: client.data.user.id } },
+        select: { id: true },
+      })
+      if (!membership) return
+    }
+    client.join(`project:${data.projectId}`)
+  }
+
+  @SubscribeMessage('leave-project')
+  handleLeaveProject(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { projectId: string },
+  ) {
+    if (!client.data.user || !data.projectId) return
+    client.leave(`project:${data.projectId}`)
+  }
+
   @SubscribeMessage('leave-song')
   async handleLeaveSong(
     @ConnectedSocket() client: Socket,

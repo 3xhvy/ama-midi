@@ -1,16 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { EventEmitter2 } from '@nestjs/event-emitter'
+import { ProjectAccessService } from '../project-access/project-access.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
+import type { AuthUser } from '@ama-midi/shared'
 
 @Injectable()
 export class VersionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly access: ProjectAccessService,
   ) {}
 
-  async createSnapshot(songId: string, name: string, userId: string) {
+  async createSnapshot(songId: string, name: string, user: AuthUser) {
+    await this.access.assertCanEditSong(songId, user)
     const notes = await this.prisma.note.findMany({
       where: { songId, deletedAt: null },
       include: { creator: { select: { name: true } } },
@@ -27,7 +31,7 @@ export class VersionsService {
       data: {
         songId,
         versionNum,
-        createdBy: userId,
+        createdBy: user.id,
         snapshot: { name, notes } as object,
       },
     })
@@ -35,7 +39,8 @@ export class VersionsService {
     return { ...snapshot, noteCount: notes.length, name }
   }
 
-  async listSnapshots(songId: string) {
+  async listSnapshots(songId: string, user: AuthUser) {
+    await this.access.assertCanViewSong(songId, user)
     const versions = await this.prisma.songVersion.findMany({
       where: { songId },
       orderBy: { createdAt: 'desc' },
@@ -54,7 +59,8 @@ export class VersionsService {
     })
   }
 
-  async restoreSnapshot(songId: string, versionId: string, userId: string) {
+  async restoreSnapshot(songId: string, versionId: string, user: AuthUser) {
+    await this.access.assertCanEditSong(songId, user)
     const version = await this.prisma.songVersion.findUnique({ where: { id: versionId } })
     if (!version || version.songId !== songId) throw new NotFoundException('Version not found')
 
@@ -70,7 +76,7 @@ export class VersionsService {
       this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
         songId,
         noteId: note.id,
-        userId,
+        userId: user.id,
         beforeState: {
           id: note.id,
           songId: note.songId,
@@ -78,7 +84,6 @@ export class VersionsService {
           time: note.time,
           title: note.title,
           description: note.description,
-          color: note.color,
           createdBy: note.createdBy,
           creatorName: '',
         },
@@ -94,15 +99,14 @@ export class VersionsService {
             time: n.time as number,
             title: n.title as string,
             description: (n.description as string | undefined) ?? '',
-            color: (n.color as string | undefined) ?? '#6C63FF',
-            createdBy: userId,
+            createdBy: user.id,
           },
           include: { creator: { select: { name: true } } },
         })
         this.eventEmitter.emit(NOTE_EVENTS.CREATED, {
           songId,
           noteId: created.id,
-          userId,
+          userId: user.id,
           afterState: {
             id: created.id,
             songId: created.songId,
@@ -110,7 +114,6 @@ export class VersionsService {
             time: created.time,
             title: created.title,
             description: created.description,
-            color: created.color,
             createdBy: created.createdBy,
             creatorName: created.creator.name,
             createdAt: created.createdAt.toISOString(),

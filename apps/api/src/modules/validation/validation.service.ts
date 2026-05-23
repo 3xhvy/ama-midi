@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { ProjectAccessService } from '../project-access/project-access.service'
+import type { AuthUser } from '@ama-midi/shared'
 import { BoundaryRule } from './rules/boundary.rule'
 import { GapRule } from './rules/gap.rule'
 import { DensityRule } from './rules/density.rule'
@@ -15,9 +17,13 @@ export class ValidationService {
     new EmptyTrackRule(),
   ]
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: ProjectAccessService,
+  ) {}
 
-  async validateSong(songId: string) {
+  async validateSong(songId: string, user: AuthUser) {
+    await this.access.assertCanViewSong(songId, user)
     const notes = await this.prisma.note.findMany({
       where: { songId, deletedAt: null },
       include: { creator: { select: { name: true } } },
@@ -30,7 +36,6 @@ export class ValidationService {
       time: n.time,
       title: n.title,
       description: n.description,
-      color: n.color,
       createdBy: n.createdBy,
       creatorName: n.creator.name,
       createdAt: n.createdAt.toISOString(),

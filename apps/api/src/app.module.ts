@@ -15,6 +15,9 @@ import { AiModule } from './modules/ai/ai.module'
 import { VersionsModule } from './modules/versions/versions.module'
 import { UsersModule } from './modules/users/users.module'
 import { PatternsModule } from './modules/patterns/patterns.module'
+import { ProjectAccessModule } from './modules/project-access/project-access.module'
+import { ProjectsModule } from './modules/projects/projects.module'
+import { ProjectMembersModule } from './modules/project-members/project-members.module'
 import { SectionsModule } from './modules/sections/sections.module'
 
 @Module({
@@ -22,8 +25,11 @@ import { SectionsModule } from './modules/sections/sections.module'
     EventEmitterModule.forRoot({ wildcard: false, delimiter: '.', global: true }),
     ThrottlerModule.forRoot([{ name: 'global', ttl: 60000, limit: 100 }]),
     PrismaModule,
+    ProjectAccessModule,
     AuthModule,
     UsersModule,
+    ProjectsModule,
+    ProjectMembersModule,
     SongsModule,
     NotesModule,
     LedgerModule,

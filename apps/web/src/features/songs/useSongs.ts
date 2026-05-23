@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../store/auth.store'
 import { apiClient } from '../auth/api'
-import type { Song } from '@ama-midi/shared'
+import type { CreateProjectSongInput, Song } from '@ama-midi/shared'
 
 export function useSongs() {
   const token = useAuthStore((s) => s.token)
@@ -14,6 +14,15 @@ export function useSongs() {
   })
 }
 
+export function useProjectSongs(projectId?: string) {
+  const token = useAuthStore((s) => s.token)
+  return useQuery<Song[]>({
+    queryKey: ['project-songs', projectId],
+    queryFn: () => apiClient(token)<Song[]>(`/projects/${projectId}/songs`),
+    enabled: !!token && !!projectId,
+  })
+}
+
 export function useCreateSong() {
   const token = useAuthStore((s) => s.token)
   const qc = useQueryClient()
@@ -21,5 +30,21 @@ export function useCreateSong() {
     mutationFn: (name: string) =>
       apiClient(token)<Song>('/songs', { method: 'POST', body: JSON.stringify({ name }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['songs'] }),
+  })
+}
+
+export function useCreateProjectSong(projectId?: string) {
+  const token = useAuthStore((s) => s.token)
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: CreateProjectSongInput) =>
+      apiClient(token)<Song>(`/projects/${projectId}/songs`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-songs', projectId] })
+      qc.invalidateQueries({ queryKey: ['projects'] })
+    },
   })
 }
