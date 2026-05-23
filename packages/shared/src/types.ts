@@ -76,6 +76,13 @@ export interface AuthUser {
   tourComplete:    boolean
 }
 
+export interface UserSearchResult {
+  id:        string
+  name:      string
+  email:     string
+  avatarUrl?: string
+}
+
 export interface Song {
   id:               string
   projectId:        string
@@ -97,6 +104,23 @@ export interface Song {
   updatedAt:        string
   bpm:              number
   timeSignature:    string
+}
+
+export interface DashboardSongRow {
+  id: string
+  projectId: string
+  projectName: string
+  name: string
+  status: SongStatus
+  assignedComposerName?: string | null
+  assignedQaName?: string | null
+  updatedAt: string
+}
+
+export interface DashboardFeed {
+  recentSongs: DashboardSongRow[]
+  assignedToMe: DashboardSongRow[]
+  needsReview: DashboardSongRow[]
 }
 
 export interface Note {

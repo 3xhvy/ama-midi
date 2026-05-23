@@ -12,15 +12,11 @@ export interface ToggleGroupProps {
 export function ToggleGroup({ items, value, onValueChange, variant = 'default', className }: ToggleGroupProps) {
   const bgClass      = variant === 'canvas'
     ? 'bg-canvas-bg border-canvas-border'
-    : variant === 'editor'
-      ? 'bg-transparent'
-      : 'bg-shell-bg border-shell-border'
+    : 'bg-shell-bg border-shell-border'
 
   const itemInactive = variant === 'canvas'
     ? 'text-canvas-muted hover:text-canvas-text'
-    : variant === 'editor'
-      ? ''
-      : 'text-shell-muted hover:text-shell-text'
+    : 'text-shell-muted hover:text-shell-text'
 
   return (
     <RadixToggleGroup.Root
@@ -28,7 +24,6 @@ export function ToggleGroup({ items, value, onValueChange, variant = 'default', 
       value={value}
       onValueChange={(v) => v && onValueChange(v)}
       className={cn('flex rounded-md overflow-hidden border', bgClass, className)}
-      style={variant === 'editor' ? { borderColor: 'var(--color-editor-btn-border)' } : undefined}
     >
       {items.map((item) => (
         <RadixToggleGroup.Item
@@ -38,9 +33,6 @@ export function ToggleGroup({ items, value, onValueChange, variant = 'default', 
             'flex-1 py-1 text-xs font-medium transition-colors text-center',
             value === item.value ? 'bg-primary text-white' : itemInactive,
           )}
-          style={variant === 'editor' && value !== item.value
-            ? { color: 'var(--color-editor-btn-inactive)' }
-            : undefined}
         >
           {item.label}
         </RadixToggleGroup.Item>

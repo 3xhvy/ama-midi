@@ -1,4 +1,4 @@
-import { Controller, Patch, Body, UseGuards, Req } from '@nestjs/common'
+import { Controller, Get, Patch, Body, Query, UseGuards, Req } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { UsersService } from './users.service'
 import type { Request } from 'express'
@@ -8,6 +8,11 @@ import type { AuthUser } from '@ama-midi/shared'
 @UseGuards(AuthGuard('jwt'))
 export class UsersController {
   constructor(private readonly users: UsersService) {}
+
+  @Get('search')
+  search(@Query('q') q?: string) {
+    return this.users.search(q ?? '')
+  }
 
   @Patch('me')
   updateMe(

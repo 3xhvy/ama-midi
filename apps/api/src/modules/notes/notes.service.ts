@@ -5,6 +5,7 @@ import { ProjectAccessService } from '../project-access/project-access.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { AuthUser, Note, NoteCreatedEvent, NoteDeletedEvent, NoteUpdatedEvent } from '@ama-midi/shared'
 import { UpdateNoteDto } from './dto/update-note.dto'
+import { noteEnd, overlapsAny } from './note-overlap'
 
 function snapTime(time: number): number {
   return Math.round(time * 10) / 10
@@ -53,6 +54,8 @@ export class NotesService {
     if (body.noteType === 'HOLD' && (body.duration == null || body.duration <= 0)) {
       throw new BadRequestException('HOLD notes require duration > 0')
     }
+
+    await this.assertNoTrackOverlap(songId, body.track, time, body.noteType ?? 'TAP', body.duration ?? null)
 
     try {
       const n = await this.prisma.note.create({
@@ -129,10 +132,6 @@ export class NotesService {
   }
 
   async update(noteId: string, dto: UpdateNoteDto, user: AuthUser): Promise<Note> {
-    if (dto.noteType === 'HOLD' && (dto.duration == null || dto.duration <= 0)) {
-      throw new BadRequestException('HOLD notes require duration > 0')
-    }
-
     const existing = await this.prisma.note.findFirst({
       where: { id: noteId, deletedAt: null },
       include: { creator: { select: { name: true, avatarUrl: true } } },
@@ -140,6 +139,17 @@ export class NotesService {
     if (!existing) throw new NotFoundException('Note not found')
     await this.access.assertCanEditSong(existing.songId, user)
     if (existing.createdBy !== user.id && user.role !== 'ADMIN') throw new ForbiddenException()
+
+    const track = existing.track
+    const time = existing.time
+    const noteType = dto.noteType ?? existing.noteType
+    const duration = dto.duration !== undefined ? dto.duration : existing.duration
+
+    if (noteType === 'HOLD' && (duration == null || duration <= 0)) {
+      throw new BadRequestException('HOLD notes require duration > 0')
+    }
+
+    await this.assertNoTrackOverlap(existing.songId, track, time, noteType, duration, noteId)
 
     const updated = await this.prisma.note.update({
       where: { id: noteId },
@@ -171,6 +181,30 @@ export class NotesService {
     return {
       events: items,
       nextCursor: hasMore ? items[items.length - 1].id : null,
+    }
+  }
+
+  private async assertNoTrackOverlap(
+    songId: string,
+    track: number,
+    time: number,
+    noteType: string,
+    duration: number | null,
+    excludeNoteId?: string,
+  ): Promise<void> {
+    const end = noteType === 'HOLD' && duration != null && duration > 0 ? time + duration : time
+    const others = await this.prisma.note.findMany({
+      where: {
+        songId,
+        track,
+        deletedAt: null,
+        time: { lt: end },
+        ...(excludeNoteId ? { id: { not: excludeNoteId } } : {}),
+      },
+      select: { time: true, noteType: true, duration: true },
+    })
+    if (overlapsAny({ time, noteType, duration }, others)) {
+      throw new ConflictException({ error: 'POSITION_TAKEN' })
     }
   }
 }

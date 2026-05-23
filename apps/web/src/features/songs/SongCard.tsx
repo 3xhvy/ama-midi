@@ -3,6 +3,7 @@ import { cn, timeAgo } from '../../lib/utils'
 import { Button, StatusBadge, Avatar } from '../../components/ui'
 import { NOTE_PRESET_COLORS } from '@ama-midi/shared'
 import type { Song } from '@ama-midi/shared'
+import { songEditorPath } from '../navigation/song-editor-path'
 
 function TrackDots({ noteCount }: { noteCount: number }) {
   const filled = Math.min(8, Math.round((noteCount / 50) * 8))
@@ -27,7 +28,7 @@ export function SongCard({ song, className }: { song: Song; className?: string }
         'bg-shell-surface rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-5 border border-shell-border cursor-pointer group',
         className,
       )}
-      onClick={() => navigate(`/songs/${song.id}`)}
+      onClick={() => navigate(songEditorPath(song.projectId, song.id))}
     >
       <div className="flex items-start justify-between mb-3">
         <h3 className="font-semibold text-shell-text text-[15px] truncate">{song.name}</h3>
@@ -42,7 +43,7 @@ export function SongCard({ song, className }: { song: Song; className?: string }
       <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button
           variant="primary" size="sm" rounded className="w-full"
-          onClick={(e) => { e.stopPropagation(); navigate(`/songs/${song.id}`) }}
+          onClick={(e) => { e.stopPropagation(); navigate(songEditorPath(song.projectId, song.id)) }}
         >
           Open Editor
         </Button>

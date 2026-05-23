@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AppShell } from '../../components/layout'
 import { Button, Input, Modal } from '../../components/ui'
 import { useProjects, useCreateProject } from './useProjects'
-import { ProjectCard } from './ProjectCard'
+import { ProjectListSection } from './ProjectListSection'
 
 export function ProjectDashboardPage() {
   const { data: projects = [], isLoading } = useProjects()
@@ -30,18 +30,7 @@ export function ProjectDashboardPage() {
         <Button size="sm" rounded onClick={() => setOpen(true)}>+ New Project</Button>
       </div>
 
-      {isLoading ? (
-        <p className="text-sm text-shell-muted">Loading projects...</p>
-      ) : projects.length === 0 ? (
-        <div className="rounded-lg border border-shell-border bg-shell-surface p-6">
-          <h2 className="text-sm font-semibold text-shell-text">No projects yet</h2>
-          <p className="mt-2 text-sm text-shell-muted">Create a project before adding songs and members.</p>
-        </div>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {projects.map((project) => <ProjectCard key={project.id} project={project} />)}
-        </div>
-      )}
+      <ProjectListSection projects={projects} isLoading={isLoading} />
 
       {open && (
         <Modal.Root open onOpenChange={setOpen}>

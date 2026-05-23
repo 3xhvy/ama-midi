@@ -18,7 +18,7 @@ const mockUser: AuthUser = {
 describe('NotesService', () => {
   let service: NotesService
   let prisma: {
-    note: { create: jest.Mock; update: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock }
+    note: { create: jest.Mock; update: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock }
     noteEvent: { findFirst: jest.Mock }
   }
   let eventEmitter: { emit: jest.Mock }
@@ -31,6 +31,7 @@ describe('NotesService', () => {
         update: jest.fn(),
         findFirst: jest.fn(),
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       noteEvent: {
         findFirst: jest.fn(),
@@ -118,6 +119,22 @@ describe('NotesService', () => {
       await expect(service.create('s1', {
         track: 1, time: 0, title: 'x', noteType: 'HOLD',
       } as any, mockUser)).rejects.toThrow('HOLD notes require duration')
+    })
+
+    it('throws 409 when HOLD span overlaps an existing note', async () => {
+      prisma.note.findMany.mockResolvedValue([
+        { time: 5.0, noteType: 'TAP', duration: null },
+      ])
+
+      await expect(service.create('s1', {
+        track: 1,
+        time: 4.0,
+        title: 'Hold',
+        noteType: 'HOLD',
+        duration: 2.0,
+      }, mockUser)).rejects.toThrow(ConflictException)
+
+      expect(prisma.note.create).not.toHaveBeenCalled()
     })
 
     it('emits note.deleted event with beforeState on delete', async () => {

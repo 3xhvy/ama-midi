@@ -54,6 +54,18 @@ export default {
           text:    'var(--canvas-text)',
           muted:   'var(--canvas-muted)',
         },
+        panel: {
+          bg:             'var(--panel-bg)',
+          border:         'var(--panel-border)',
+          'section-label':'var(--panel-section-label)',
+          'field-label':  'var(--panel-field-label)',
+          body:           'var(--panel-body)',
+          'btn-inactive': 'var(--panel-btn-inactive)',
+          'btn-border':   'var(--panel-btn-border)',
+          'stat-value':   'var(--panel-stat-value)',
+          tab:            'var(--panel-tab)',
+          'tab-active':   'var(--panel-tab-active)',
+        },
       },
       borderRadius: {
         xl: '16px',

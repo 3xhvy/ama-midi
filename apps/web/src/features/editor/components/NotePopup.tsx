@@ -1,7 +1,16 @@
 import { useState } from 'react'
+import { MinusIcon, PlusIcon } from '@radix-ui/react-icons'
 import { useCreateNote, useDeleteNote, useUpdateNote } from '../../notes/useNotes'
 import { Modal, Button, Input } from '../../../components/ui'
 import type { Note, NoteType } from '@ama-midi/shared'
+import {
+  HOLD_DURATION_MAX,
+  HOLD_DURATION_MIN,
+  getHoldEndDraft,
+  parseHoldEndAtDraft,
+  sanitizeHoldDurationDraft,
+  stepHoldEndAtDraft,
+} from './hold-duration-input'
 
 interface Props {
   mode: 'create' | 'edit'
@@ -27,25 +36,31 @@ export function NotePopup({
   const createNote = useCreateNote(songId)
   const deleteNote = useDeleteNote(songId)
   const updateNote = useUpdateNote(songId)
+  const track = mode === 'edit' ? note?.track : initialTrack
+  const startAt = mode === 'edit' ? (note?.time ?? 0) : (initialTime ?? 0)
 
   const [title,       setTitle]       = useState(note?.title ?? '')
   const [description, setDescription] = useState(note?.description ?? '')
   const [noteType,    setNoteType]    = useState<NoteType>(
     mode === 'edit' ? (note?.noteType ?? 'HOLD') : 'HOLD',
   )
-  const [duration, setDuration] = useState<number>(
-    mode === 'edit' ? (note?.duration ?? 1) : 1,
+  const [endAtDraft, setEndAtDraft] = useState(
+    getHoldEndDraft(startAt, mode === 'edit' ? note?.duration : undefined),
   )
+  const holdTiming = parseHoldEndAtDraft(startAt, endAtDraft)
+  const duration = holdTiming?.duration ?? null
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
+    if (noteType === 'HOLD' && duration == null) return
+    const payloadDuration = noteType === 'HOLD' ? duration! : undefined
     if (mode === 'create') {
       createNote.mutate(
         {
           track: initialTrack!, time: initialTime!, title: title.trim(), description,
           noteType,
-          duration: noteType === 'HOLD' ? duration : undefined,
+          duration: payloadDuration,
         },
         { onSuccess: () => { onCreated?.(); onClose() } },
       )
@@ -54,7 +69,7 @@ export function NotePopup({
         {
           noteId: note.id, title: title.trim(), description,
           noteType,
-          duration: noteType === 'HOLD' ? duration : undefined,
+          duration: payloadDuration,
         },
         { onSuccess: () => onClose() },
       )
@@ -68,9 +83,14 @@ export function NotePopup({
     }
   }
 
-  const track = mode === 'edit' ? note?.track : initialTrack
-  const time = mode === 'edit' ? note?.time : initialTime
   const isSubmitting = createNote.isPending || updateNote.isPending
+  const hasValidDuration = noteType !== 'HOLD' || duration != null
+
+  function stepEndAt(delta: number) {
+    setEndAtDraft((current) => {
+      return stepHoldEndAtDraft(startAt, current, delta > 0 ? 1 : -1)
+    })
+  }
 
   return (
     <Modal.Root open onOpenChange={(open) => !open && onClose()}>
@@ -84,7 +104,7 @@ export function NotePopup({
               </span>
               <span className="text-shell-border">·</span>
               <span>
-                Time <strong className="text-shell-text">{time}s</strong>
+                Time <strong className="text-shell-text">{startAt}s</strong>
               </span>
             </div>
 
@@ -130,17 +150,57 @@ export function NotePopup({
             </div>
 
             {noteType === 'HOLD' && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-shell-muted">Duration (seconds)</label>
-                <input
-                  type="number"
-                  min={0.1}
-                  max={30}
-                  step={0.1}
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                  className="px-2 py-1 text-xs bg-shell-bg border border-shell-border rounded text-shell-text"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-shell-muted">Start at</label>
+                  <div className="h-8 rounded-md border border-shell-border bg-shell-bg px-2 text-center text-xs leading-8 tabular-nums text-shell-muted">
+                    {startAt}s
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-shell-muted">End at</label>
+                  <div className="flex h-8 overflow-hidden rounded-md border border-shell-border bg-shell-surface focus-within:ring-2 focus-within:ring-primary/30">
+                    <button
+                      type="button"
+                      onClick={() => stepEndAt(-1)}
+                      className="flex w-8 shrink-0 items-center justify-center border-r border-shell-border text-shell-muted transition-colors hover:bg-shell-bg hover:text-shell-text disabled:opacity-50"
+                      disabled={duration === HOLD_DURATION_MIN}
+                      title="Decrease end time"
+                    >
+                      <MinusIcon />
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      pattern="[0-9]*[.]?[0-9]*"
+                      value={endAtDraft}
+                      onChange={(e) => setEndAtDraft(sanitizeHoldDurationDraft(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault()
+                          stepEndAt(1)
+                        }
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault()
+                          stepEndAt(-1)
+                        }
+                      }}
+                      className="min-w-0 flex-1 bg-transparent px-2 text-center text-xs tabular-nums text-shell-text outline-none"
+                      aria-label="Hold end time in seconds"
+                      aria-invalid={duration == null}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => stepEndAt(1)}
+                      className="flex w-8 shrink-0 items-center justify-center border-l border-shell-border text-shell-muted transition-colors hover:bg-shell-bg hover:text-shell-text disabled:opacity-50"
+                      disabled={duration === HOLD_DURATION_MAX}
+                      title="Increase end time"
+                    >
+                      <PlusIcon />
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </form>
@@ -150,7 +210,7 @@ export function NotePopup({
             type="submit"
             form="note-popup-form"
             variant="primary"
-            disabled={!title.trim() || isSubmitting}
+            disabled={!title.trim() || !hasValidDuration || isSubmitting}
             loading={isSubmitting}
           >
             {mode === 'create' ? 'Place Note' : 'Save Changes'}

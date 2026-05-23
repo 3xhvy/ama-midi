@@ -7,7 +7,9 @@ import { useThemeStore } from './store/theme.store'
 import { SongListPage } from './pages/SongListPage'
 import { ProjectDashboardPage } from './features/projects/ProjectDashboardPage'
 import { ProjectPage } from './features/projects/ProjectPage'
+import { DashboardPage } from './features/dashboard/DashboardPage'
 import { EditorPage } from './pages/EditorPage'
+import { LegacySongEditorRedirect } from './pages/LegacySongEditorRedirect'
 import { AuthCallbackPage }  from './pages/AuthCallbackPage'
 import { ProfileSetupPage }  from './pages/ProfileSetupPage'
 import { LoginPage }         from './pages/LoginPage'
@@ -39,12 +41,12 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/profile-setup" element={<ProfileSetupPage />} />
-          <Route path="/" element={<RequireAuth><ProjectDashboardPage /></RequireAuth>} />
+          <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="/projects" element={<RequireAuth><ProjectDashboardPage /></RequireAuth>} />
           <Route path="/projects/:projectId" element={<RequireAuth><ProjectPage /></RequireAuth>} />
           <Route path="/projects/:projectId/songs/:songId" element={<RequireAuth><EditorPage /></RequireAuth>} />
           <Route path="/songs" element={<RequireAuth><SongListPage /></RequireAuth>} />
-          <Route path="/songs/:songId" element={<RequireAuth><EditorPage /></RequireAuth>} />
+          <Route path="/songs/:songId" element={<RequireAuth><LegacySongEditorRedirect /></RequireAuth>} />
         </Routes>
         <Toaster position="bottom-right" richColors />
       </BrowserRouter>

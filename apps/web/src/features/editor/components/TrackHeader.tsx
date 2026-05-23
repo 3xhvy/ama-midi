@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { cn } from '../../../lib/utils'
 import { trackColor } from '@ama-midi/shared'
 
@@ -15,14 +16,18 @@ export function TrackHeader({
 }: TrackHeaderProps) {
   const density = maxCount > 0 ? noteCount / maxCount : 0
   const color = trackColor(track)
+  const [hovered, setHovered] = useState(false)
 
   return (
     <div
       className={cn(
-        'flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors hover:bg-shell-bg select-none',
-        isActive && 'bg-white/[0.04] rounded-[var(--radius-sm)]',
+        'flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors rounded select-none',
+        isActive && 'bg-primary-light dark:bg-white/[0.04] rounded-[var(--radius-sm)]',
+        !isActive && hovered && 'bg-primary-light/50 dark:bg-primary/15',
         isMuted && 'opacity-30',
       )}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onClick={onToggleMute}
       title={isMuted ? `Track ${track} (muted — click to unmute)` : `Track ${track} — click to mute`}
     >

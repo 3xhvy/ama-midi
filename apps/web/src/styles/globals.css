@@ -76,6 +76,18 @@
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
 
+  /* Modal tokens (light) */
+  --modal-bg:                  var(--color-surface);
+  --modal-border:              var(--color-border);
+  --modal-shadow:              0 8px 32px rgba(108,99,255,0.16), 0 4px 8px rgba(0,0,0,0.08);
+  --modal-overlay:             rgba(0, 0, 0, 0.40);
+  --modal-text:                var(--color-text-primary);
+  --modal-muted:               var(--color-text-secondary);
+  --modal-input-bg:            var(--color-bg);
+  --modal-input-border:        var(--color-border);
+  --modal-input-text:          var(--color-text-primary);
+  --modal-input-placeholder:   var(--color-text-tertiary);
+
   /* Shell tokens — alias to existing light-zone vars */
   --shell-bg: var(--color-bg);
   --shell-surface: var(--color-surface);
@@ -93,6 +105,18 @@
   --canvas-grid: var(--color-grid-line);
   --canvas-grid-bold: var(--color-grid-line-bold);
   --canvas-grid-bar: var(--color-grid-line-bar);
+
+  /* Editor side panels (tools/history) — light chrome in light mode, dark in .dark */
+  --panel-bg: var(--color-surface);
+  --panel-border: var(--color-border);
+  --panel-section-label: var(--color-text-secondary);
+  --panel-field-label: var(--color-text-secondary);
+  --panel-body: var(--color-text-secondary);
+  --panel-btn-inactive: var(--color-text-secondary);
+  --panel-btn-border: var(--color-border);
+  --panel-stat-value: var(--color-text-primary);
+  --panel-tab: var(--color-text-secondary);
+  --panel-tab-active: var(--color-text-primary);
 }
 
 .dark {
@@ -102,6 +126,29 @@
   --shell-text: #E2DEFF;
   --shell-muted: #6B6585;
   --shell-tertiary: #4A4560;
+
+  /* Modal tokens (dark) */
+  --modal-bg:                  #252040;
+  --modal-border:              rgba(255, 255, 255, 0.08);
+  --modal-shadow:              0 24px 64px rgba(0,0,0,0.64), 0 0 0 1px rgba(108,99,255,0.18);
+  --modal-overlay:             rgba(10, 9, 22, 0.72);
+  --modal-text:                rgba(255, 255, 255, 0.90);
+  --modal-muted:               rgba(255, 255, 255, 0.55);
+  --modal-input-bg:            rgba(255, 255, 255, 0.07);
+  --modal-input-border:        rgba(255, 255, 255, 0.12);
+  --modal-input-text:          rgba(255, 255, 255, 0.90);
+  --modal-input-placeholder:   rgba(255, 255, 255, 0.35);
+
+  --panel-bg: var(--shell-surface);
+  --panel-border: var(--shell-border);
+  --panel-section-label: var(--shell-muted);
+  --panel-field-label: var(--shell-muted);
+  --panel-body: var(--shell-muted);
+  --panel-btn-inactive: var(--shell-muted);
+  --panel-btn-border: var(--shell-border);
+  --panel-stat-value: var(--shell-text);
+  --panel-tab: var(--shell-muted);
+  --panel-tab-active: var(--shell-text);
 }
 
 body {
@@ -142,3 +189,16 @@ body {
 .animate-note-appear  { animation: note-appear 150ms cubic-bezier(0.34, 1.56, 0.64, 1); }
 .animate-ghost-pulse  { animation: ghost-pulse 1.5s ease-in-out infinite; }
 .animate-slide-in-right { animation: slide-in-right 250ms ease; }
+
+/* Modal inputs — use modal tokens so they adapt to light/dark */
+.modal-body input:not([type='radio']):not([type='checkbox']),
+.modal-body select,
+.modal-body textarea {
+  background-color: var(--modal-input-bg) !important;
+  border-color: var(--modal-input-border) !important;
+  color: var(--modal-input-text) !important;
+}
+.modal-body input::placeholder,
+.modal-body textarea::placeholder {
+  color: var(--modal-input-placeholder) !important;
+}

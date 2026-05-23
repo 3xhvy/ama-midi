@@ -30,7 +30,7 @@ export function PresenceBar({ users }: Props) {
         <div
           key={user.id}
           title={user.name}
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium text-white border-2 border-editor-surface cursor-default select-none overflow-hidden"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium text-white border-2 border-shell-surface cursor-default select-none overflow-hidden"
           style={{
             backgroundColor: getColorFromName(user.name),
             marginLeft: i > 0 ? '-8px' : '0',

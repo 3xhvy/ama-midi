@@ -34,18 +34,25 @@ export function SavePatternModal({ songId, selectedNotes, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-shell-surface border border-shell-border rounded-xl p-6 w-80 shadow-lg" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-sm font-semibold text-shell-text mb-4">Save selection as pattern</h2>
-        <label className="block text-xs text-shell-muted mb-1">Name</label>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'var(--modal-overlay)' }} onClick={onClose}>
+      <div
+        className="rounded-xl p-6 w-80 modal-body"
+        style={{
+          backgroundColor: 'var(--modal-bg)',
+          boxShadow: 'var(--modal-shadow)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--modal-text)' }}>Save selection as pattern</h2>
+        <label className="block text-xs mb-1" style={{ color: 'var(--modal-muted)' }}>Name</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Verse Fill" autoFocus />
         <div className="flex flex-col gap-1 mt-4">
-          <label className="text-xs text-shell-muted">Scope</label>
-          <label className="flex items-center gap-2 text-xs text-shell-text">
+          <label className="text-xs" style={{ color: 'var(--modal-muted)' }}>Scope</label>
+          <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--modal-text)' }}>
             <input type="radio" checked={scope === 'song'}    onChange={() => setScope('song')} />
             This song only
           </label>
-          <label className="flex items-center gap-2 text-xs text-shell-text">
+          <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--modal-text)' }}>
             <input type="radio" checked={scope === 'library'} onChange={() => setScope('library')} />
             My library (all songs)
           </label>

@@ -35,7 +35,14 @@ export function MemberTable({ projectId, songs }: { projectId: string; songs: So
           </tbody>
         </table>
       </div>
-      {open && <MemberAccessModal projectId={projectId} songs={songs} onClose={() => setOpen(false)} />}
+      {open && (
+        <MemberAccessModal
+          projectId={projectId}
+          songs={songs}
+          excludeUserIds={members.map((member) => member.userId)}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </div>
   )
 }

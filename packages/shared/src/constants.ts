@@ -12,6 +12,15 @@ export const PROJECT_STATUS_OPTIONS = ['ACTIVE', 'PAUSED', 'ARCHIVED'] as const
 export const PROJECT_PERMISSION_OPTIONS = ['READ', 'EDIT', 'ADMIN'] as const
 export const SONG_SCOPE_OPTIONS = ['ALL_SONGS', 'SELECTED_SONGS', 'NO_SONGS'] as const
 export const SONG_STATUS_OPTIONS = ['DRAFT', 'IN_REVIEW', 'NEEDS_FIX', 'APPROVED', 'PUBLISHED', 'ARCHIVED'] as const
+
+export const SONG_STATUS_LABELS: Record<(typeof SONG_STATUS_OPTIONS)[number], string> = {
+  DRAFT: 'Draft',
+  IN_REVIEW: 'In Review',
+  NEEDS_FIX: 'Needs Fix',
+  APPROVED: 'Approved',
+  PUBLISHED: 'Published',
+  ARCHIVED: 'Archived',
+}
 export const SONG_CATEGORY_OPTIONS = [
   'MAIN_CAMPAIGN',
   'EVENT',

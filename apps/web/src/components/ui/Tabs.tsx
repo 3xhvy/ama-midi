@@ -17,21 +17,14 @@ interface TriggerProps extends RadixTabs.TabsTriggerProps {
   variant?: 'default' | 'editor'
 }
 
-function Trigger({ children, className, variant = 'default', ...props }: TriggerProps) {
-  const colorClass = variant === 'editor'
-    ? "data-[state=active]:[color:rgba(255,255,255,0.90)]"
-    : 'text-shell-muted hover:text-shell-text data-[state=active]:text-shell-text'
-
+function Trigger({ children, className, variant: _variant = 'default', ...props }: TriggerProps) {
   return (
     <RadixTabs.Trigger
       className={cn(
         'flex-1 py-2.5 text-xs font-medium capitalize transition-colors data-[state=active]:border-b-2 data-[state=active]:border-primary',
-        colorClass,
+        'text-shell-muted hover:text-shell-text data-[state=active]:text-shell-text',
         className,
       )}
-      style={variant === 'editor' ? {
-        color: 'var(--color-editor-body)',
-      } : undefined}
       {...props}
     >
       {children}

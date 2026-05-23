@@ -19,6 +19,7 @@ import { ProjectAccessModule } from './modules/project-access/project-access.mod
 import { ProjectsModule } from './modules/projects/projects.module'
 import { ProjectMembersModule } from './modules/project-members/project-members.module'
 import { SectionsModule } from './modules/sections/sections.module'
+import { DashboardModule } from './modules/dashboard/dashboard.module'
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { SectionsModule } from './modules/sections/sections.module'
     UsersModule,
     ProjectsModule,
     ProjectMembersModule,
+    DashboardModule,
     SongsModule,
     NotesModule,
     LedgerModule,

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Button, Modal, ToggleGroup } from '../../components/ui'
+import { Button, Modal, SearchSelect, ToggleGroup } from '../../components/ui'
 import { useAddProjectMember } from './useProjectMembers'
+import { useUserSearch } from './useUserSearch'
 import type { ProjectPermission, Song, SongScope } from '@ama-midi/shared'
 
 const PERMISSIONS = [
@@ -18,65 +19,95 @@ const SCOPES = [
 export function MemberAccessModal({
   projectId,
   songs,
+  excludeUserIds = [],
   onClose,
 }: {
   projectId: string
   songs: Song[]
+  excludeUserIds?: string[]
   onClose: () => void
 }) {
   const addMember = useAddProjectMember(projectId)
+  const [userQuery, setUserQuery] = useState('')
+  const { data: users = [], isLoading: usersLoading } = useUserSearch(userQuery)
   const [userId, setUserId] = useState('')
   const [permission, setPermission] = useState<ProjectPermission>('READ')
   const [songScope, setSongScope] = useState<SongScope>('NO_SONGS')
   const [songIds, setSongIds] = useState<string[]>([])
 
+  const userOptions = useMemo(
+    () => users
+      .filter((user) => !excludeUserIds.includes(user.id))
+      .map((user) => ({
+        value: user.id,
+        label: user.name,
+        description: user.email,
+      })),
+    [excludeUserIds, users],
+  )
+
+  const songOptions = useMemo(
+    () => songs.map((song) => ({
+      value: song.id,
+      label: song.name,
+    })),
+    [songs],
+  )
+
   const valid = useMemo(() => {
-    if (!userId.trim()) return false
+    if (!userId) return false
     if (songScope === 'SELECTED_SONGS') return songIds.length > 0
     return true
   }, [songIds.length, songScope, userId])
-
-  function toggleSong(songId: string) {
-    setSongIds((prev) => prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId])
-  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!valid) return
     addMember.mutate(
-      { userId: userId.trim(), permission, songScope, songIds: songScope === 'SELECTED_SONGS' ? songIds : undefined },
+      { userId, permission, songScope, songIds: songScope === 'SELECTED_SONGS' ? songIds : undefined },
       { onSuccess: onClose },
     )
   }
 
   return (
     <Modal.Root open onOpenChange={(open) => !open && onClose()}>
-      <Modal.Content>
+      <Modal.Content className="max-w-md">
         <Modal.Header onClose={onClose}>Add Project Member</Modal.Header>
         <Modal.Body>
           <form id="member-access-form" onSubmit={submit} className="space-y-4">
-            <input
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="User id"
-              className="w-full rounded-md border border-shell-border bg-shell-bg px-3 py-2 text-sm text-shell-text"
-            />
             <div className="space-y-1.5">
-              <span className="text-xs text-shell-muted">Permission</span>
+              <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>User</span>
+              <SearchSelect
+                options={userOptions}
+                value={userId}
+                onChange={(value) => setUserId(typeof value === 'string' ? value : value[0] ?? '')}
+                onSearchChange={setUserQuery}
+                placeholder="Select a user"
+                searchPlaceholder="Search by name or email"
+                emptyMessage="No users found"
+                loading={usersLoading}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>Permission</span>
               <ToggleGroup items={PERMISSIONS} value={permission} onValueChange={(v) => setPermission(v as ProjectPermission)} />
             </div>
             <div className="space-y-1.5">
-              <span className="text-xs text-shell-muted">Song scope</span>
+              <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>Song scope</span>
               <ToggleGroup items={SCOPES} value={songScope} onValueChange={(v) => setSongScope(v as SongScope)} />
             </div>
             {songScope === 'SELECTED_SONGS' && (
-              <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-shell-border p-2">
-                {songs.map((song) => (
-                  <label key={song.id} className="flex items-center gap-2 text-sm text-shell-text">
-                    <input type="checkbox" checked={songIds.includes(song.id)} onChange={() => toggleSong(song.id)} />
-                    {song.name}
-                  </label>
-                ))}
+              <div className="space-y-1.5">
+                <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>Songs</span>
+                <SearchSelect
+                  multiple
+                  options={songOptions}
+                  value={songIds}
+                  onChange={(value) => setSongIds(Array.isArray(value) ? value : value ? [value] : [])}
+                  placeholder="Select songs"
+                  searchPlaceholder="Search songs"
+                  emptyMessage="No songs in this project"
+                />
               </div>
             )}
           </form>

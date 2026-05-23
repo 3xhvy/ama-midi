@@ -9,7 +9,7 @@ import { useAuthStore }  from '../../../store/auth.store'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiClient }     from '../../auth/api'
 import { formatTime }    from '../../../lib/utils'
-import { SongSwitcher }  from './SongSwitcher'
+import { EditorBreadcrumb } from '../../navigation/EditorBreadcrumb'
 import type { Song } from '@ama-midi/shared'
 
 function PanelLeftIcon({ open }: { open: boolean }) {
@@ -37,13 +37,14 @@ function PanelRightIcon({ open }: { open: boolean }) {
 }
 
 interface ToolbarProps {
+  projectId:       string
+  projectName:     string
   songId:          string
   songName:        string
   bpm:             number
   presenceList:    { id: string; name: string; avatarUrl?: string; title?: string | null; department?: string | null }[]
   onSuggest:       () => void
   onShowShortcuts: () => void
-  onBack:          () => void
   leftCollapsed:   boolean
   rightCollapsed:  boolean
   onToggleLeft:    () => void
@@ -51,8 +52,8 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
-  songId, songName, bpm, presenceList,
-  onSuggest, onShowShortcuts, onBack,
+  projectId, projectName, songId, songName, bpm, presenceList,
+  onSuggest, onShowShortcuts,
   leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
 }: ToolbarProps) {
   const {
@@ -92,13 +93,12 @@ export function Toolbar({
         >
           <PanelLeftIcon open={!leftCollapsed} />
         </IconButton>
-        <button
-          onClick={onBack}
-          className="text-shell-muted hover:text-shell-text text-sm transition-colors shrink-0"
-        >
-          ← Songs
-        </button>
-        <SongSwitcher currentSongId={songId} currentSongName={songName} />
+        <EditorBreadcrumb
+          projectId={projectId}
+          projectName={projectName}
+          songId={songId}
+          songName={songName}
+        />
       </div>
 
       {/* CENTER */}
