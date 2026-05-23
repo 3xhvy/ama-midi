@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pencil1Icon } from '@radix-ui/react-icons'
 import { useParams } from 'react-router-dom'
 import { ProjectStatusEnum } from '@ama-midi/shared'
@@ -10,6 +10,7 @@ import { useProject } from './useProjects'
 import { useProjectSongs } from '../songs/useSongs'
 import { SongTable } from '../songs/SongTable'
 import { CreateSongWizard } from '../songs/create-wizard/CreateSongWizard'
+import { QuickCreateSongButton } from '../songs/QuickCreateSongButton'
 import { EditProjectModal } from './EditProjectModal'
 import { MemberTable } from '../project-members/MemberTable'
 
@@ -19,6 +20,23 @@ export function ProjectPage() {
   const { data: songs = [] } = useProjectSongs(projectId)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (wizardOpen) return
+      const target = e.target as HTMLElement | null
+      if (!target) return
+      const tag = target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target.isContentEditable) return
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        document.getElementById('quick-create-trigger')?.click()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [wizardOpen])
 
   if (!projectId) return null
 
@@ -53,7 +71,8 @@ export function ProjectPage() {
               Edit
             </Button>
           )}
-          <Button size="sm" rounded onClick={() => setWizardOpen(true)}>
+          <QuickCreateSongButton projectId={projectId} disabled={wizardOpen} />
+          <Button size="sm" variant="secondary" rounded onClick={() => setWizardOpen(true)}>
             + New Song
           </Button>
         </div>
