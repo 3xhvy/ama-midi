@@ -28,8 +28,9 @@ RUN apk add --no-cache wget
 # Install prisma CLI at build time — pnpm doesn't hoist workspace-dep binaries to root .bin/
 RUN npm install -g prisma@7.8.0 --ignore-scripts
 
-# Prisma 7.x migrate deploy requires datasource.url in config; use .js to avoid TS/ESM issues
-RUN printf 'module.exports={schema:"prisma/schema.prisma",migrations:{path:"prisma/migrations"},datasource:{url:process.env["DATABASE_URL"]}}\n' > /app/prisma.config.js
+# Prisma 7.x requires datasource.url in config for migrate deploy.
+# Plain ESM object — no defineConfig import needed, process.env evaluated at container runtime.
+RUN printf 'export default { datasource: { url: process.env["DATABASE_URL"] } };\n' > /app/prisma.config.mjs
 
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/package.json ./
