@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Pencil1Icon } from '@radix-ui/react-icons'
 import { useParams } from 'react-router-dom'
 import { ProjectStatusEnum } from '@ama-midi/shared'
 import { AppShell } from '../../components/layout'
@@ -8,7 +9,8 @@ import { timeAgo } from '../../lib/utils'
 import { useProject } from './useProjects'
 import { useProjectSongs } from '../songs/useSongs'
 import { SongTable } from '../songs/SongTable'
-import { CreateSongWizard } from '../songs/CreateSongWizard'
+import { CreateSongWizard } from '../songs/create-wizard/CreateSongWizard'
+import { EditProjectModal } from './EditProjectModal'
 import { MemberTable } from '../project-members/MemberTable'
 
 export function ProjectPage() {
@@ -16,6 +18,7 @@ export function ProjectPage() {
   const { data: project } = useProject(projectId)
   const { data: songs = [] } = useProjectSongs(projectId)
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   if (!projectId) return null
 
@@ -38,16 +41,29 @@ export function ProjectPage() {
             {project && <span>Updated {timeAgo(project.updatedAt)}</span>}
           </div>
         </div>
-        <Button size="sm" rounded onClick={() => setWizardOpen(true)}>
-          + New Song
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          {project && (
+            <Button
+              size="sm"
+              variant="secondary"
+              rounded
+              icon={<Pencil1Icon className="h-3.5 w-3.5" />}
+              onClick={() => setEditOpen(true)}
+            >
+              Edit
+            </Button>
+          )}
+          <Button size="sm" rounded onClick={() => setWizardOpen(true)}>
+            + New Song
+          </Button>
+        </div>
       </div>
 
       <Tabs.Root defaultValue="songs">
-        <Tabs.List>
-          <Tabs.Trigger value="songs">songs</Tabs.Trigger>
-          <Tabs.Trigger value="members">members</Tabs.Trigger>
-          <Tabs.Trigger value="settings">settings</Tabs.Trigger>
+        <Tabs.List variant="management">
+          <Tabs.Trigger value="songs">Songs</Tabs.Trigger>
+          <Tabs.Trigger value="members">Members</Tabs.Trigger>
+          <Tabs.Trigger value="settings">Settings</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="songs" className="pt-4">
           <SongTable projectId={projectId} songs={songs} />
@@ -62,7 +78,8 @@ export function ProjectPage() {
         </Tabs.Content>
       </Tabs.Root>
 
-      {wizardOpen && <CreateSongWizard projectId={projectId} songs={songs} onClose={() => setWizardOpen(false)} />}
+      {wizardOpen && <CreateSongWizard projectId={projectId} onClose={() => setWizardOpen(false)} />}
+      <EditProjectModal project={project ?? null} open={editOpen} onOpenChange={setEditOpen} />
     </AppShell>
   )
 }
