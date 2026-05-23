@@ -6,6 +6,21 @@ export const LAYER_COLORS = {
   events: { primary: '#F59E0B', bg: '#FFFBEB', label: 'Events' },
 } as const
 
+export const TRACK_COLORS: Record<number, string> = {
+  1: '#FF7B7B',
+  2: '#FFB347',
+  3: '#7ED56F',
+  4: '#40E0D0',
+  5: '#5B9BFF',
+  6: '#9B7FFF',
+  7: '#FF78BE',
+  8: '#FF9F6B',
+}
+
+export function trackColor(track: number): string {
+  return TRACK_COLORS[track] ?? TRACK_COLORS[1]
+}
+
 export const NOTE_PRESET_COLORS = [
   '#6C63FF',
   '#3B82F6',
