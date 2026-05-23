@@ -1,6 +1,6 @@
 import { TIME_AXIS_WIDTH } from '../../../lib/constants'
 import { TIME_MAX } from '@ama-midi/shared'
-import { timeToBeat } from '../engine'
+import { getTimeAxisLabels } from '../engine'
 
 export interface TimeAxisProps {
   pxPerSecond:    number
@@ -11,24 +11,9 @@ export interface TimeAxisProps {
 }
 
 export function TimeAxis({
-  pxPerSecond, scrollTop, bpm = 120, timeSignature = '4/4', onAddSection,
+  pxPerSecond, scrollTop, onAddSection,
 }: TimeAxisProps) {
-  // Adaptive step: pick the smallest interval (in seconds) that keeps labels ≥24px apart.
-  const MIN_LABEL_PX = 24
-  const CANDIDATE_STEPS = [1, 2, 4, 5, 10, 15, 20, 30, 60]
-  const stepSeconds = CANDIDATE_STEPS.find(s => s * pxPerSecond >= MIN_LABEL_PX) ?? 60
-
-  const labels: { y: number; secText: string; beatText: string; isMeasureStart: boolean }[] = []
-  for (let t = 0; t <= TIME_MAX; t += stepSeconds) {
-    const y    = t * pxPerSecond
-    const beat = timeToBeat(t, bpm, timeSignature)
-    labels.push({
-      y:              y - scrollTop,
-      secText:        `${t}s`,
-      beatText:       `${beat.measure}.${beat.beat}`,
-      isMeasureStart: beat.beat === 1,
-    })
-  }
+  const labels = getTimeAxisLabels(pxPerSecond, scrollTop, TIME_MAX)
 
   return (
     <div
@@ -42,24 +27,16 @@ export function TimeAxis({
         onAddSection(time, e)
       }}
     >
-      {labels.map((label, i) => (
-        <div
-          key={i}
-          className="absolute left-1 select-none flex flex-col leading-tight"
-          style={{ top: label.y }}
-        >
-          {label.y > -8 && (
-            <>
-              <span className="text-[9px] text-canvas-muted font-mono">{label.secText}</span>
-              <span className={
-                'text-[8px] font-mono ' +
-                (label.isMeasureStart ? 'text-canvas-text font-bold' : 'text-canvas-muted/60')
-              }>
-                {label.beatText}
-              </span>
-            </>
-          )}
-        </div>
+      {labels.map(({ y, label, isWholeSecond }, i) => (
+        y > -8 && (
+          <span
+            key={i}
+            className={`absolute left-1 font-mono select-none ${isWholeSecond ? 'text-[9px] text-canvas-text' : 'text-[8px] text-canvas-muted'}`}
+            style={{ top: y }}
+          >
+            {label}
+          </span>
+        )
       ))}
     </div>
   )

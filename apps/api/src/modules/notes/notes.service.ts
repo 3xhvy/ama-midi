@@ -15,7 +15,7 @@ function toNote(n: {
   title: string; description: string; createdBy: string
   noteType?: string; duration?: number | null
   createdAt: Date; updatedAt: Date
-  creator?: { name: string }
+  creator?: { name: string; avatarUrl?: string | null }
 }): Note {
   return {
     id: n.id,
@@ -26,6 +26,7 @@ function toNote(n: {
     description: n.description,
     createdBy: n.createdBy,
     creatorName: n.creator?.name ?? '',
+    creatorAvatarUrl: n.creator?.avatarUrl ?? undefined,
     createdAt: n.createdAt.toISOString(),
     updatedAt: n.updatedAt.toISOString(),
     noteType: (n.noteType as Note['noteType']) ?? 'TAP',
@@ -65,7 +66,7 @@ export class NotesService {
           duration: body.duration ?? null,
           createdBy: user.id,
         },
-        include: { creator: { select: { name: true } } },
+        include: { creator: { select: { name: true, avatarUrl: true } } },
       })
 
       const note = toNote(n)
@@ -91,7 +92,7 @@ export class NotesService {
     await this.access.assertCanEditSong(songId, user)
     const note = await this.prisma.note.findFirst({
       where: { id: noteId, songId, deletedAt: null },
-      include: { creator: { select: { name: true } } },
+      include: { creator: { select: { name: true, avatarUrl: true } } },
     })
     if (!note) throw new NotFoundException('Note not found')
     if (note.createdBy !== user.id && user.role !== 'ADMIN') throw new ForbiddenException()
@@ -119,7 +120,7 @@ export class NotesService {
 
     const note = await this.prisma.note.findFirst({
       where: { id: lastEvent.noteId, songId, deletedAt: null },
-      include: { creator: { select: { name: true } } },
+      include: { creator: { select: { name: true, avatarUrl: true } } },
     })
     if (!note) throw new NotFoundException('Note already deleted')
 
@@ -134,7 +135,7 @@ export class NotesService {
 
     const existing = await this.prisma.note.findFirst({
       where: { id: noteId, deletedAt: null },
-      include: { creator: { select: { name: true } } },
+      include: { creator: { select: { name: true, avatarUrl: true } } },
     })
     if (!existing) throw new NotFoundException('Note not found')
     await this.access.assertCanEditSong(existing.songId, user)
@@ -143,7 +144,7 @@ export class NotesService {
     const updated = await this.prisma.note.update({
       where: { id: noteId },
       data: { ...dto },
-      include: { creator: { select: { name: true } } },
+      include: { creator: { select: { name: true, avatarUrl: true } } },
     })
 
     const note = toNote(updated)

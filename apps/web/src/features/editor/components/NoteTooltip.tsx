@@ -18,8 +18,8 @@ export function NoteTooltip({ note, position }: NoteTooltipProps) {
         Track {note.track} · {formatTime(note.time)}
       </p>
       <div className="flex items-center gap-1.5 mt-1.5">
-        <Avatar name={note.creatorName} size="xs" />
-        <span className="text-[10px] text-shell-muted">{note.creatorName}</span>
+        <Avatar src={note.creatorAvatarUrl} name={note.creatorName || 'Unknown'} size="xs" />
+        <span className="text-[10px] text-shell-muted">{note.creatorName || 'Unknown'}</span>
       </div>
     </div>
   )

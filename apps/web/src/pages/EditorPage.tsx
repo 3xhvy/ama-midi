@@ -193,8 +193,8 @@ export function EditorPage() {
         className="flex flex-col flex-1 min-h-0"
       >
         <Tabs.List>
-          <Tabs.Trigger value="tools">tools</Tabs.Trigger>
-          <Tabs.Trigger value="validation">
+          <Tabs.Trigger value="tools" variant="editor">tools</Tabs.Trigger>
+          <Tabs.Trigger value="validation" variant="editor">
             val
             {(errCount > 0 || warnCount > 0) && (
               <span className={`ml-1 text-[10px] ${errCount > 0 ? 'text-red-400' : 'text-yellow-400'}`}>
@@ -202,7 +202,7 @@ export function EditorPage() {
               </span>
             )}
           </Tabs.Trigger>
-          <Tabs.Trigger value="history" data-tour="history-tab">history</Tabs.Trigger>
+          <Tabs.Trigger value="history" variant="editor" data-tour="history-tab">history</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="tools">
           <ToolsTab
@@ -361,7 +361,7 @@ function SingleNoteDetail({ note }: { note: Note }) {
   const color = trackColor(note.track)
   const typeLabel = note.noteType === 'HOLD' ? 'Hold' : note.noteType === 'SWIPE' ? 'Swipe' : 'Tap'
   return (
-    <div className="flex flex-col gap-0.5 text-[11px] text-shell-muted">
+    <div className="flex flex-col gap-0.5 text-[11px]" style={{ color: 'var(--color-editor-body)' }}>
       <div className="flex items-center gap-1.5">
         <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <span>Track {note.track} · {typeLabel}</span>
@@ -376,7 +376,7 @@ function MultiNoteDetail({ notes }: { notes: Note[] }) {
   const minTime = Math.min(...notes.map(n => n.time))
   const maxTime = Math.max(...notes.map(n => n.time + (n.duration ?? 0)))
   return (
-    <div className="flex flex-col gap-0.5 text-[11px] text-shell-muted">
+    <div className="flex flex-col gap-0.5 text-[11px]" style={{ color: 'var(--color-editor-body)' }}>
       <div className="flex items-center gap-1">
         <span>{notes.length} notes</span>
         <div className="flex items-center gap-0.5 ml-1">
@@ -420,6 +420,7 @@ function ToolsTab({
             items={VIEW_MODES}
             value={viewMode}
             onValueChange={(v) => setViewMode(v as typeof viewMode)}
+            variant="editor"
             className="w-full"
           />
         </ToolRow>
@@ -429,6 +430,7 @@ function ToolsTab({
             items={ZOOM_MODES}
             value={String(zoom)}
             onValueChange={(v) => setZoom(Number(v) as 1 | 2 | 4 | 8)}
+            variant="editor"
             className="w-full"
           />
         </ToolRow>
@@ -438,6 +440,7 @@ function ToolsTab({
             items={SNAP_MODES}
             value={snapMode}
             onValueChange={(v) => setSnapMode(v as SnapMode)}
+            variant="editor"
             className="w-full"
           />
         </ToolRow>
@@ -473,7 +476,10 @@ function ToolsTab({
           className="w-full flex items-center justify-between rounded-md border border-shell-border bg-shell-bg px-3 py-2 text-xs text-shell-text hover:bg-shell-surface transition-colors"
         >
           <span>Difficulty heatmap</span>
-          <span className={heatmapEnabled ? 'text-warning' : 'text-shell-muted'}>
+          <span
+            className={heatmapEnabled ? 'text-warning' : ''}
+            style={heatmapEnabled ? undefined : { color: 'var(--color-editor-btn-inactive)' }}
+          >
             {heatmapEnabled ? 'On' : 'Off'}
           </span>
         </button>
@@ -483,7 +489,7 @@ function ToolsTab({
         <PanelHeading title="Selection" meta={selectedCount ? `${selectedCount} selected` : 'none'} />
 
         {selectedCount === 0 ? (
-          <p className="text-xs text-shell-muted leading-relaxed">
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--color-editor-body)' }}>
             Select notes on the canvas to edit groups here.
           </p>
         ) : (
@@ -530,8 +536,8 @@ function ToolsTab({
 function PanelHeading({ title, meta }: { title: string; meta?: string }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <h3 className="text-xs font-semibold text-shell-text uppercase tracking-wide">{title}</h3>
-      {meta && <span className="text-[10px] text-shell-muted">{meta}</span>}
+      <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-editor-btn-inactive)' }}>{title}</h3>
+      {meta && <span className="text-[10px]" style={{ color: 'var(--color-editor-section-label)' }}>{meta}</span>}
     </div>
   )
 }
@@ -539,7 +545,7 @@ function PanelHeading({ title, meta }: { title: string; meta?: string }) {
 function ToolRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <span className="text-xs text-shell-muted">{label}</span>
+      <span className="text-xs" style={{ color: 'var(--color-editor-field-label)' }}>{label}</span>
       {children}
     </div>
   )

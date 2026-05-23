@@ -33,7 +33,7 @@ export class NoteQueryService {
         deletedAt: null,
         ...timeFilter,
       },
-      include: { creator: { select: { name: true } } },
+      include: { creator: { select: { name: true, avatarUrl: true } } },
       orderBy: [{ track: 'asc' }, { time: 'asc' }],
     })
 
@@ -46,6 +46,7 @@ export class NoteQueryService {
       description: n.description,
       createdBy: n.createdBy,
       creatorName: n.creator.name,
+      creatorAvatarUrl: n.creator.avatarUrl ?? undefined,
       createdAt: n.createdAt.toISOString(),
       updatedAt: n.updatedAt.toISOString(),
       noteType: n.noteType as 'TAP' | 'HOLD' | 'SWIPE',

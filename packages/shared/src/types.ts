@@ -108,6 +108,7 @@ export interface Note {
   description: string
   createdBy: string
   creatorName: string
+  creatorAvatarUrl?: string
   createdAt: string
   updatedAt: string
   noteType: NoteType

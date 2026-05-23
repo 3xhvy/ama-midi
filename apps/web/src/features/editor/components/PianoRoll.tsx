@@ -1,14 +1,12 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
-import { TIME_MAX, HOLD_DRAG_THRESHOLD_PX } from '@ama-midi/shared'
+import { HOLD_DRAG_THRESHOLD_PX } from '@ama-midi/shared'
 import { useEditorStore } from '../../../store/editor.store'
 import { useNotes, useCreateNote, useDeleteNote } from '../../notes/useNotes'
 import { useAuthStore } from '../../../store/auth.store'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../../auth/api'
-import { xToTrack, yToTime, trackWidth, timeToY, trackToX } from '../engine'
+import { xToTrack, yToTime, timeToY, trackToX, getTrackLayout, getVisibleTimeGridLines } from '../engine'
 import { getTotalHeight, getPrefetchTimeRange } from '../engine'
-import { computeBeatLines } from '../engine/beat-grid'
 import { NoteCircle  } from './NoteCircle'
 import { GhostCircle } from './GhostCircle'
 import { GridLines   } from './GridLines'
@@ -23,6 +21,7 @@ import { DifficultyOverlay } from './DifficultyOverlay'
 import { HitZone } from './HitZone'
 import { useSections } from '../../sections/useSections'
 import { useThrottle } from '../../../hooks/useThrottle'
+import { TIME_AXIS_WIDTH } from '../../../lib/constants'
 import type { Note, Song } from '@ama-midi/shared'
 import type { CursorData } from '../../collaboration/useSocket'
 
@@ -45,6 +44,7 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   const pxPerSecondRef = useRef(3)
 
   const [scrollTop,    setScrollTop]    = useState(0)
+  const [gridMetrics,  setGridMetrics]  = useState({ width: 800, scrollbarGutter: 0 })
   const [ghost,        setGhost]        = useState<{ track: number; time: number } | null>(null)
   const [popup,        setPopup]        = useState<PopupState>(null)
   const [drag,         setDrag]         = useState<
@@ -56,6 +56,26 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   const { pxPerSecond, viewMode, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
           selectedNoteIds, selectNote, toggleNoteSelection, clearSelection, setActiveTrack } = useEditorStore()
   pxPerSecondRef.current = pxPerSecond
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const updateMetrics = () => {
+      const width = el.clientWidth
+      const scrollbarGutter = Math.max(0, el.offsetWidth - el.clientWidth)
+      setGridMetrics((current) => (
+        current.width === width && current.scrollbarGutter === scrollbarGutter
+          ? current
+          : { width, scrollbarGutter }
+      ))
+    }
+
+    updateMetrics()
+    const observer = new ResizeObserver(updateMetrics)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   // Ctrl/Cmd + scroll wheel to zoom
   useEffect(() => {
@@ -92,8 +112,14 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   )
 
   const viewportHeight = containerRef.current?.clientHeight ?? 600
-  const gridWidth      = containerRef.current?.clientWidth  ?? 800
-  const tw             = trackWidth(gridWidth)
+  const gridWidth      = gridMetrics.width
+  const scrollbarGutter = gridMetrics.scrollbarGutter
+  const trackLayout    = getTrackLayout({
+    editorWidth: gridWidth + TIME_AXIS_WIDTH,
+    timeAxisWidth: TIME_AXIS_WIDTH,
+    zoom,
+  })
+  const tw             = trackLayout.trackWidth
 
   const { timeFrom, timeTo } = getPrefetchTimeRange(scrollTop, viewportHeight, pxPerSecond)
   const { data: notes = [], isLoading } = useNotes(songId, timeFrom, timeTo)
@@ -102,16 +128,7 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   const deleteNote = useDeleteNote(songId)
 
   const totalHeight = getTotalHeight(pxPerSecond)
-  const beatLines   = computeBeatLines(timeFrom, timeTo, bpm, timeSignature, pxPerSecond)
-
-  const rowVirtualizer = useVirtualizer({
-    count:           TIME_MAX + 1,
-    getScrollElement: () => containerRef.current,
-    estimateSize:    () => pxPerSecondRef.current,
-    overscan:        10,
-  })
-
-  useEffect(() => { rowVirtualizer.measure() }, [pxPerSecond]) // eslint-disable-line
+  const timeGridLines = getVisibleTimeGridLines(pxPerSecond, timeFrom, timeTo)
 
   // Auto-scroll to follow playhead during playback
   useEffect(() => {
@@ -247,21 +264,27 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   if (isLoading) {
     return (
       <div className="flex flex-col h-full bg-canvas-bg animate-pulse">
-        <div className="grid grid-cols-8 h-8 border-b border-canvas-border bg-canvas-surface shrink-0">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="border-r border-canvas-border flex items-center justify-center">
-              <div className="w-4 h-3 bg-canvas-border rounded" />
-            </div>
-          ))}
+        <div className="flex h-8 border-b border-canvas-border bg-canvas-surface shrink-0">
+          <div className="shrink-0 border-r border-canvas-border" style={{ width: TIME_AXIS_WIDTH }} />
+          <div className="grid grid-cols-8 flex-1">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="border-r border-canvas-border flex items-center justify-center">
+                <div className="w-4 h-3 bg-canvas-border rounded" />
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-8 flex-1 gap-0">
-          {Array.from({ length: 8 }).map((_, col) => (
-            <div key={col} className="border-r border-canvas-border flex flex-col gap-4 p-4">
-              {Array.from({ length: 3 }).map((_, row) => (
-                <div key={row} className="w-4 h-4 rounded-full bg-canvas-border/50 mx-auto" />
-              ))}
-            </div>
-          ))}
+        <div className="flex flex-1">
+          <div className="shrink-0 border-r border-canvas-border" style={{ width: TIME_AXIS_WIDTH }} />
+          <div className="grid grid-cols-8 flex-1 gap-0">
+            {Array.from({ length: 8 }).map((_, col) => (
+              <div key={col} className="border-r border-canvas-border flex flex-col gap-4 p-4">
+                {Array.from({ length: 3 }).map((_, row) => (
+                  <div key={row} className="w-4 h-4 rounded-full bg-canvas-border/50 mx-auto" />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -270,15 +293,19 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
   return (
     <div className="relative flex-1 overflow-hidden flex flex-col h-full">
       <div className="flex border-b border-canvas-border bg-canvas-surface h-8 shrink-0">
-        {Array.from({ length: 8 }, (_, i) => i + 1).map((track) => (
-          <div
-            key={track}
-            className={`flex items-center justify-center text-xs border-r border-canvas-border transition-opacity select-none ${mutedTracks.has(track) ? 'opacity-30 text-canvas-muted' : 'text-canvas-muted'}`}
-            style={{ width: tw }}
-          >
-            T{track}
-          </div>
-        ))}
+        <div className="shrink-0 border-r border-canvas-border" style={{ width: TIME_AXIS_WIDTH }} />
+        <div className="flex shrink-0" style={{ width: gridWidth }}>
+          {Array.from({ length: 8 }, (_, i) => i + 1).map((track) => (
+            <div
+              key={track}
+              className={`flex items-center justify-center text-xs border-r border-canvas-border transition-opacity select-none ${mutedTracks.has(track) ? 'opacity-30 text-canvas-muted' : 'text-canvas-muted'}`}
+              style={{ width: tw }}
+            >
+              T{track}
+            </div>
+          ))}
+        </div>
+        {scrollbarGutter > 0 && <div className="shrink-0" style={{ width: scrollbarGutter }} />}
       </div>
 
 
@@ -306,9 +333,8 @@ export function PianoRoll({ songId, canEdit = true, mutedTracks = new Set(), onN
           >
             <div className="relative" style={{ height: totalHeight }}>
               <GridLines
-                virtualItems={rowVirtualizer.getVirtualItems()}
+                timeGridLines={timeGridLines}
                 gridWidth={gridWidth}
-                beatLines={beatLines}
               />
 
               {/* Vignette — soft top/bottom fade to reduce edge harshness */}

@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { Avatar } from '../../../components/ui'
 import { useAuthStore } from '../../../store/auth.store'
 import { apiClient } from '../../auth/api'
 import { useUndo } from '../../notes/useNotes'
@@ -38,10 +39,6 @@ function eventLabel(event: NoteEventRow): string {
   if (event.eventType === 'NOTE_CREATED') return `${name} added a note at Track ${track}, ${time}s`
   if (event.eventType === 'NOTE_UPDATED') return `${name} edited the note at Track ${track}, ${time}s`
   return `${name} removed the note at Track ${track}, ${time}s`
-}
-
-function getInitials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
 export function HistoryPanel({ songId, onClose, inline = false }: Props) {
@@ -114,9 +111,7 @@ export function HistoryPanel({ songId, onClose, inline = false }: Props) {
         <div className="p-3 space-y-2">
           {events.map(event => (
             <div key={event.id} className="flex gap-3 items-start">
-              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs text-white flex-shrink-0 font-medium">
-                {event.user ? getInitials(event.user.name) : '?'}
-              </div>
+              <Avatar src={event.user?.avatarUrl} name={event.user?.name ?? 'Unknown'} size="sm" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-shell-text leading-relaxed">{eventLabel(event)}</p>
                 <p className="text-xs text-shell-muted mt-0.5">{timeAgo(event.createdAt)}</p>

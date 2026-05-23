@@ -20,13 +20,13 @@ export function BottomBarStats({ notes }: Props) {
   }, [notes])
 
   return (
-    <div className="px-3 py-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-shell-muted">
+    <div className="px-3 py-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs" style={{ color: 'var(--color-editor-field-label)' }}>
       <span>Notes</span>
-      <span className="text-shell-text font-medium text-right">{notes.length}</span>
+      <span className="font-medium text-right" style={{ color: 'var(--color-editor-stat-value)' }}>{notes.length}</span>
       <span>Max combo</span>
-      <span className="text-shell-text font-medium text-right">{combo}</span>
+      <span className="font-medium text-right" style={{ color: 'var(--color-editor-stat-value)' }}>{combo}</span>
       <span>Peak NPS</span>
-      <span className="text-shell-text font-medium text-right">{peakNps.toFixed(1)}</span>
+      <span className="font-medium text-right" style={{ color: 'var(--color-editor-stat-value)' }}>{peakNps.toFixed(1)}</span>
       <span>Difficulty</span>
       <span className={`font-semibold text-right ${RATING_COLOR[rating]}`}>{rating}</span>
     </div>

@@ -113,14 +113,13 @@ export function Toolbar({
             ⏮
           </IconButton>
 
-          <IconButton
-            size="sm"
+          <button
             onClick={() => setPlaying(!isPlaying)}
-            tooltip={isPlaying ? 'Pause' : 'Play'}
-            className="text-primary"
+            title={isPlaying ? 'Pause' : 'Play'}
+            className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] hover:bg-primary-dark transition-colors shrink-0"
           >
             {isPlaying ? '⏸' : '▶'}
-          </IconButton>
+          </button>
 
           <IconButton
             size="sm"

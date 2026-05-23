@@ -7,10 +7,24 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/auth':     { target: 'http://127.0.0.1:3001', changeOrigin: true },
+      '/auth': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        bypass(req) {
+          // Frontend route — API redirects here after Google OAuth with ?token=
+          if (req.url?.startsWith('/auth/callback')) return req.url
+        },
+      },
       '/users':    { target: 'http://127.0.0.1:3001', changeOrigin: true },
       '/patterns': { target: 'http://127.0.0.1:3001', changeOrigin: true },
       '/health':   { target: 'http://127.0.0.1:3001', changeOrigin: true },
+      '/projects': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        bypass(req) {
+          if (req.headers.accept?.includes('text/html')) return req.url
+        },
+      },
       '/songs': {
         target: 'http://127.0.0.1:3001',
         changeOrigin: true,

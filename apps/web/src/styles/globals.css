@@ -22,6 +22,14 @@
   --color-grid-line-bold: rgba(255, 255, 255, 0.10);
   --color-grid-line-bar: rgba(255, 255, 255, 0.18);
 
+  /* Editor text hierarchy (dark surface) */
+  --color-editor-section-label: rgba(255, 255, 255, 0.42);
+  --color-editor-field-label:   rgba(255, 255, 255, 0.55);
+  --color-editor-btn-inactive:  rgba(255, 255, 255, 0.62);
+  --color-editor-btn-border:    rgba(255, 255, 255, 0.18);
+  --color-editor-body:          rgba(255, 255, 255, 0.50);
+  --color-editor-stat-value:    rgba(255, 255, 255, 0.80);
+
   /* Track identity colors */
   --color-track-1: #FF7B7B;
   --color-track-2: #FFB347;
