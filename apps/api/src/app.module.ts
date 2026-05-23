@@ -20,6 +20,7 @@ import { ProjectsModule } from './modules/projects/projects.module'
 import { ProjectMembersModule } from './modules/project-members/project-members.module'
 import { SectionsModule } from './modules/sections/sections.module'
 import { DashboardModule } from './modules/dashboard/dashboard.module'
+import { ChartsModule } from './modules/charts/charts.module'
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module'
     ProjectsModule,
     ProjectMembersModule,
     DashboardModule,
+    ChartsModule,
     SongsModule,
     NotesModule,
     LedgerModule,

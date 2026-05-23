@@ -1,11 +1,9 @@
 import {
   getSongTemplate,
   SongCategoryEnum,
-  SongDifficultyEnum,
   SUPPORTED_TIME_SIGNATURES,
   type ImportSongOptions,
   type SongCategory,
-  type SongDifficulty,
 } from '@ama-midi/shared'
 
 export type WizardStep = 'start' | 'setup' | 'assignment' | 'review'
@@ -15,7 +13,6 @@ export type ImportMode = 'structure' | 'pattern' | 'full' | 'custom'
 export interface SetupFields {
   name: string
   category: SongCategory
-  difficulty: SongDifficulty
   bpm: number
   timeSignature: string
 }
@@ -45,7 +42,6 @@ export function applyTemplateDefaults(templateId: string): SetupFields {
   return {
     name: tpl.suggestedName,
     category: tpl.category,
-    difficulty: tpl.difficulty,
     bpm: tpl.bpm,
     timeSignature: tpl.timeSignature,
   }
@@ -79,7 +75,6 @@ export function buildReviewSummary(input: {
   importSourceName?: string | null
   name: string
   category: SongCategory
-  difficulty: SongDifficulty
   bpm: number
   timeSignature: string
   composerName?: string | null
@@ -92,7 +87,7 @@ export function buildReviewSummary(input: {
         ? `Template: ${input.templateName ?? input.templateId}`
         : `Import from: "${input.importSourceName ?? 'Unknown'}"`
 
-  const detailsLine = `${input.name} · ${SongCategoryEnum.label(input.category)} · ${SongDifficultyEnum.label(input.difficulty)} · ${input.bpm} BPM · ${input.timeSignature}`
+  const detailsLine = `${input.name} · ${SongCategoryEnum.label(input.category)} · ${input.bpm} BPM · ${input.timeSignature}`
 
   return { startLine, detailsLine }
 }

@@ -2,10 +2,8 @@ import type { ReactNode } from 'react'
 import {
   getSongTemplate,
   SongCategoryEnum,
-  SongDifficultyEnum,
   type ImportSongOptions,
   type SongCategory,
-  type SongDifficulty,
 } from '@ama-midi/shared'
 import { SongStatusBadge } from '../../../../components/ui'
 import {
@@ -62,7 +60,6 @@ export interface ReviewStepProps {
   importOptions?: ImportSongOptions | null
   name: string
   category: SongCategory
-  difficulty: SongDifficulty
   bpm: number
   timeSignature: string
   composerName?: string | null
@@ -77,7 +74,6 @@ export function ReviewStep({
   importOptions,
   name,
   category,
-  difficulty,
   bpm,
   timeSignature,
   composerName,
@@ -90,7 +86,6 @@ export function ReviewStep({
     importSourceName,
     name,
     category,
-    difficulty,
     bpm,
     timeSignature,
     composerName,
@@ -113,7 +108,7 @@ export function ReviewStep({
         <ReviewSection title="Details">
           <ReviewRow label="Name" value={name} />
           <ReviewRow label="Category" value={SongCategoryEnum.label(category)} />
-          <ReviewRow label="Difficulty" value={SongDifficultyEnum.label(difficulty)} />
+          <ReviewRow label="Difficulty" value="Computed from chart" />
           <ReviewRow label="BPM" value={bpm} />
           <ReviewRow label="Time signature" value={timeSignature} />
         </ReviewSection>

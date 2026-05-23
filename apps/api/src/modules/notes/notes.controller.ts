@@ -10,7 +10,7 @@ import { NoteCopyApplyDto, NoteCopyPreviewDto } from './dto/note-copy.dto'
 import type { Request } from 'express'
 import type { AuthUser } from '@ama-midi/shared'
 
-@Controller('songs/:songId')
+@Controller('charts/:chartId')
 @UseGuards(AuthGuard('jwt'))
 export class NotesController {
   constructor(
@@ -21,12 +21,12 @@ export class NotesController {
 
   @Get('notes')
   findAll(
-    @Param('songId') songId: string,
+    @Param('chartId') chartId: string,
     @Req() req: Request,
     @Query('timeFrom') timeFrom?: string,
     @Query('timeTo') timeTo?: string,
   ) {
-    return this.query.findBySong(songId, req.user as AuthUser, {
+    return this.query.findByChart(chartId, req.user as AuthUser, {
       timeFrom: timeFrom !== undefined ? parseFloat(timeFrom) : undefined,
       timeTo: timeTo !== undefined ? parseFloat(timeTo) : undefined,
     })
@@ -34,36 +34,36 @@ export class NotesController {
 
   @Post('notes/copy-preview')
   previewCopy(
-    @Param('songId') songId: string,
+    @Param('chartId') chartId: string,
     @Body() body: NoteCopyPreviewDto,
     @Req() req: Request,
   ) {
-    return this.noteCopy.previewCopy(songId, body, req.user as AuthUser)
+    return this.noteCopy.previewCopy(chartId, body, req.user as AuthUser)
   }
 
   @Post('notes/copy-apply')
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   applyCopy(
-    @Param('songId') songId: string,
+    @Param('chartId') chartId: string,
     @Body() body: NoteCopyApplyDto,
     @Req() req: Request,
   ) {
-    return this.noteCopy.applyCopy(songId, body, req.user as AuthUser)
+    return this.noteCopy.applyCopy(chartId, body, req.user as AuthUser)
   }
 
   @Post('notes')
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   create(
-    @Param('songId') songId: string,
+    @Param('chartId') chartId: string,
     @Body() body: CreateNoteDto,
     @Req() req: Request,
   ) {
-    return this.notes.create(songId, body, req.user as AuthUser)
+    return this.notes.create(chartId, body, req.user as AuthUser)
   }
 
   @Patch('notes/:noteId')
   updateNote(
-    @Param('songId') _songId: string,
+    @Param('chartId') _chartId: string,
     @Param('noteId') noteId: string,
     @Body() body: UpdateNoteDto,
     @Req() req: Request,
@@ -74,25 +74,25 @@ export class NotesController {
   @Delete('notes/:noteId')
   @HttpCode(204)
   remove(
-    @Param('songId') songId: string,
+    @Param('chartId') chartId: string,
     @Param('noteId') noteId: string,
     @Req() req: Request,
   ) {
-    return this.notes.softDelete(songId, noteId, req.user as AuthUser)
+    return this.notes.softDelete(chartId, noteId, req.user as AuthUser)
   }
 
   @Post('events/undo')
-  undo(@Param('songId') songId: string, @Req() req: Request) {
-    return this.notes.undo(songId, req.user as AuthUser)
+  undo(@Param('chartId') chartId: string, @Req() req: Request) {
+    return this.notes.undo(chartId, req.user as AuthUser)
   }
 
   @Get('events')
   getEvents(
-    @Param('songId') songId: string,
+    @Param('chartId') chartId: string,
     @Req() req: Request,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.notes.getEvents(songId, req.user as AuthUser, cursor, parseInt(limit || '50', 10))
+    return this.notes.getEvents(chartId, req.user as AuthUser, cursor, parseInt(limit || '50', 10))
   }
 }

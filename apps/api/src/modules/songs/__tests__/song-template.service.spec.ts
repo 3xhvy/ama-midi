@@ -24,7 +24,7 @@ describe('SongTemplateService', () => {
   describe('materialize — sectioned-layout', () => {
     it('creates section markers for each template section', async () => {
       const template = getSongTemplate('sectioned-layout')!
-      await service.materialize('sectioned-layout', 'song-a', 'user-b')
+      await service.materialize('sectioned-layout', 'song-a', 'chart-a', 'user-b')
 
       expect(prisma.sectionMarker.createMany).toHaveBeenCalledTimes(1)
       expect(prisma.sectionMarker.createMany).toHaveBeenCalledWith({
@@ -44,11 +44,12 @@ describe('SongTemplateService', () => {
   describe('materialize — tap-starter', () => {
     it('creates 8 TAP notes spaced by half beats', async () => {
       const template = getSongTemplate('tap-starter')!
-      await service.materialize('tap-starter', 'song-a', 'user-b')
+      await service.materialize('tap-starter', 'song-a', 'chart-a', 'user-b')
 
       expect(prisma.note.createMany).toHaveBeenCalledTimes(1)
       expect(prisma.note.createMany).toHaveBeenCalledWith({
         data: template.notes!.map((n: SongTemplateNote) => ({
+          chartId: 'chart-a',
           songId: 'song-a',
           track: n.track,
           time: n.time,
@@ -68,7 +69,7 @@ describe('SongTemplateService', () => {
   describe('materialize — pattern-lab', () => {
     it('creates stored patterns with template note JSON', async () => {
       const template = getSongTemplate('pattern-lab')!
-      await service.materialize('pattern-lab', 'song-a', 'user-b')
+      await service.materialize('pattern-lab', 'song-a', 'chart-a', 'user-b')
 
       expect(prisma.notePattern.createMany).toHaveBeenCalledTimes(1)
       expect(prisma.notePattern.createMany).toHaveBeenCalledWith({
@@ -90,7 +91,7 @@ describe('SongTemplateService', () => {
     it('throws BadRequestException and skips persistence', async () => {
       let thrown: BadRequestException | undefined
       try {
-        await service.materialize('not-a-real-template', 'song-a', 'user-b')
+        await service.materialize('not-a-real-template', 'song-a', 'chart-a', 'user-b')
       } catch (e) {
         expect(e).toBeInstanceOf(BadRequestException)
         thrown = e as BadRequestException

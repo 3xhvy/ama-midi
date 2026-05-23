@@ -14,7 +14,7 @@ import {
 
 interface Props {
   mode: 'create' | 'edit'
-  songId: string
+  chartId: string
   initialTrack?: number
   initialTime?: number
   note?: Note
@@ -25,7 +25,7 @@ interface Props {
 
 export function NotePopup({
   mode,
-  songId,
+  chartId,
   initialTrack,
   initialTime,
   note,
@@ -33,9 +33,9 @@ export function NotePopup({
   onClose,
   onCreated,
 }: Props) {
-  const createNote = useCreateNote(songId)
-  const deleteNote = useDeleteNote(songId)
-  const updateNote = useUpdateNote(songId)
+  const createNote = useCreateNote(chartId)
+  const deleteNote = useDeleteNote(chartId)
+  const updateNote = useUpdateNote(chartId)
   const track = mode === 'edit' ? note?.track : initialTrack
   const startAt = mode === 'edit' ? (note?.time ?? 0) : (initialTime ?? 0)
 

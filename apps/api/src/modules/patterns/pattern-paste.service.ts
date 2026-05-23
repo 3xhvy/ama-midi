@@ -67,10 +67,11 @@ export class PatternPasteService {
     user: AuthUser,
   ): Promise<PatternPastePreview> {
     await this.access.assertCanEditSongChart(request.songId, user)
+    const chartId = await this.resolveDefaultChartId(request.songId)
     const row = await this.loadPatternRow(patternId)
     const pattern = this.toDomainPattern(row)
     const patternVersion = this.getPatternVersion(row)
-    return this.buildPreview(pattern, request.songId, request.startTime, patternVersion)
+    return this.buildPreview(pattern, request.songId, chartId, request.startTime, patternVersion)
   }
 
   async applyPaste(
@@ -79,16 +80,17 @@ export class PatternPasteService {
     user: AuthUser,
   ): Promise<PatternPasteApplyResult> {
     await this.access.assertCanEditSongChart(request.songId, user)
+    const chartId = await this.resolveDefaultChartId(request.songId)
     const row = await this.loadPatternRow(patternId)
     const pattern = this.toDomainPattern(row)
     const patternVersion = this.getPatternVersion(row)
 
     if (request.patternVersion !== patternVersion) {
-      const preview = await this.buildPreview(pattern, request.songId, request.startTime, patternVersion)
+      const preview = await this.buildPreview(pattern, request.songId, chartId, request.startTime, patternVersion)
       throw new ConflictException({ error: 'PATTERN_VERSION_CHANGED', preview })
     }
 
-    const preview = await this.buildPreview(pattern, request.songId, request.startTime, patternVersion)
+    const preview = await this.buildPreview(pattern, request.songId, chartId, request.startTime, patternVersion)
     this.assertResolutionsMatchPreview(preview, request.resolutions)
 
     const resolutionMap = new Map(
@@ -104,7 +106,7 @@ export class PatternPasteService {
         if (resolutionMap.get(conflict.conflictId) !== 'REPLACE_WITH_PATTERN') continue
 
         const existing = await tx.note.findFirst({
-          where: { id: conflict.existingNote.id, songId: request.songId, deletedAt: null },
+          where: { id: conflict.existingNote.id, chartId, deletedAt: null },
           include: { creator: { select: { name: true, avatarUrl: true } } },
         })
         if (!existing) continue
@@ -141,6 +143,7 @@ export class PatternPasteService {
         const pn = pattern.notes[slot.patternNoteIndex]
         const createdRow = await tx.note.create({
           data: {
+            chartId,
             songId: request.songId,
             track: slot.track,
             time: slot.time,
@@ -279,6 +282,7 @@ export class PatternPasteService {
   private async buildPreview(
     pattern: NotePattern,
     songId: string,
+    chartId: string,
     startTime: number,
     patternVersion: string,
   ): Promise<PatternPastePreview> {
@@ -294,7 +298,7 @@ export class PatternPasteService {
       ? []
       : await this.prisma.note.findMany({
           where: {
-            songId,
+            chartId,
             deletedAt: null,
             track: { in: tracks },
           },
@@ -388,6 +392,7 @@ export class PatternPasteService {
 
   private toDomainNote(row: {
     id: string
+    chartId: string
     songId: string
     track: number
     time: number
@@ -403,7 +408,7 @@ export class PatternPasteService {
     return {
       id: row.id,
       songId: row.songId,
-      chartId: row.songId,
+      chartId: row.chartId,
       track: row.track,
       time: row.time,
       title: row.title,
@@ -416,5 +421,15 @@ export class PatternPasteService {
       noteType: (row.noteType as Note['noteType']) ?? 'TAP',
       duration: row.duration ?? undefined,
     }
+  }
+
+  private async resolveDefaultChartId(songId: string): Promise<string> {
+    const chart = await this.prisma.songChart.findFirst({
+      where: { songId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    })
+    if (!chart) throw new NotFoundException('No chart found for song')
+    return chart.id
   }
 }

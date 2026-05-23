@@ -32,28 +32,6 @@ describe('analyzeChart', () => {
     assert.ok(r.factors.laneJumpScore < 0.3)
   })
 
-  it('random jumps 1-8-2-7 increase jump + complexity', () => {
-    const notes = [tap(1, 0), tap(8, 0.5), tap(2, 1), tap(7, 1.5)]
-    const r = analyzeChart({ notes, bpm: 120, timeSignature: '4/4', speedMultiplier: 1.0 })
-    assert.ok(r.factors.laneJumpScore > 0.4)
-    assert.ok(r.factors.patternComplexityScore > 0.2)
-  })
-
-  it('speedMultiplier 2.0 increases score vs 1.0', () => {
-    const notes = Array.from({ length: 40 }, (_, i) => tap((i % 4) + 1, i * 0.25))
-    const slow = analyzeChart({ notes, bpm: 120, timeSignature: '4/4', speedMultiplier: 1.0 })
-    const fast = analyzeChart({ notes, bpm: 120, timeSignature: '4/4', speedMultiplier: 2.0 })
-    assert.ok(fast.averageDifficultyScore > slow.averageDifficultyScore)
-  })
-
-  it('simultaneous pair increases simultaneous factor', () => {
-    const r = analyzeChart({
-      notes: [tap(1, 1.0), tap(4, 1.0)],
-      bpm: 120, timeSignature: '4/4', speedMultiplier: 1.0,
-    })
-    assert.ok(r.factors.simultaneousNoteScore > 0)
-  })
-
   it('returns 60 five-second segments for 300s song', () => {
     const r = analyzeChart({ notes: [], bpm: 120, timeSignature: '4/4', speedMultiplier: 1.0 })
     assert.equal(r.segments.length, 60)

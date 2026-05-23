@@ -2,6 +2,8 @@ import { BadRequestException } from '@nestjs/common'
 import { SongsService } from '../songs.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { ChartsService } from '../../charts/charts.service'
+import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
 import type { AuthUser } from '@ama-midi/shared'
 
 const prisma = {
@@ -20,6 +22,8 @@ const access = {
 }
 
 const templates = { materialize: jest.fn() }
+const charts = { createDefaultChart: jest.fn() }
+const analyze = { run: jest.fn() }
 
 const user: AuthUser = {
   id: 'u1',
@@ -30,6 +34,39 @@ const user: AuthUser = {
   tourComplete: true,
 }
 
+const songRow = {
+  id: 'song1',
+  projectId: 'project1',
+  name: 'New Song',
+  category: 'PROTOTYPE' as const,
+  status: 'DRAFT' as const,
+  createdBy: 'u1',
+  assignedComposerId: null,
+  assignedQaId: null,
+  sourceSongId: null,
+  archivedAt: null,
+  bpm: 120,
+  timeSignature: '4/4',
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+  creator: { name: 'Composer', avatarUrl: null },
+  assignedComposer: null,
+  assignedQa: null,
+  charts: [{
+    id: 'chart1',
+    songId: 'song1',
+    name: 'Main',
+    speedMultiplier: 1,
+    computedDifficulty: 'NORMAL' as const,
+    averageDifficultyScore: 0,
+    peakDifficultyScore: 0,
+    analyzedAt: null,
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    updatedAt: new Date('2026-01-01T00:00:00Z'),
+  }],
+  _count: { notes: 0 },
+}
+
 describe('SongsService project flow', () => {
   let service: SongsService
 
@@ -38,44 +75,27 @@ describe('SongsService project flow', () => {
       prisma as unknown as PrismaService,
       access as unknown as ProjectAccessService,
       templates as never,
+      charts as unknown as ChartsService,
+      analyze as unknown as ChartAnalyzeService,
     )
     jest.clearAllMocks()
+    charts.createDefaultChart.mockResolvedValue({ id: 'chart1', songId: 'song1', name: 'Main' })
+    prisma.song.findUnique.mockResolvedValue(songRow)
   })
 
   it('creates blank song in a project', async () => {
-    const row = {
-      id: 'song1',
-      projectId: 'project1',
-      name: 'New Song',
-      category: 'PROTOTYPE',
-      status: 'DRAFT',
-      difficulty: 'NORMAL',
-      createdBy: 'u1',
-      assignedComposerId: null,
-      assignedQaId: null,
-      sourceSongId: null,
-      archivedAt: null,
-      bpm: 120,
-      timeSignature: '4/4',
-      createdAt: new Date('2026-01-01T00:00:00Z'),
-      updatedAt: new Date('2026-01-01T00:00:00Z'),
-      creator: { name: 'Composer', avatarUrl: null },
-      assignedComposer: null,
-      assignedQa: null,
-      _count: { notes: 0 },
-    }
-    prisma.song.create.mockResolvedValue(row)
+    prisma.song.create.mockResolvedValue({ ...songRow, charts: [] })
 
     const result = await service.createInProject('project1', {
       name: 'New Song',
       category: 'PROTOTYPE',
-      difficulty: 'NORMAL',
       bpm: 120,
       timeSignature: '4/4',
       startType: 'BLANK',
     }, user)
 
     expect(access.assertCanCreateSong).toHaveBeenCalledWith('project1', user)
+    expect(charts.createDefaultChart).toHaveBeenCalledWith('song1')
     expect(result.projectId).toBe('project1')
   })
 
@@ -83,7 +103,6 @@ describe('SongsService project flow', () => {
     await expect(service.createInProject('project1', {
       name: 'Imported',
       category: 'PROTOTYPE',
-      difficulty: 'NORMAL',
       bpm: 120,
       timeSignature: '4/4',
       startType: 'IMPORT',
@@ -91,39 +110,18 @@ describe('SongsService project flow', () => {
   })
 
   it('materializes template when startType is TEMPLATE', async () => {
-    const row = {
-      id: 'song1',
-      projectId: 'project1',
-      name: 'Tap Starter',
-      category: 'PROTOTYPE',
-      status: 'DRAFT',
-      difficulty: 'NORMAL',
-      createdBy: 'u1',
-      assignedComposerId: null,
-      assignedQaId: null,
-      sourceSongId: null,
-      archivedAt: null,
-      bpm: 120,
-      timeSignature: '4/4',
-      createdAt: new Date('2026-01-01T00:00:00Z'),
-      updatedAt: new Date('2026-01-01T00:00:00Z'),
-      creator: { name: 'Composer', avatarUrl: null },
-      assignedComposer: null,
-      assignedQa: null,
-      _count: { notes: 0 },
-    }
-    prisma.song.create.mockResolvedValue(row)
+    prisma.song.create.mockResolvedValue({ ...songRow, charts: [] })
 
     await service.createInProject('project1', {
       name: 'Tap Starter',
       category: 'PROTOTYPE',
-      difficulty: 'NORMAL',
       bpm: 120,
       timeSignature: '4/4',
       startType: 'TEMPLATE',
       templateId: 'tap-starter',
     }, user)
 
-    expect(templates.materialize).toHaveBeenCalledWith('tap-starter', 'song1', 'u1')
+    expect(templates.materialize).toHaveBeenCalledWith('tap-starter', 'song1', 'chart1', 'u1')
+    expect(analyze.run).toHaveBeenCalledWith('chart1')
   })
 })

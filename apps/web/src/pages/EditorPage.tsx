@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useMemo, type ReactNode } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useSongTour }  from '../features/onboarding/useSongTour'
 import { TourOverlay }  from '../features/onboarding/TourOverlay'
 import { useQuery } from '@tanstack/react-query'
@@ -15,7 +15,9 @@ import { mergeResolutions, noteCopyPreviewToPlacement } from '../features/editor
 import { useApplyNoteCopy }   from '../features/editor/hooks/useNoteCopy'
 import { PatternPanel }       from '../features/editor/components/PatternPanel'
 import { SectionJumpList }    from '../features/editor/components/SectionJumpList'
+import { AnalysisSummaryPanel } from '../features/editor/components/AnalysisSummaryPanel'
 import { BottomBarStats }     from '../features/editor/components/BottomBarStats'
+import { useCharts } from '../features/charts/useCharts'
 import { useNotes }           from '../features/notes/useNotes'
 import { useDeleteNote, useUpdateNote } from '../features/notes/useNotes'
 import { useSections }        from '../features/sections/useSections'
@@ -53,7 +55,12 @@ export function EditorPage() {
     playheadTime, triggerAiSuggest,
     selectedNoteIds, clearSelection, focusNote,
     activeTrack,
+    activeChartId,
+    setActiveChartId,
+    setPlayheadTime,
   } = useEditorStore()
+
+  const [searchParams] = useSearchParams()
 
   const isMobile = useIsMobile()
 
@@ -70,10 +77,39 @@ export function EditorPage() {
   usePlayback()
 
   const songTour = useSongTour()
-  const undo       = useUndo(songId!)
-  const deleteNote = useDeleteNote(songId!)
-  const updateNote = useUpdateNote(songId!)
-  const { data: allNotes = [] } = useNotes(songId!)
+  const { data: charts = [] } = useCharts(songId!)
+  const activeChart = charts.find((c) => c.id === activeChartId) ?? charts[0]
+
+  useEffect(() => {
+    setActiveChartId(null)
+  }, [songId, setActiveChartId])
+
+  useEffect(() => {
+    if (!charts.length) return
+    const chartParam = searchParams.get('chart')
+    if (chartParam && charts.some((c) => c.id === chartParam)) {
+      setActiveChartId(chartParam)
+      return
+    }
+    if (!activeChartId || !charts.some((c) => c.id === activeChartId)) {
+      setActiveChartId(charts[0].id)
+    }
+  }, [charts, activeChartId, searchParams, setActiveChartId])
+
+  useEffect(() => {
+    const t = searchParams.get('t')
+    if (t) {
+      const parsed = parseFloat(t)
+      if (!Number.isNaN(parsed)) setPlayheadTime(parsed)
+    }
+  }, [searchParams, setPlayheadTime])
+
+  const chartId = activeChart?.id
+
+  const undo       = useUndo(chartId)
+  const deleteNote = useDeleteNote(chartId)
+  const updateNote = useUpdateNote(chartId)
+  const { data: allNotes = [] } = useNotes(chartId)
   const { data: sections = [] } = useSections(songId!)
   const { presenceList, cursors, emitCursorMove } = useSocket(songId!, projectId)
   const token = useAuthStore((s) => s.token)
@@ -158,6 +194,8 @@ export function EditorPage() {
       songId={songId!}
       songName={song?.name ?? '…'}
       songStatus={song?.status ?? 'DRAFT'}
+      charts={charts}
+      activeChartId={activeChartId}
       canEdit={canEdit}
       readOnlyMessage={readOnlyMessage}
       bpm={song?.bpm ?? 120}
@@ -295,6 +333,13 @@ export function EditorPage() {
             notes={allNotes}
             selectedNotes={selectedNoteObjects}
             canEdit={canEdit}
+            chartId={chartId}
+            projectId={projectId!}
+            songId={songId!}
+            bpm={song?.bpm ?? 120}
+            timeSignature={song?.timeSignature ?? '4/4'}
+            speedMultiplier={activeChart?.speedMultiplier ?? 1}
+            onSeek={(timeMs) => setPlayheadTime(timeMs / 1000)}
             onSavePattern={() => setShowSavePattern(true)}
             onDelete={() => {
               selectedNoteObjects.forEach(n => deleteNote.mutate(n.id))
@@ -316,7 +361,7 @@ export function EditorPage() {
           />
         </Tabs.Content>
         <Tabs.Content value="history">
-          <HistoryPanel songId={songId} inline />
+          <HistoryPanel chartId={chartId} inline />
         </Tabs.Content>
       </Tabs.Root>
     </div>
@@ -409,6 +454,8 @@ export function EditorPage() {
         <div data-tour="piano-roll" className="flex flex-1 overflow-hidden flex-col h-full">
           <PianoRoll
             songId={songId}
+            chartId={chartId}
+            speedMultiplier={activeChart?.speedMultiplier ?? 1}
             canEdit={canEdit}
             readOnlyMessage={readOnlyMessage}
             mutedTracks={mutedTracks}
@@ -437,6 +484,13 @@ interface ToolsTabProps {
   notes: Note[]
   selectedNotes: Note[]
   canEdit: boolean
+  chartId?: string
+  projectId: string
+  songId: string
+  bpm: number
+  timeSignature: string
+  speedMultiplier: number
+  onSeek: (timeMs: number) => void
   onSavePattern: () => void
   onDelete: () => void
   onDeselect: () => void
@@ -507,6 +561,7 @@ function MultiNoteDetail({ notes }: { notes: Note[] }) {
 
 function ToolsTab({
   notes, selectedNotes, canEdit,
+  chartId, projectId, songId, bpm, timeSignature, speedMultiplier, onSeek,
   onSavePattern, onDelete, onDeselect, onUpdateSelected,
 }: ToolsTabProps) {
   const {
@@ -597,6 +652,22 @@ function ToolsTab({
           </span>
         </button>
       </section>
+
+      {chartId && (
+        <section className="space-y-3 border-t border-shell-border pt-4">
+          <PanelHeading title="Analysis" />
+          <AnalysisSummaryPanel
+            notes={notes}
+            bpm={bpm}
+            timeSignature={timeSignature}
+            speedMultiplier={speedMultiplier}
+            chartId={chartId}
+            projectId={projectId}
+            songId={songId}
+            onSeek={onSeek}
+          />
+        </section>
+      )}
 
       <section className="space-y-3 border-t border-shell-border pt-4">
         <PanelHeading title="Selection" meta={selectedCount ? `${selectedCount} selected` : 'none'} />

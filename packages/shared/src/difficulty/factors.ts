@@ -36,10 +36,8 @@ function beatPhase(time: number, bpm: number): number {
 export function syncopationWeight(time: number, bpm: number): number {
   const phase = beatPhase(time, bpm)
   const dist = Math.min(
-    Math.abs(phase),
-    Math.abs(phase - 0.5),
-    Math.abs(phase - 0.25),
-    Math.abs(phase - 0.75),
+    Math.abs(phase), Math.abs(phase - 0.5),
+    Math.abs(phase - 0.25), Math.abs(phase - 0.75),
   )
   if (dist < 0.05 / beatDuration(bpm)) return 0
   if (dist < 0.08) return 0.5

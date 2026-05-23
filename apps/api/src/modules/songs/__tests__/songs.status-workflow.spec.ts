@@ -1,11 +1,14 @@
-import { ForbiddenException } from '@nestjs/common'
+import { ForbiddenException, UnprocessableEntityException } from '@nestjs/common'
 import { SongsService } from '../songs.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { ChartsService } from '../../charts/charts.service'
+import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
 import type { AuthUser } from '@ama-midi/shared'
 
 const prisma = {
   song: { findUnique: jest.fn(), update: jest.fn() },
+  chartValidationWarning: { findMany: jest.fn() },
 }
 
 const access = {
@@ -14,11 +17,22 @@ const access = {
 }
 
 const templates = { materialize: jest.fn() }
+const charts = { createDefaultChart: jest.fn() }
+const analyze = { run: jest.fn() }
 
 const composer: AuthUser = {
   id: 'c1',
   email: 'c@example.com',
   name: 'Composer',
+  role: 'COMPOSER',
+  profileComplete: true,
+  tourComplete: true,
+}
+
+const qa: AuthUser = {
+  id: 'q1',
+  email: 'q@example.com',
+  name: 'QA',
   role: 'COMPOSER',
   profileComplete: true,
   tourComplete: true,
@@ -32,10 +46,13 @@ describe('SongsService status workflow', () => {
       prisma as unknown as PrismaService,
       access as unknown as ProjectAccessService,
       templates as never,
+      charts as unknown as ChartsService,
+      analyze as unknown as ChartAnalyzeService,
     )
     jest.clearAllMocks()
     access.assertCanViewSong.mockResolvedValue({ id: 'song1', projectId: 'p1' })
     access.getProjectPermission.mockResolvedValue('EDIT')
+    prisma.chartValidationWarning.findMany.mockResolvedValue([])
   })
 
   it('returns composer transitions for draft songs', async () => {
@@ -68,7 +85,6 @@ describe('SongsService status workflow', () => {
       name: 'Song',
       category: 'PROTOTYPE',
       status: 'IN_REVIEW',
-      difficulty: 'NORMAL',
       assignedComposerId: 'c1',
       assignedQaId: 'q1',
       sourceSongId: null,
@@ -81,6 +97,7 @@ describe('SongsService status workflow', () => {
       creator: { name: 'Composer', avatarUrl: null },
       assignedComposer: { name: 'Composer' },
       assignedQa: { name: 'QA' },
+      charts: [],
       _count: { notes: 0 },
     })
 
@@ -100,5 +117,22 @@ describe('SongsService status workflow', () => {
     await expect(
       service.transitionStatus('song1', { status: 'APPROVED' }, composer),
     ).rejects.toBeInstanceOf(ForbiddenException)
+  })
+
+  it('blocks IN_REVIEW to APPROVED when chart has ERROR warnings', async () => {
+    prisma.song.findUnique.mockResolvedValue({
+      status: 'IN_REVIEW',
+      projectId: 'p1',
+      assignedComposerId: 'c1',
+      assignedQaId: 'q1',
+      createdBy: 'c1',
+    })
+    prisma.chartValidationWarning.findMany.mockResolvedValue([
+      { id: 'w1', code: 'TOO_MANY_TRIPLES', severity: 'ERROR', chart: { name: 'Main' } },
+    ])
+
+    await expect(
+      service.transitionStatus('song1', { status: 'APPROVED' }, qa),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException)
   })
 })

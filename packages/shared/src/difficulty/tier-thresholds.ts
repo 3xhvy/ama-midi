@@ -10,11 +10,7 @@ export function scoreToDifficulty(score: number): SongDifficulty {
 
 export function difficultyToSpeedSuggestion(tier: SongDifficulty): number {
   const map: Record<SongDifficulty, number> = {
-    EASY: 1.0,
-    NORMAL: 1.2,
-    HARD: 1.5,
-    EXPERT: 1.8,
-    MASTER: 2.0,
+    EASY: 1.0, NORMAL: 1.2, HARD: 1.5, EXPERT: 1.8, MASTER: 2.0,
   }
   return map[tier]
 }

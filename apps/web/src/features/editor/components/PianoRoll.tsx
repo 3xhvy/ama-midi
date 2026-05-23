@@ -40,6 +40,8 @@ type SelectionDragState = {
 
 interface Props {
   songId:           string
+  chartId?:         string
+  speedMultiplier?: number
   canEdit?:         boolean
   readOnlyMessage?: string | null
   mutedTracks?:     Set<number>
@@ -48,7 +50,7 @@ interface Props {
   onCursorMove?:    (track: number, time: number) => void
 }
 
-export function PianoRoll({ songId, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove }: Props) {
+export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove }: Props) {
   const containerRef   = useRef<HTMLDivElement>(null)
   const pxPerSecondRef = useRef(3)
 
@@ -136,10 +138,10 @@ export function PianoRoll({ songId, canEdit = true, readOnlyMessage = null, mute
   const tw             = trackLayout.trackWidth
 
   const { timeFrom, timeTo } = getPrefetchTimeRange(scrollTop, viewportHeight, pxPerSecond)
-  const { data: notes = [], isLoading } = useNotes(songId, timeFrom, timeTo)
+  const { data: notes = [], isLoading } = useNotes(chartId, timeFrom, timeTo)
   const { data: sections = [] } = useSections(songId)
-  const createNote = useCreateNote(songId)
-  const deleteNote = useDeleteNote(songId)
+  const createNote = useCreateNote(chartId)
+  const deleteNote = useDeleteNote(chartId)
 
   const totalHeight = getTotalHeight(pxPerSecond)
   const timeGridLines = getVisibleTimeGridLines(pxPerSecond, timeFrom, timeTo)
@@ -436,6 +438,9 @@ export function PianoRoll({ songId, canEdit = true, readOnlyMessage = null, mute
               {heatmapEnabled && (
                 <DifficultyOverlay
                   notes={notes}
+                  bpm={bpm}
+                  timeSignature={timeSignature}
+                  speedMultiplier={speedMultiplier}
                   pxPerSecond={pxPerSecond}
                   width={gridWidth}
                 />
@@ -528,13 +533,15 @@ export function PianoRoll({ songId, canEdit = true, readOnlyMessage = null, mute
         />
       )}
 
-      {effectiveCanEdit && <AiSuggestions songId={songId} gridWidth={gridWidth} pxPerSecond={pxPerSecond} scrollTop={scrollTop} />}
+      {effectiveCanEdit && chartId && (
+        <AiSuggestions songId={songId} chartId={chartId} gridWidth={gridWidth} pxPerSecond={pxPerSecond} scrollTop={scrollTop} />
+      )}
 
-      {popup && (
+      {popup && chartId && (
         popup.type === 'create' ? (
-          <NotePopup mode="create" songId={songId} initialTrack={popup.track} initialTime={popup.time} pos={popup.pos} onClose={() => setPopup(null)} />
+          <NotePopup mode="create" chartId={chartId} initialTrack={popup.track} initialTime={popup.time} pos={popup.pos} onClose={() => setPopup(null)} />
         ) : (
-          <NotePopup mode="edit" songId={songId} note={popup.note} pos={popup.pos} onClose={() => setPopup(null)} />
+          <NotePopup mode="edit" chartId={chartId} note={popup.note} pos={popup.pos} onClose={() => setPopup(null)} />
         )
       )}
 

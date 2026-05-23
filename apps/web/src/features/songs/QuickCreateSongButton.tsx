@@ -21,7 +21,6 @@ export function QuickCreateSongButton({
       {
         name: 'Untitled',
         category: 'PROTOTYPE',
-        difficulty: 'NORMAL',
         bpm: 120,
         timeSignature: '4/4',
         startType: 'BLANK',

@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service'
 export class SongTemplateService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async materialize(templateId: string, songId: string, userId: string): Promise<void> {
+  async materialize(templateId: string, songId: string, chartId: string, userId: string): Promise<void> {
     const template = getSongTemplate(templateId)
     if (!template) throw new BadRequestException(`Unknown template: ${templateId}`)
 
@@ -36,6 +36,7 @@ export class SongTemplateService {
     if (template.notes?.length) {
       await this.prisma.note.createMany({
         data: template.notes.map((n) => ({
+          chartId,
           songId,
           track: n.track,
           time: n.time,

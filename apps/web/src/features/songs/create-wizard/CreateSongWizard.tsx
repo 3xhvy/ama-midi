@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getSongTemplate, type CreateProjectSongInput, type ImportSongOptions, type SongCategory, type SongDifficulty } from '@ama-midi/shared'
+import { getSongTemplate, type CreateProjectSongInput, type ImportSongOptions, type SongCategory } from '@ama-midi/shared'
 import { Button, Modal } from '../../../components/ui'
 import { useAuthStore } from '../../../store/auth.store'
 import { useProjectMembers } from '../../project-members/useProjectMembers'
@@ -47,7 +47,6 @@ export function CreateSongWizard({
   const [templateId, setTemplateId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [category, setCategory] = useState<SongCategory>('PROTOTYPE')
-  const [difficulty, setDifficulty] = useState<SongDifficulty>('NORMAL')
   const [bpm, setBpm] = useState(120)
   const [timeSignature, setTimeSignature] = useState('4/4')
   const [assignedComposerId, setAssignedComposerId] = useState<string | null>(null)
@@ -102,7 +101,6 @@ export function CreateSongWizard({
   function applySetupFields(fields: SetupFields) {
     setName(fields.name)
     setCategory(fields.category)
-    setDifficulty(fields.difficulty)
     setBpm(fields.bpm)
     setTimeSignature(fields.timeSignature)
   }
@@ -111,7 +109,6 @@ export function CreateSongWizard({
     setSetupTouched(true)
     if (fields.name !== undefined) setName(fields.name)
     if (fields.category !== undefined) setCategory(fields.category)
-    if (fields.difficulty !== undefined) setDifficulty(fields.difficulty)
     if (fields.bpm !== undefined) setBpm(fields.bpm)
     if (fields.timeSignature !== undefined) setTimeSignature(fields.timeSignature)
   }
@@ -185,7 +182,6 @@ export function CreateSongWizard({
     const body: CreateProjectSongInput = {
       name: name.trim(),
       category,
-      difficulty,
       bpm,
       timeSignature,
       assignedComposerId: assignedComposerId || null,
@@ -233,7 +229,6 @@ export function CreateSongWizard({
             <SetupStep
               name={name}
               category={category}
-              difficulty={difficulty}
               bpm={bpm}
               timeSignature={timeSignature}
               error={stepError}
@@ -261,7 +256,6 @@ export function CreateSongWizard({
               importOptions={startType === 'IMPORT' ? importOptions : null}
               name={name}
               category={category}
-              difficulty={difficulty}
               bpm={bpm}
               timeSignature={timeSignature}
               composerName={composerName}

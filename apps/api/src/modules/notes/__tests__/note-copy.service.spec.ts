@@ -7,6 +7,7 @@ import {
 import { NoteCopyService } from '../note-copy.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { AuthUser } from '@ama-midi/shared'
 
@@ -20,6 +21,7 @@ const mockUser: AuthUser = {
 }
 
 const songId = 'song-1'
+const chartId = 'chart-1'
 const updatedAt = new Date('2026-05-24T12:00:00.000Z')
 
 function makeNote(overrides: Partial<{
@@ -32,6 +34,7 @@ function makeNote(overrides: Partial<{
 }> = {}) {
   return {
     id: overrides.id ?? 'note-a',
+    chartId,
     songId,
     track: overrides.track ?? 1,
     time: overrides.time ?? 5.0,
@@ -56,9 +59,11 @@ describe('NoteCopyService', () => {
       update: jest.Mock
     }
     $transaction: jest.Mock
+    songChart: { findUnique: jest.Mock }
   }
   let eventEmitter: { emit: jest.Mock }
   let mockAccess: { assertCanEditSongChart: jest.Mock }
+  let mockAnalyze: { run: jest.Mock }
 
   beforeEach(async () => {
     prisma = {
@@ -69,9 +74,13 @@ describe('NoteCopyService', () => {
         update: jest.fn(),
       },
       $transaction: jest.fn(async (callback: (tx: typeof prisma) => Promise<void>) => callback(prisma)),
+      songChart: {
+        findUnique: jest.fn().mockResolvedValue({ songId }),
+      },
     }
     eventEmitter = { emit: jest.fn() }
     mockAccess = { assertCanEditSongChart: jest.fn() }
+    mockAnalyze = { run: jest.fn().mockResolvedValue(undefined) }
 
     const module = await Test.createTestingModule({
       providers: [
@@ -79,6 +88,7 @@ describe('NoteCopyService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: ProjectAccessService, useValue: mockAccess },
+        { provide: ChartAnalyzeService, useValue: mockAnalyze },
       ],
     }).compile()
 
@@ -86,7 +96,7 @@ describe('NoteCopyService', () => {
   })
 
   function mockSelection(notes: ReturnType<typeof makeNote>[], existing: ReturnType<typeof makeNote>[] = []) {
-    prisma.note.findMany.mockImplementation(async (args: { where?: { id?: { in?: string[] }; track?: { in?: number[] } } }) => {
+    prisma.note.findMany.mockImplementation(async (args: { where?: { id?: { in?: string[] }; track?: { in?: number[] }; chartId?: string } }) => {
       if (args.where?.id?.in) {
         return notes.filter((note) => args.where!.id!.in!.includes(note.id))
       }
@@ -105,7 +115,7 @@ describe('NoteCopyService', () => {
       ]
       mockSelection(notes)
 
-      const preview = await service.previewCopy(songId, {
+      const preview = await service.previewCopy(chartId, {
         noteIds: ['a', 'b'],
         operation: 'COPY',
         mode: 'TIME_SHIFT',
@@ -125,7 +135,7 @@ describe('NoteCopyService', () => {
       ]
       mockSelection(notes)
 
-      const preview = await service.previewCopy(songId, {
+      const preview = await service.previewCopy(chartId, {
         noteIds: ['a', 'b'],
         operation: 'COPY',
         mode: 'TRACK_SHIFT',
@@ -144,7 +154,7 @@ describe('NoteCopyService', () => {
       ]
       mockSelection(notes)
 
-      await expect(service.previewCopy(songId, {
+      await expect(service.previewCopy(chartId, {
         noteIds: ['a', 'b'],
         operation: 'COPY',
         mode: 'TRACK_SHIFT',
@@ -159,7 +169,7 @@ describe('NoteCopyService', () => {
       ]
       mockSelection(notes)
 
-      const preview = await service.previewCopy(songId, {
+      const preview = await service.previewCopy(chartId, {
         noteIds: ['a', 'b'],
         operation: 'COPY',
         mode: 'TRACK_TIME_ANCHOR',
@@ -178,7 +188,7 @@ describe('NoteCopyService', () => {
       ]
       mockSelection(notes, notes)
 
-      const preview = await service.previewCopy(songId, {
+      const preview = await service.previewCopy(chartId, {
         noteIds: ['a', 'b'],
         operation: 'MOVE',
         mode: 'TIME_SHIFT',
@@ -196,7 +206,7 @@ describe('NoteCopyService', () => {
       ]
       mockSelection(notes)
 
-      await expect(service.previewCopy(songId, {
+      await expect(service.previewCopy(chartId, {
         noteIds: ['a', 'b'],
         operation: 'COPY',
         mode: 'TIME_SHIFT',
@@ -216,7 +226,7 @@ describe('NoteCopyService', () => {
       ]
       mockSelection(notes, [...notes, ...existing])
 
-      const preview = await service.previewCopy(songId, {
+      const preview = await service.previewCopy(chartId, {
         noteIds: ['a', 'b'],
         operation: 'MOVE',
         mode: 'TRACK_SHIFT',
@@ -246,7 +256,7 @@ describe('NoteCopyService', () => {
         creator: { name: 'Test User', avatarUrl: null },
       })
 
-      const result = await service.applyCopy(songId, {
+      const result = await service.applyCopy(chartId, {
         noteIds: ['a', 'b'],
         operation: 'MOVE',
         mode: 'TRACK_SHIFT',

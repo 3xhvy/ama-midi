@@ -17,8 +17,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../../auth/api'
 import { formatTime } from '../../../lib/utils'
 import { EditorBreadcrumb } from '../../navigation/EditorBreadcrumb'
+import { ChartSwitcher } from '../../charts/ChartSwitcher'
 import { ReadOnlyBanner } from './ReadOnlyBanner'
-import type { Song } from '@ama-midi/shared'
+import type { Song, SongChart } from '@ama-midi/shared'
 
 function PanelLeftIcon({ open }: { open: boolean }) {
   return (
@@ -50,6 +51,8 @@ interface ToolbarProps {
   songId:          string
   songName:        string
   songStatus:      SongStatus
+  charts:          SongChart[]
+  activeChartId:   string | null
   canEdit:         boolean
   readOnlyMessage?: string | null
   bpm:             number
@@ -63,7 +66,9 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
-  projectId, projectName, songId, songName, songStatus, canEdit, readOnlyMessage, bpm,
+  projectId, projectName, songId, songName, songStatus,
+  charts, activeChartId,
+  canEdit, readOnlyMessage, bpm,
   onSuggest, onShowShortcuts,
   leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
 }: ToolbarProps) {
@@ -73,7 +78,7 @@ export function Toolbar({
   } = useEditorStore()
 
   const { resolved: theme, setMode: setTheme } = useThemeStore()
-  const { data: notes = [] } = useNotes(songId)
+  const { data: notes = [] } = useNotes(activeChartId ?? undefined)
   const token = useAuthStore((s) => s.token)
   const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
@@ -104,6 +109,11 @@ export function Toolbar({
           songId={songId}
           songName={songName}
           songStatus={songStatus}
+        />
+        <ChartSwitcher
+          songId={songId}
+          charts={charts}
+          activeChartId={activeChartId}
         />
       </div>
 

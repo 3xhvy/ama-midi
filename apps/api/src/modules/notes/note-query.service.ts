@@ -10,12 +10,17 @@ export class NoteQueryService {
     private readonly access: ProjectAccessService,
   ) {}
 
-  async findBySong(
-    songId: string,
+  async findByChart(
+    chartId: string,
     user: AuthUser,
     opts: { timeFrom?: number; timeTo?: number } = {},
   ): Promise<Note[]> {
-    await this.access.assertCanViewSong(songId, user)
+    const chart = await this.prisma.songChart.findUnique({
+      where: { id: chartId },
+      select: { songId: true },
+    })
+    if (!chart) throw new NotFoundException('Chart not found')
+    await this.access.assertCanViewSong(chart.songId, user)
 
     const timeFilter =
       opts.timeFrom !== undefined || opts.timeTo !== undefined
@@ -29,7 +34,7 @@ export class NoteQueryService {
 
     const notes = await this.prisma.note.findMany({
       where: {
-        songId,
+        chartId,
         deletedAt: null,
         ...timeFilter,
       },
@@ -40,6 +45,7 @@ export class NoteQueryService {
     return notes.map((n) => ({
       id: n.id,
       songId: n.songId,
+      chartId: n.chartId,
       track: n.track,
       time: n.time,
       title: n.title,

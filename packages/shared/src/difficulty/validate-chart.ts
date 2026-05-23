@@ -5,7 +5,7 @@ import {
   laneJumps,
   peakNpsInRange,
 } from './factors'
-import type { AnalysisWarningDraft, ChartAnalysisResult } from './types'
+import type { AnalysisWarningDraft, AnalyzeNote, ChartAnalysisResult } from './types'
 import { difficultyToSpeedSuggestion, TIER_LIMITS } from './tier-thresholds'
 
 export function validateChart(
@@ -100,7 +100,7 @@ export function validateChartWithNotes(
   analysis: ChartAnalysisResult,
   tier: SongDifficulty,
   speedMultiplier: number,
-  notes: Array<{ track: number; time: number; noteType: string; duration?: number | null }>,
+  notes: AnalyzeNote[],
   chartName = '',
 ): AnalysisWarningDraft[] {
   const warnings = validateChart(analysis, tier, speedMultiplier, chartName)

@@ -52,6 +52,7 @@ export function SongTable({ projectId, songs }: { projectId: string; songs: Song
           <thead className="bg-shell-bg text-xs uppercase text-shell-muted">
             <tr>
               <th className="px-3 py-2 text-left">Song</th>
+              <th className="px-3 py-2 text-left">Charts</th>
               <th className="px-3 py-2 text-left">Status</th>
               <th className="px-3 py-2 text-left">Composer</th>
               <th className="px-3 py-2 text-left">QA</th>
@@ -63,7 +64,7 @@ export function SongTable({ projectId, songs }: { projectId: string; songs: Song
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-shell-muted">
+                <td colSpan={8} className="px-3 py-8 text-center text-shell-muted">
                   {query || status !== 'ALL' ? (
                     <div className="flex flex-col items-center gap-2">
                       <span>No songs match. Clear filters?</span>
@@ -80,6 +81,7 @@ export function SongTable({ projectId, songs }: { projectId: string; songs: Song
               filtered.map((song) => (
                 <tr key={song.id} className="border-t border-shell-border hover:bg-shell-bg">
                   <td className="px-3 py-2 font-medium text-shell-text">{song.name}</td>
+                  <td className="px-3 py-2 text-shell-muted">{song.chartSummary ?? '—'}</td>
                   <td className="px-3 py-2">
                     <SongStatusMenu songId={song.id} projectId={projectId} status={song.status as SongStatus} />
                   </td>

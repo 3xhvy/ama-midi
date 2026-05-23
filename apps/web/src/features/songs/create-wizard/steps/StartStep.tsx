@@ -1,7 +1,6 @@
 import {
   SONG_TEMPLATES,
   SongCategoryEnum,
-  SongDifficultyEnum,
   type ImportSongOptions,
   type Song,
 } from '@ama-midi/shared'
@@ -79,7 +78,7 @@ export function StartStep({
           {pendingTemplateId && setupTouched && (
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
               <p className="text-xs text-shell-text">
-                Apply template defaults to name, category, difficulty, and BPM?
+                Apply template defaults to name, category, and BPM?
               </p>
               <div className="mt-2 flex gap-2">
                 <Button
@@ -126,9 +125,6 @@ export function StartStep({
                   <div className="mt-2 flex flex-wrap gap-1">
                     <Badge size="sm" variant="default">
                       {SongCategoryEnum.label(tpl.category)}
-                    </Badge>
-                    <Badge size="sm" variant="default">
-                      {SongDifficultyEnum.label(tpl.difficulty)}
                     </Badge>
                     <Badge size="sm" variant="default">
                       {tpl.bpm} BPM

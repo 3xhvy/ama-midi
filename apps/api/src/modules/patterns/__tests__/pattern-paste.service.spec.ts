@@ -44,6 +44,7 @@ describe('PatternPasteService', () => {
       update: jest.Mock
     }
     $transaction: jest.Mock
+    songChart: { findFirst: jest.Mock }
   }
   let eventEmitter: { emit: jest.Mock }
   let mockAccess: { assertCanEditSongChart: jest.Mock }
@@ -58,6 +59,9 @@ describe('PatternPasteService', () => {
         update: jest.fn(),
       },
       $transaction: jest.fn(async (fn: (tx: typeof prisma) => Promise<void>) => fn(prisma)),
+      songChart: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'chart-1' }),
+      },
     }
     eventEmitter = { emit: jest.fn() }
     mockAccess = { assertCanEditSongChart: jest.fn() }

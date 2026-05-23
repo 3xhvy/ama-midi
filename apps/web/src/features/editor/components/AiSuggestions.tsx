@@ -9,15 +9,16 @@ import { trackColor, type NoteSuggestion } from '@ama-midi/shared'
 
 interface Props {
   songId:      string
+  chartId:     string
   gridWidth:   number
   pxPerSecond: number
   scrollTop:   number
 }
 
-export function AiSuggestions({ songId, gridWidth, pxPerSecond, scrollTop }: Props) {
+export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, scrollTop }: Props) {
   const [suggestions, setSuggestions] = useState<NoteSuggestion[]>([])
   const token = useAuthStore(s => s.token)
-  const createNote = useCreateNote(songId)
+  const createNote = useCreateNote(chartId)
   const { setTriggerAiSuggest } = useEditorStore()
 
   useEffect(() => {

@@ -30,6 +30,7 @@ import type {
 } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
+import { ChartAnalyzeService } from '../charts/chart-analyze.service'
 import {
   classifySlots,
   type IncomingSlot,
@@ -45,6 +46,7 @@ function snapTime(time: number): number {
 
 interface SelectionNoteRow {
   id: string
+  chartId: string
   songId: string
   track: number
   time: number
@@ -68,26 +70,27 @@ export class NoteCopyService {
     private readonly prisma: PrismaService,
     private readonly access: ProjectAccessService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly analyze: ChartAnalyzeService,
   ) {}
 
   async previewCopy(
-    songId: string,
+    chartId: string,
     request: NoteCopyPreviewRequest,
     user: AuthUser,
   ): Promise<NoteCopyPreview> {
-    await this.access.assertCanEditSongChart(songId, user)
-    const notes = await this.loadSelection(songId, request.noteIds)
-    return this.buildPreview(songId, notes, request)
+    const { songId } = await this.resolveChart(chartId, user)
+    const notes = await this.loadSelection(chartId, request.noteIds)
+    return this.buildPreview(songId, chartId, notes, request)
   }
 
   async applyCopy(
-    songId: string,
+    chartId: string,
     request: NoteCopyApplyRequest,
     user: AuthUser,
   ): Promise<NoteCopyApplyResult> {
-    await this.access.assertCanEditSongChart(songId, user)
-    const notes = await this.loadSelection(songId, request.noteIds)
-    const preview = await this.buildPreview(songId, notes, request)
+    const { songId } = await this.resolveChart(chartId, user)
+    const notes = await this.loadSelection(chartId, request.noteIds)
+    const preview = await this.buildPreview(songId, chartId, notes, request)
 
     const currentVersion = this.buildSelectionVersion(notes, request)
     if (request.selectionVersion !== currentVersion) {
@@ -116,7 +119,7 @@ export class NoteCopyService {
         if (resolutionMap.get(conflict.conflictId) !== 'REPLACE_WITH_PATTERN') continue
 
         const existing = await tx.note.findFirst({
-          where: { id: conflict.conflictId, songId, deletedAt: null },
+          where: { id: conflict.conflictId, chartId, deletedAt: null },
           include: { creator: { select: { name: true, avatarUrl: true } } },
         })
         if (!existing) continue
@@ -135,7 +138,7 @@ export class NoteCopyService {
 
       for (const sourceId of sourceIdsToDelete) {
         const source = await tx.note.findFirst({
-          where: { id: sourceId, songId, deletedAt: null },
+          where: { id: sourceId, chartId, deletedAt: null },
           include: { creator: { select: { name: true, avatarUrl: true } } },
         })
         if (!source) continue
@@ -174,6 +177,7 @@ export class NoteCopyService {
       for (const slot of notesToCreate) {
         const createdRow = await tx.note.create({
           data: {
+            chartId,
             songId,
             track: slot.track,
             time: slot.time,
@@ -229,6 +233,8 @@ export class NoteCopyService {
       actorId: user.id,
     } satisfies NotesBatchAppliedPayload)
 
+    await this.analyze.run(chartId)
+
     return {
       batchId,
       createdCount: created.length,
@@ -274,7 +280,7 @@ export class NoteCopyService {
     }
   }
 
-  private async loadSelection(songId: string, noteIds: string[]): Promise<SelectionNoteRow[]> {
+  private async loadSelection(chartId: string, noteIds: string[]): Promise<SelectionNoteRow[]> {
     if (noteIds.length < MIN_NOTE_IDS || noteIds.length > MAX_NOTE_IDS) {
       throw new BadRequestException(`Selection must contain ${MIN_NOTE_IDS}-${MAX_NOTE_IDS} note IDs`)
     }
@@ -285,7 +291,7 @@ export class NoteCopyService {
     }
 
     const rows = await this.prisma.note.findMany({
-      where: { id: { in: noteIds }, songId, deletedAt: null },
+      where: { id: { in: noteIds }, chartId, deletedAt: null },
       include: { creator: { select: { name: true, avatarUrl: true } } },
     })
 
@@ -385,6 +391,7 @@ export class NoteCopyService {
 
   private async buildPreview(
     songId: string,
+    chartId: string,
     notes: SelectionNoteRow[],
     request: NoteCopyPreviewRequest,
   ): Promise<NoteCopyPreview> {
@@ -395,7 +402,7 @@ export class NoteCopyService {
       ? []
       : await this.prisma.note.findMany({
           where: {
-            songId,
+            chartId,
             deletedAt: null,
             track: { in: tracks },
           },
@@ -469,6 +476,7 @@ export class NoteCopyService {
 
   private toDomainNote(row: {
     id: string
+    chartId: string
     songId: string
     track: number
     time: number
@@ -484,7 +492,7 @@ export class NoteCopyService {
     return {
       id: row.id,
       songId: row.songId,
-      chartId: row.songId,
+      chartId: row.chartId,
       track: row.track,
       time: row.time,
       title: row.title,
@@ -497,5 +505,15 @@ export class NoteCopyService {
       noteType: (row.noteType as Note['noteType']) ?? 'TAP',
       duration: row.duration ?? undefined,
     }
+  }
+
+  private async resolveChart(chartId: string, user: AuthUser) {
+    const chart = await this.prisma.songChart.findUnique({
+      where: { id: chartId },
+      select: { songId: true },
+    })
+    if (!chart) throw new NotFoundException('Chart not found')
+    await this.access.assertCanEditSongChart(chart.songId, user)
+    return { chartId, songId: chart.songId }
   }
 }
