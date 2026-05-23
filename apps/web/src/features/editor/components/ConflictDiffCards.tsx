@@ -1,10 +1,11 @@
 import { Avatar } from '../../../components/ui/Avatar'
-import type { ConflictAction, PatternPasteConflict } from '@ama-midi/shared'
+import type { ConflictAction, PlacementConflict } from '@ama-midi/shared'
 import { formatTime, formatOffset } from './conflict-formatters'
 
 interface Props {
-  conflict:   PatternPasteConflict
-  resolution: ConflictAction | undefined
+  conflict:      PlacementConflict
+  resolution:    ConflictAction | undefined
+  incomingLabel: string
 }
 
 const NOTE_TYPE_COLORS: Record<string, string> = {
@@ -28,10 +29,11 @@ function formatDate(iso: string): string {
   return `${date} · ${time}`
 }
 
-export function ConflictDiffCards({ conflict, resolution }: Props) {
-  const { existingNote, patternNote } = conflict
+export function ConflictDiffCards({ conflict, resolution, incomingLabel }: Props) {
+  const { existingNote, incomingNote } = conflict
   const isReplacing = resolution === 'REPLACE_WITH_PATTERN'
   const isKeeping   = resolution === 'KEEP_EXISTING'
+  const incomingUpper = incomingLabel.toUpperCase()
 
   const existingCls = isReplacing
     ? 'border-slate-200 bg-slate-50 opacity-50'
@@ -39,7 +41,7 @@ export function ConflictDiffCards({ conflict, resolution }: Props) {
     ? 'border-red-200 bg-red-50'
     : 'border-slate-200 bg-slate-50'
 
-  const patternCls = isKeeping
+  const incomingCls = isKeeping
     ? 'border-slate-200 bg-slate-50 opacity-50'
     : isReplacing
     ? 'border-[#6C63FF] bg-[#F5F3FF]'
@@ -57,21 +59,22 @@ export function ConflictDiffCards({ conflict, resolution }: Props) {
     ? 'text-red-500'
     : 'text-slate-400'
 
-  const patternLabel = isKeeping
-    ? 'PATTERN — WILL BE SKIPPED'
+  const incomingSideLabel = isKeeping
+    ? `${incomingUpper} — WILL BE SKIPPED`
     : isReplacing
-    ? 'PATTERN — WILL BE CREATED'
-    : 'PATTERN NOTE'
+    ? `${incomingUpper} — WILL BE CREATED`
+    : `${incomingUpper} NOTE`
 
-  const patternLabelCls = isKeeping
+  const incomingLabelCls = isKeeping
     ? 'text-slate-400'
     : isReplacing
     ? 'text-[#6C63FF]'
     : 'text-slate-400'
 
+  const incomingTitle = incomingNote.title || 'New note'
+
   return (
     <div className="flex items-start gap-3">
-      {/* Existing note card */}
       <div className={`flex-1 rounded-xl border p-4 transition-all ${existingCls}`}>
         <div className={`text-[9px] font-bold tracking-wider mb-3 ${existingLabelCls}`}>
           {existingLabel}
@@ -98,26 +101,24 @@ export function ConflictDiffCards({ conflict, resolution }: Props) {
         </div>
       </div>
 
-      {/* Arrow */}
       <div className="flex-shrink-0 mt-8 text-slate-300 text-lg">→</div>
 
-      {/* Pattern note card */}
-      <div className={`flex-1 rounded-xl border p-4 transition-all ${patternCls}`}>
-        <div className={`text-[9px] font-bold tracking-wider mb-3 ${patternLabelCls}`}>
-          {patternLabel}
+      <div className={`flex-1 rounded-xl border p-4 transition-all ${incomingCls}`}>
+        <div className={`text-[9px] font-bold tracking-wider mb-3 ${incomingLabelCls}`}>
+          {incomingSideLabel}
         </div>
-        <div className="text-base font-bold text-slate-400 mb-2">New note</div>
-        <TypePill type={patternNote.noteType} />
-        {patternNote.duration != null && (
+        <div className="text-base font-bold text-slate-400 mb-2">{incomingTitle}</div>
+        <TypePill type={incomingNote.noteType} />
+        {incomingNote.duration != null && (
           <div className="text-xs text-slate-500 mt-2">
-            Duration: {formatTime(patternNote.duration)}
+            Duration: {formatTime(incomingNote.duration)}
           </div>
         )}
-        {patternNote.duration == null && (
+        {incomingNote.duration == null && (
           <div className="text-xs text-slate-400 mt-2">No duration</div>
         )}
         <div className="text-xs text-slate-400 mt-3">
-          offset {formatOffset(patternNote.timeOffset)} from paste point
+          offset {formatOffset(incomingNote.timeOffset)} from anchor
         </div>
       </div>
     </div>

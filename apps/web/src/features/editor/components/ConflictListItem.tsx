@@ -1,9 +1,9 @@
 import { trackColor } from '@ama-midi/shared'
-import type { ConflictAction, PatternPasteConflict } from '@ama-midi/shared'
+import type { ConflictAction, PlacementConflict } from '@ama-midi/shared'
 import { formatTime } from './conflict-formatters'
 
 interface Props {
-  conflict:   PatternPasteConflict
+  conflict:   PlacementConflict
   resolution: ConflictAction | undefined
   isActive:   boolean
   onClick:    () => void
@@ -54,7 +54,7 @@ export function ConflictListItem({ conflict, resolution, isActive, onClick }: Pr
         <div className="flex items-center gap-1 mt-0.5">
           <TypePill type={conflict.existingNote.noteType} />
           <span className="text-[9px] text-slate-400">→</span>
-          <TypePill type={conflict.patternNote.noteType} />
+          <TypePill type={conflict.incomingNote.noteType} />
         </div>
         <div className="text-[10px] text-slate-400 truncate mt-0.5">
           {conflict.existingNote.creatorName}

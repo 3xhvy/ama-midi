@@ -1,5 +1,5 @@
 import { trackColor } from '@ama-midi/shared'
-import type { PatternPasteConflict, PatternPastePreview } from '@ama-midi/shared'
+import type { PlacementConflict, PlacementPreview } from '@ama-midi/shared'
 import { formatTime } from './conflict-formatters'
 
 interface ContextEntry {
@@ -8,29 +8,25 @@ interface ContextEntry {
 }
 
 interface Props {
-  conflict: PatternPasteConflict
-  preview:  PatternPastePreview
+  conflict: PlacementConflict
+  preview:  PlacementPreview
 }
 
 export function ConflictContextStrip({ conflict, preview }: Props) {
-  // Gather all notes on the same track from the preview data
   const trackNotes: ContextEntry[] = []
 
-  // Other conflicts on same track
   for (const c of preview.conflicts) {
     if (c.track === conflict.track) {
       trackNotes.push({ time: c.time, isConflict: c.conflictId === conflict.conflictId })
     }
   }
 
-  // Creatable pattern notes on same track
   for (const n of preview.creatable) {
     if (n.track === conflict.track) {
       trackNotes.push({ time: n.time, isConflict: false })
     }
   }
 
-  // Sort by time, deduplicate by time
   const seen = new Set<number>()
   const sorted = trackNotes
     .filter(n => { if (seen.has(n.time)) return false; seen.add(n.time); return true })
@@ -55,7 +51,6 @@ export function ConflictContextStrip({ conflict, preview }: Props) {
           </div>
         ))}
 
-        {/* Conflict marker */}
         <div className="flex flex-col items-center gap-1">
           <span className="w-3.5 h-3.5 rounded-full border-2 border-red-500 bg-red-50 flex items-center justify-center text-[7px] font-bold text-red-500">
             !
