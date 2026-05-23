@@ -9,7 +9,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter'
 import { randomUUID } from 'crypto'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
-import { findOverlapping, type NoteSlot } from '../notes/note-overlap'
+import { classifySlots } from '../notes/note-slot-preview'
+import type { NoteSlot } from '../notes/note-overlap'
 import { NOTE_EVENTS, TIME_MAX, TIME_MIN, TRACK_MAX, TRACK_MIN } from '@ama-midi/shared'
 import type {
   AuthUser,
@@ -313,57 +314,61 @@ export class PatternPasteService {
       duration: row.duration,
     }))
 
-    const creatable: PatternPasteCreatableNote[] = []
-    const conflicts: PatternPasteConflict[] = []
-    const affectedExisting = new Set<string>()
+    const incoming = slots.map((slot) => ({
+      sourceIndex: slot.patternNoteIndex,
+      sourceNoteId: String(slot.patternNoteIndex),
+      track: slot.track,
+      time: slot.time,
+      noteType: slot.noteType,
+      duration: slot.duration ?? null,
+      title: `${pattern.name} ${slot.track}`,
+      description: '',
+    }))
 
-    for (const slot of slots) {
-      const candidate: NoteSlot = {
-        track: slot.track,
-        time: slot.time,
-        noteType: slot.noteType,
-        duration: slot.duration ?? null,
-      }
-
-      const overlap = findOverlapping(candidate, existingSlots)
-      if (overlap) {
-        affectedExisting.add(overlap.id)
-        const pn = pattern.notes[slot.patternNoteIndex]
-        conflicts.push({
-          conflictId: overlap.id,
-          patternNoteIndex: slot.patternNoteIndex,
-          track: slot.track,
-          time: slot.time,
-          patternNote: {
-            track: pn.track,
-            timeOffset: pn.timeOffset,
-            noteType: pn.noteType,
-            duration: pn.duration,
-          },
-          existingNote: {
-            id: overlap.id,
-            title: overlap.title,
-            description: overlap.description,
-            track: overlap.track,
-            time: overlap.time,
-            noteType: overlap.noteType as Note['noteType'],
-            duration: overlap.duration ?? undefined,
-            createdBy: overlap.createdBy,
-            creatorName: overlap.creator?.name ?? '',
-            creatorAvatarUrl: overlap.creator?.avatarUrl ?? undefined,
-            createdAt: overlap.createdAt.toISOString(),
-          },
-        })
-      } else {
-        creatable.push({
-          patternNoteIndex: slot.patternNoteIndex,
-          track: slot.track,
-          time: slot.time,
-          noteType: slot.noteType as Note['noteType'],
-          duration: slot.duration,
-        })
-      }
+    const classified = classifySlots(incoming, existingSlots, new Set(), snappedStart)
+    if (classified.internalCollision) {
+      throw new UnprocessableEntityException('Pattern notes collide at the same track and time after paste')
     }
+
+    const creatable: PatternPasteCreatableNote[] = classified.creatable.map((slot) => ({
+      patternNoteIndex: slot.sourceIndex,
+      track: slot.track,
+      time: slot.time,
+      noteType: slot.noteType,
+      duration: slot.duration,
+    }))
+
+    const conflicts: PatternPasteConflict[] = classified.conflicts.map((conflict) => {
+      const pn = pattern.notes[conflict.sourceIndex]
+      const overlap = existingSlots.find((row) => row.id === conflict.conflictId)!
+      return {
+        conflictId: conflict.conflictId,
+        patternNoteIndex: conflict.sourceIndex,
+        track: conflict.track,
+        time: conflict.time,
+        patternNote: {
+          track: pn.track,
+          timeOffset: pn.timeOffset,
+          noteType: pn.noteType,
+          duration: pn.duration,
+        },
+        existingNote: {
+          id: overlap.id,
+          title: overlap.title,
+          description: overlap.description,
+          track: overlap.track,
+          time: overlap.time,
+          noteType: overlap.noteType as Note['noteType'],
+          duration: overlap.duration ?? undefined,
+          createdBy: overlap.createdBy,
+          creatorName: overlap.creator?.name ?? '',
+          creatorAvatarUrl: overlap.creator?.avatarUrl ?? undefined,
+          createdAt: overlap.createdAt.toISOString(),
+        },
+      }
+    })
+
+    const affectedExisting = new Set(conflicts.map((c) => c.conflictId))
 
     return {
       patternId: pattern.id,
