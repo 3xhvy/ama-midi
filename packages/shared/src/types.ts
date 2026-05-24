@@ -308,7 +308,7 @@ export interface NotePattern {
   createdAt: string
 }
 
-export type ConflictAction = 'KEEP_EXISTING' | 'REPLACE_WITH_PATTERN'
+export type ConflictAction = 'KEEP_EXISTING' | 'REPLACE_WITH_PATTERN' | 'REPLACE_WITH_UNDO'
 
 export interface PatternPastePreviewRequest {
   songId: string

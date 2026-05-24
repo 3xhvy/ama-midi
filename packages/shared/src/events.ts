@@ -19,6 +19,7 @@ export interface NoteCreatedEvent {
   batchId?: string
   replacesNoteId?: string
   realtimeMode?: 'single' | 'batch'
+  commandId?: string
 }
 
 export interface NoteUpdatedEvent {
@@ -27,6 +28,7 @@ export interface NoteUpdatedEvent {
   userId: string
   beforeState: Partial<Note>
   afterState: Note
+  commandId?: string
 }
 
 export interface NoteDeletedEvent {
@@ -37,6 +39,7 @@ export interface NoteDeletedEvent {
   batchId?: string
   replacedByBatch?: boolean
   realtimeMode?: 'single' | 'batch'
+  commandId?: string
 }
 
 export interface NotesBatchAppliedPayload {
@@ -84,4 +87,47 @@ export interface EditorEventRow {
   undoneByEventId?: string | null
   createdAt: string
   user: { id: string; name: string; avatarUrl?: string | null }
+}
+
+export type CommandType =
+  | 'SINGLE_NOTE_CREATED'
+  | 'SINGLE_NOTE_UPDATED'
+  | 'SINGLE_NOTE_DELETED'
+  | 'PATTERN_PASTED'
+  | 'NOTES_REPEATED'
+  | 'NOTES_MOVED'
+  | 'SECTION_CREATED'
+  | 'SECTION_UPDATED'
+  | 'SECTION_DELETED'
+  | 'AI_NOTES_APPLIED'
+  | 'CHART_SWITCHED'
+  | 'UNDO'
+
+export interface EditorCommandRow {
+  id: string
+  songId: string
+  chartId?: string | null
+  commandType: CommandType
+  userId: string
+  summary: Record<string, unknown>
+  undoable: boolean
+  undoneByCommandId?: string | null
+  isCompensation: boolean
+  createdAt: string
+  user: { id: string; name: string; avatarUrl?: string | null }
+}
+
+export interface UndoConflict {
+  conflictId: string
+  track: number
+  time: number
+  incomingNote: Record<string, unknown>
+  existingNote: Record<string, unknown>
+}
+
+export interface UndoPreview {
+  commandId: string
+  commandType: CommandType
+  summary: Record<string, unknown>
+  conflicts: UndoConflict[]
 }
