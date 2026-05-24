@@ -14,6 +14,7 @@ import {
   resolveChartEditAccess,
   resolveSongWorkflowRole,
 } from '@ama-midi/shared'
+import { Prisma } from '../../../generated/prisma/client'
 
 @Injectable()
 export class SongsService {
@@ -26,12 +27,31 @@ export class SongsService {
   ) {}
 
   async findAll(user: AuthUser): Promise<Song[]> {
+    const where = await this.accessibleSongWhere(user)
     const songs = await this.prisma.song.findMany({
+      where,
       include: this.songInclude(),
       orderBy: { updatedAt: 'desc' },
     })
 
     return songs.map((s) => this.toSong(s))
+  }
+
+  private async accessibleSongWhere(user: AuthUser): Promise<Prisma.SongWhereInput> {
+    if (user.role === 'ADMIN') return {}
+    const memberships = await this.prisma.projectMember.findMany({
+      where: { userId: user.id },
+      include: { selectedSongs: { select: { songId: true } } },
+    })
+    const clauses: Prisma.SongWhereInput[] = memberships.flatMap((membership): Prisma.SongWhereInput[] => {
+      if (membership.songScope === 'ALL_SONGS') return [{ projectId: membership.projectId }]
+      if (membership.songScope === 'SELECTED_SONGS') {
+        const songIds = membership.selectedSongs.map((song) => song.songId)
+        return songIds.length ? [{ id: { in: songIds } }] : []
+      }
+      return []
+    })
+    return clauses.length ? { OR: clauses } : { id: { in: [] } }
   }
 
   async findByProject(projectId: string, user: AuthUser): Promise<Song[]> {

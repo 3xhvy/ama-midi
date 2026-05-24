@@ -70,7 +70,7 @@ export class PatternPasteService {
   ): Promise<PatternPastePreview> {
     await this.access.assertCanEditSongChart(request.songId, user)
     const chartId = await this.resolveChartId(request.songId, request.chartId)
-    const row = await this.loadPatternRow(patternId)
+    const row = await this.loadPatternRow(patternId, user)
     const pattern = this.toDomainPattern(row)
     const patternVersion = this.getPatternVersion(row)
     return this.buildPreview(pattern, request.songId, chartId, request.startTime, patternVersion)
@@ -83,7 +83,7 @@ export class PatternPasteService {
   ): Promise<PatternPasteApplyResult> {
     await this.access.assertCanEditSongChart(request.songId, user)
     const chartId = await this.resolveChartId(request.songId, request.chartId)
-    const row = await this.loadPatternRow(patternId)
+    const row = await this.loadPatternRow(patternId, user)
     const pattern = this.toDomainPattern(row)
     const patternVersion = this.getPatternVersion(row)
 
@@ -239,9 +239,12 @@ export class PatternPasteService {
     }
   }
 
-  private async loadPatternRow(patternId: string) {
+  private async loadPatternRow(patternId: string, user: AuthUser) {
     const row = await this.prisma.notePattern.findUnique({ where: { id: patternId } })
     if (!row) throw new NotFoundException('Pattern not found')
+    if (row.songId && row.createdBy !== user.id) {
+      await this.access.assertCanViewSong(row.songId, user)
+    }
     return row
   }
 

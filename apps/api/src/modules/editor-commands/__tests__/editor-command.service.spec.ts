@@ -57,7 +57,10 @@ describe('EditorCommandService', () => {
         },
         {
           provide: ProjectAccessService,
-          useValue: { assertCanViewSong: jest.fn() },
+          useValue: {
+            assertCanViewSong: jest.fn(),
+            assertCanEditSongChart: jest.fn(),
+          },
         },
       ],
     }).compile()

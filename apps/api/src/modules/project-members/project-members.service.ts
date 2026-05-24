@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
@@ -52,6 +52,7 @@ export class ProjectMembersService {
 
   async update(projectId: string, memberId: string, dto: UpdateProjectMemberDto, user: AuthUser): Promise<ProjectMember> {
     await this.access.assertProjectAdmin(projectId, user)
+    await this.assertMemberBelongsToProject(projectId, memberId)
     const nextScope = dto.songScope
     await this.assertValidScope(projectId, nextScope, dto.songIds)
 
@@ -76,8 +77,17 @@ export class ProjectMembersService {
 
   async remove(projectId: string, memberId: string, user: AuthUser): Promise<void> {
     await this.access.assertProjectAdmin(projectId, user)
+    await this.assertMemberBelongsToProject(projectId, memberId)
     await this.prisma.projectMember.delete({ where: { id: memberId } })
     this.emitter.emit('project.member.removed', { projectId, memberId })
+  }
+
+  private async assertMemberBelongsToProject(projectId: string, memberId: string): Promise<void> {
+    const member = await this.prisma.projectMember.findFirst({
+      where: { id: memberId, projectId },
+      select: { id: true },
+    })
+    if (!member) throw new NotFoundException('Project member not found')
   }
 
   private async assertValidScope(projectId: string, scope?: string, songIds?: string[]) {

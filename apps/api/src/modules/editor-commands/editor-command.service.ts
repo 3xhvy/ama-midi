@@ -67,11 +67,14 @@ export class EditorCommandService {
     }
   }
 
-  async previewUndo(chartId: string, userId: string): Promise<UndoPreview> {
+  async previewUndo(chartId: string, user: AuthUser | string): Promise<UndoPreview> {
+    const actor = this.toAuthUser(user)
+    const userId = actor.id
     const stack = await this.findUndoStack(chartId, userId)
     if (stack.length === 0) throw new NotFoundException('Nothing to undo')
 
     const command = stack[0]
+    await this.access.assertCanEditSongChart(command.songId, actor)
     const conflicts = await this.computeUndoConflicts(command)
 
     return {
@@ -84,13 +87,17 @@ export class EditorCommandService {
 
   async applyUndo(
     chartId: string,
-    userId: string,
+    user: AuthUser | string,
     commandId: string,
     resolutions: UndoResolution[],
   ): Promise<{ id: string; commandType: string; isCompensation: boolean }> {
+    const actor = this.toAuthUser(user)
+    const userId = actor.id
     const command = await this.findById(commandId)
     if (!command || command.userId !== userId) throw new NotFoundException('Command not found')
+    if (command.chartId !== chartId) throw new NotFoundException('Command not found')
     if (command.undoneByCommandId) throw new NotFoundException('Already undone')
+    await this.access.assertCanEditSongChart(command.songId, actor)
 
     const currentConflicts = await this.computeUndoConflicts(command)
     const resolvedIds = new Set(resolutions.map(r => r.conflictId))
@@ -393,6 +400,18 @@ export class EditorCommandService {
 
   private setsEqual(a: Set<string>, b: Set<string>): boolean {
     return a.size === b.size && [...a].every(v => b.has(v))
+  }
+
+  private toAuthUser(user: AuthUser | string): AuthUser {
+    if (typeof user !== 'string') return user
+    return {
+      id: user,
+      email: '',
+      name: '',
+      role: 'COMPOSER',
+      profileComplete: true,
+      tourComplete: true,
+    }
   }
 
   private toNote(n: {

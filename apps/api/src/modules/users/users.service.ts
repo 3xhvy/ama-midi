@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common'
+import { ForbiddenException, Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { ProjectAccessService } from '../project-access/project-access.service'
 import type { AuthUser, UserSearchResult } from '@ama-midi/shared'
 
 interface UpdateProfileDto {
@@ -12,9 +13,17 @@ interface UpdateProfileDto {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: ProjectAccessService,
+  ) {}
 
-  async search(query: string): Promise<UserSearchResult[]> {
+  async search(query: string, user: AuthUser, projectId?: string): Promise<UserSearchResult[]> {
+    if (user.role !== 'ADMIN') {
+      if (!projectId) throw new ForbiddenException()
+      await this.access.assertProjectAdmin(projectId, user)
+    }
+
     const q = query.trim()
     const rows = await this.prisma.user.findMany({
       where: q

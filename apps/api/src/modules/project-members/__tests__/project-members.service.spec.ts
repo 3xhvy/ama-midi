@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common'
+import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { ProjectMembersService } from '../project-members.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
@@ -6,11 +6,12 @@ import type { AuthUser } from '@ama-midi/shared'
 
 const prisma = {
   song: { count: jest.fn() },
-  projectMember: {
-    findMany: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
+	  projectMember: {
+	    findMany: jest.fn(),
+	    findFirst: jest.fn(),
+	    create: jest.fn(),
+	    update: jest.fn(),
+	    delete: jest.fn(),
   },
   projectMemberSongAccess: { deleteMany: jest.fn(), createMany: jest.fn() },
 }
@@ -58,7 +59,7 @@ describe('ProjectMembersService', () => {
     }, admin)).rejects.toBeInstanceOf(BadRequestException)
   })
 
-  it('creates selected song access rows when selected scope is valid', async () => {
+	  it('creates selected song access rows when selected scope is valid', async () => {
     prisma.song.count.mockResolvedValue(2)
     prisma.projectMember.create.mockResolvedValue({
       id: 'pm1',
@@ -79,6 +80,26 @@ describe('ProjectMembersService', () => {
       songIds: ['song1', 'song2'],
     }, admin)
 
-    expect(result.selectedSongIds).toEqual(['song1', 'song2'])
-  })
-})
+	    expect(result.selectedSongIds).toEqual(['song1', 'song2'])
+	  })
+
+	  it('rejects update when member id does not belong to the route project', async () => {
+	    prisma.projectMember.findFirst.mockResolvedValue(null)
+
+	    await expect(service.update('project1', 'member-from-project2', {
+	      permission: 'READ',
+	    }, admin)).rejects.toBeInstanceOf(NotFoundException)
+
+	    expect(prisma.projectMemberSongAccess.deleteMany).not.toHaveBeenCalled()
+	    expect(prisma.projectMember.update).not.toHaveBeenCalled()
+	  })
+
+	  it('rejects remove when member id does not belong to the route project', async () => {
+	    prisma.projectMember.findFirst.mockResolvedValue(null)
+
+	    await expect(service.remove('project1', 'member-from-project2', admin))
+	      .rejects.toBeInstanceOf(NotFoundException)
+
+	    expect(prisma.projectMember.delete).not.toHaveBeenCalled()
+	  })
+	})

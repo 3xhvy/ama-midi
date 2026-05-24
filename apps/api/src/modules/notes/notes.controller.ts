@@ -63,12 +63,12 @@ export class NotesController {
 
   @Patch('notes/:noteId')
   updateNote(
-    @Param('chartId') _chartId: string,
+    @Param('chartId') chartId: string,
     @Param('noteId') noteId: string,
     @Body() body: UpdateNoteDto,
     @Req() req: Request,
   ) {
-    return this.notes.update(noteId, body, req.user as AuthUser)
+    return this.notes.update(chartId, noteId, body, req.user as AuthUser)
   }
 
   @Delete('notes/:noteId')

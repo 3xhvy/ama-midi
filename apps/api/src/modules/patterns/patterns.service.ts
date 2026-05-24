@@ -1,11 +1,15 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { ProjectAccessService } from '../project-access/project-access.service'
 import { CreatePatternDto } from './dto/create-pattern.dto'
-import type { NotePattern, PatternNote } from '@ama-midi/shared'
+import type { AuthUser, NotePattern, PatternNote } from '@ama-midi/shared'
 
 @Injectable()
 export class PatternsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: ProjectAccessService,
+  ) {}
 
   async list(userId: string): Promise<NotePattern[]> {
     const rows = await this.prisma.notePattern.findMany({
@@ -15,7 +19,8 @@ export class PatternsService {
     return rows.map(this.toDomain)
   }
 
-  async create(userId: string, dto: CreatePatternDto): Promise<NotePattern> {
+  async create(user: AuthUser, dto: CreatePatternDto): Promise<NotePattern> {
+    if (dto.songId) await this.access.assertCanEditSongChart(dto.songId, user)
     for (const n of dto.notes) {
       if (n.noteType === 'HOLD' && (n.duration == null || n.duration <= 0)) {
         throw new BadRequestException('HOLD notes in pattern require duration > 0')
@@ -26,7 +31,7 @@ export class PatternsService {
         name:      dto.name,
         notes:     dto.notes as unknown as object,
         songId:    dto.songId ?? null,
-        createdBy: userId,
+        createdBy: user.id,
       },
     })
     return this.toDomain(row)

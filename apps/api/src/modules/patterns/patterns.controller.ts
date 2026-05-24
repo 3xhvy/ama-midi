@@ -22,7 +22,7 @@ export class PatternsController {
 
   @Post()
   create(@Req() req: Request, @Body() dto: CreatePatternDto) {
-    return this.patterns.create((req.user as AuthUser).id, dto)
+    return this.patterns.create(req.user as AuthUser, dto)
   }
 
   @Post(':patternId/preview-paste')

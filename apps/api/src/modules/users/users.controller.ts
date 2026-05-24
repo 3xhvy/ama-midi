@@ -10,8 +10,12 @@ export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get('search')
-  search(@Query('q') q?: string) {
-    return this.users.search(q ?? '')
+  search(
+    @Req() req: Request,
+    @Query('q') q?: string,
+    @Query('projectId') projectId?: string,
+  ) {
+    return this.users.search(q ?? '', req.user as AuthUser, projectId)
   }
 
   @Patch('me')

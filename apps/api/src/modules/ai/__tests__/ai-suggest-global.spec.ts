@@ -5,6 +5,7 @@ import { AiService } from '../ai.service'
 import { ChartContextService } from '../chart-context.service'
 import { LLM_ADAPTER, type LLMAdapter } from '../adapters/llm-adapter.interface'
 import { PrismaService } from '../../prisma/prisma.service'
+import { ProjectAccessService } from '../../project-access/project-access.service'
 
 const songId = 'song-1'
 const chartId = 'chart-1'
@@ -82,6 +83,7 @@ describe('AiService.suggestNotes global context', () => {
         ChartContextService,
         { provide: LLM_ADAPTER, useValue: llm },
         { provide: PrismaService, useValue: prisma },
+        { provide: ProjectAccessService, useValue: { assertCanEditSongChart: jest.fn() } },
       ],
     }).compile()
 

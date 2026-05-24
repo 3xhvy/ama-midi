@@ -172,6 +172,11 @@ export class ChartsService {
     return this.toChart(copy)
   }
 
+  async assertCanEditChart(chartId: string, user: AuthUser): Promise<void> {
+    const chart = await this.getChartOrThrow(chartId)
+    await this.access.assertCanEditSongChart(chart.songId, user)
+  }
+
   async getSongId(chartId: string): Promise<string> {
     const chart = await this.getChartOrThrow(chartId)
     return chart.songId

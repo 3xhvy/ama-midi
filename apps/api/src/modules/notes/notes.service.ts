@@ -1,5 +1,6 @@
 import { Injectable, ConflictException, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
+import { rethrowPrismaAsHttp } from '../../common/prisma-error.util'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { ChartAnalyzeService } from '../charts/chart-analyze.service'
@@ -117,12 +118,7 @@ export class NotesService {
       await this.analyze.run(chartId)
       return note
     } catch (e: unknown) {
-      if (typeof e === 'object' && e !== null && 'code' in e) {
-        const code = (e as { code: string }).code
-        if (code === 'P2002') throw new ConflictException({ error: 'POSITION_TAKEN' })
-        if (code === 'P2003') throw new BadRequestException('Chart not found')
-      }
-      throw e
+      rethrowPrismaAsHttp(e)
     }
   }
 
@@ -159,12 +155,13 @@ export class NotesService {
     await this.analyze.run(chartId)
   }
 
-  async update(noteId: string, dto: UpdateNoteDto, user: AuthUser): Promise<Note> {
+  async update(chartId: string, noteId: string, dto: UpdateNoteDto, user: AuthUser): Promise<Note> {
     const existing = await this.prisma.note.findFirst({
       where: { id: noteId, deletedAt: null },
       include: { creator: { select: { name: true, avatarUrl: true } } },
     })
     if (!existing) throw new NotFoundException('Note not found')
+    if (existing.chartId !== chartId) throw new NotFoundException('Note not found')
     await this.access.assertCanEditSongChart(existing.songId, user)
     if (existing.createdBy !== user.id && user.role !== 'ADMIN') throw new ForbiddenException()
 

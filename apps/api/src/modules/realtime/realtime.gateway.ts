@@ -48,13 +48,21 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
         client.handshake.headers?.authorization?.replace('Bearer ', '')
       if (!token) { client.disconnect(); return }
       const payload = this.jwtService.verify(token)
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, email: true, name: true, role: true, title: true, department: true, tokenVersion: true },
+      })
+      if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) {
+        client.disconnect()
+        return
+      }
       client.data.user = {
-        id:         payload.sub,
-        email:      payload.email,
-        name:       payload.name,
-        role:       payload.role,
-        title:      payload.title ?? null,
-        department: payload.department ?? null,
+        id:         user.id,
+        email:      user.email,
+        name:       user.name,
+        role:       user.role,
+        title:      user.title ?? null,
+        department: user.department ?? null,
       }
     } catch {
       client.disconnect()
@@ -88,6 +96,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     @MessageBody() data: { songId: string },
   ) {
     if (!client.data.user) return
+    if (!(await this.canViewSong(client, data.songId))) return
     client.join(`song:${data.songId}`)
 
     await this.prisma.editorSession.deleteMany({
@@ -183,6 +192,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     @MessageBody() data: { songId: string; track: number; time: number },
   ) {
     if (!client.data.user) return
+    if (!(await this.canViewSong(client, data.songId))) return
     const cursorData = {
       userId: client.data.user.id,
       name:   client.data.user.name,
@@ -202,6 +212,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     @MessageBody() data: { songId: string },
   ) {
     if (!client.data.user) return
+    if (!(await this.canViewSong(client, data.songId))) return
     this.cursorService.deleteCursor(data.songId, client.data.user.id)
       .catch(err => console.error('[RealtimeGateway] deleteCursor failed', err))
     client.to(`song:${data.songId}`).emit('cursor-hidden', { userId: client.data.user.id })
@@ -213,7 +224,12 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     @MessageBody() data: { songId: string; chartId: string; chartName: string },
   ) {
     if (!client.data.user || !data.songId || !data.chartId) return
-    await this.projectAccess.assertCanViewSong(data.songId, client.data.user)
+    if (!(await this.canViewSong(client, data.songId))) return
+    const chart = await this.prisma.songChart.findFirst({
+      where: { id: data.chartId, songId: data.songId },
+      select: { id: true },
+    })
+    if (!chart) return
     client.to(`song:${data.songId}`).emit('chart-switched', {
       actor: {
         id: client.data.user.id,
@@ -232,5 +248,15 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
 
   broadcastToSong(songId: string, event: string, data: unknown) {
     this.server.to(`song:${songId}`).emit(event, data)
+  }
+
+  private async canViewSong(client: Socket, songId: string): Promise<boolean> {
+    if (!client.data.user || !songId) return false
+    try {
+      await this.projectAccess.assertCanViewSong(songId, client.data.user)
+      return true
+    } catch {
+      return false
+    }
   }
 }

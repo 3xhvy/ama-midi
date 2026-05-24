@@ -13,7 +13,7 @@ export class EditorCommandController {
   @Post('undo-preview')
   @HttpCode(200)
   previewUndo(@Param('chartId') chartId: string, @Req() req: Request): Promise<UndoPreview> {
-    return this.commands.previewUndo(chartId, (req.user as AuthUser).id)
+    return this.commands.previewUndo(chartId, req.user as AuthUser)
   }
 
   @Get(':commandId/mutations')
@@ -32,6 +32,6 @@ export class EditorCommandController {
     @Body() body: ApplyUndoDto,
     @Req() req: Request,
   ) {
-    return this.commands.applyUndo(chartId, (req.user as AuthUser).id, body.commandId, body.resolutions ?? [])
+    return this.commands.applyUndo(chartId, req.user as AuthUser, body.commandId, body.resolutions ?? [])
   }
 }

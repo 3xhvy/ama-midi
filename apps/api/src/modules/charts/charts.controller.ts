@@ -79,7 +79,7 @@ export class ChartsController {
 
   @Post('charts/:chartId/analyze')
   runAnalysis(@Param('chartId') chartId: string, @Req() req: Request) {
-    return this.charts.findOne(chartId, req.user as AuthUser).then(() =>
+    return this.charts.assertCanEditChart(chartId, req.user as AuthUser).then(() =>
       this.analyze.runManual(chartId),
     )
   }
