@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAuthStore } from './store/auth.store'
 import { useThemeStore } from './store/theme.store'
 import { SongListPage } from './pages/SongListPage'
@@ -17,6 +18,8 @@ import { LoginPage }         from './pages/LoginPage'
 import { OnboardingGate }    from './features/onboarding/OnboardingGate'
 import { OnboardingFlowPage } from './features/onboarding/OnboardingFlowPage'
 import { ProductTourOrchestrator } from './features/onboarding/ProductTourOrchestrator'
+import { NotFoundPage } from './pages/NotFoundPage'
+import { ForbiddenPage } from './pages/ForbiddenPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +44,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ErrorBoundary>
         <OnboardingGate />
         <ProductTourOrchestrator />
         <Routes>
@@ -48,6 +52,7 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/onboarding/:step" element={<RequireAuth><OnboardingFlowPage /></RequireAuth>} />
           <Route path="/profile-setup" element={<ProfileSetupPage />} />
+          <Route path="/403" element={<ForbiddenPage />} />
           <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="/projects" element={<RequireAuth><ProjectDashboardPage /></RequireAuth>} />
           <Route path="/projects/:projectId" element={<RequireAuth><ProjectPage /></RequireAuth>} />
@@ -55,12 +60,14 @@ export default function App() {
           <Route path="/projects/:projectId/songs/:songId/charts/:chartId/analysis" element={<RequireAuth><AnalysisBoardPage /></RequireAuth>} />
           <Route path="/songs" element={<RequireAuth><SongListPage /></RequireAuth>} />
           <Route path="/songs/:songId" element={<RequireAuth><LegacySongEditorRedirect /></RequireAuth>} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
         <Toaster
           position="bottom-right"
           theme="dark"
           toastOptions={{ classNames: { toast: 'ama-toast' } }}
         />
+        </ErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   )
