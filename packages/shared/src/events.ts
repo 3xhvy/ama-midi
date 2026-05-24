@@ -117,12 +117,23 @@ export interface EditorCommandRow {
   user: { id: string; name: string; avatarUrl?: string | null }
 }
 
+export interface UndoConflictNote {
+  id: string
+  track: number
+  time: number
+  title: string
+  noteType: string
+  duration?: number
+  createdBy: string
+  creatorName: string
+}
+
 export interface UndoConflict {
   conflictId: string
   track: number
   time: number
-  incomingNote: Record<string, unknown>
-  existingNote: Record<string, unknown>
+  incomingNote: UndoConflictNote
+  existingNote: UndoConflictNote
 }
 
 export interface UndoPreview {
