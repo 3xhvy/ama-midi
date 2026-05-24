@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { SnapMode, NoteType, SuggestNotesRequest } from '@ama-midi/shared'
+import type { SnapMode, SuggestNotesRequest } from '@ama-midi/shared'
 
 type ViewMode = 'composer' | 'developer' | 'qa' | 'preview'
 type Zoom = 1 | 2 | 4 | 8
@@ -34,7 +34,6 @@ interface EditorStore {
   isPlaying:      boolean
   triggerAiSuggest: ((request: SuggestNotesRequest) => Promise<void>) | null
   snapMode:           SnapMode
-  activeNoteType:     NoteType
   heatmapEnabled:     boolean
   activeTrack:        number | null
   activeChartId:      string | null
@@ -55,7 +54,6 @@ interface EditorStore {
   setPlaying:          (playing: boolean) => void
   setTriggerAiSuggest: (fn: ((request: SuggestNotesRequest) => Promise<void>) | null) => void
   setSnapMode:         (mode: SnapMode) => void
-  setActiveNoteType:   (type: NoteType) => void
   setHeatmapEnabled:   (enabled: boolean) => void
   setActiveTrack:      (track: number | null) => void
   setActiveChartId:    (id: string | null) => void
@@ -84,7 +82,6 @@ export const useEditorStore = create<EditorStore>((set) => ({
   isPlaying:        false,
   triggerAiSuggest: null,
   snapMode:         '0.1s',
-  activeNoteType:   'HOLD',
   heatmapEnabled:   false,
   activeTrack:      null,
   activeChartId:    null,
@@ -114,7 +111,6 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setPlaying:          (isPlaying) => set({ isPlaying }),
   setTriggerAiSuggest: (triggerAiSuggest) => set({ triggerAiSuggest }),
   setSnapMode:         (snapMode) => set({ snapMode }),
-  setActiveNoteType:   (activeNoteType) => set({ activeNoteType }),
   setHeatmapEnabled:   (heatmapEnabled) => set({ heatmapEnabled }),
   setActiveTrack:      (activeTrack) => set({ activeTrack }),
   setActiveChartId:    (activeChartId) => set({ activeChartId }),
