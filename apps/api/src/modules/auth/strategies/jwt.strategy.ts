@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { PassportStrategy } from '@nestjs/passport'
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import { PrismaService } from '../../prisma/prisma.service'
@@ -11,6 +11,7 @@ interface JwtPayload {
   name?:       string
   title?:      string
   department?: string
+  tokenVersion?: number
 }
 
 @Injectable()
@@ -25,15 +26,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: JwtPayload): Promise<AuthUser> {
     // Fetch fresh profile data from DB so profileComplete/tourComplete are always current
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } })
-    if (!user) {
-      return {
-        id:              payload.sub,
-        email:           payload.email,
-        name:            payload.name ?? payload.email,
-        role:            payload.role as AuthUser['role'],
-        profileComplete: false,
-        tourComplete:    false,
-      }
+    if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) {
+      throw new UnauthorizedException()
     }
     return {
       id:              user.id,
@@ -45,6 +39,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       department:      user.department ?? undefined,
       profileComplete: user.profileComplete,
       tourComplete:    user.tourComplete,
+      tokenVersion:    user.tokenVersion,
     }
   }
 }

@@ -51,8 +51,11 @@ export function AppShell({
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [accountOpen])
 
-  function handleSignOut() {
+  async function handleSignOut() {
     setAccountOpen(false)
+    if (token) {
+      await apiClient(token)<void>('/auth/logout', { method: 'POST' }).catch(() => undefined)
+    }
     clearAuth()
     navigate('/login')
   }

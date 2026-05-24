@@ -79,6 +79,7 @@ export interface AuthUser {
   department?:     string
   profileComplete: boolean
   tourComplete:    boolean
+  tokenVersion?:   number
 }
 
 export interface UserSearchResult {

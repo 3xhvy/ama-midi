@@ -36,6 +36,7 @@ export class AuthService {
       department:      user.department ?? undefined,
       profileComplete: user.profileComplete,
       tourComplete:    user.tourComplete,
+      tokenVersion:    user.tokenVersion,
     }
   }
 
@@ -47,6 +48,14 @@ export class AuthService {
       role:       user.role,
       title:      user.title,
       department: user.department,
+      tokenVersion: user.tokenVersion ?? 0,
+    })
+  }
+
+  async revokeUserTokens(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data:  { tokenVersion: { increment: 1 } },
     })
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { AuthService } from './auth.service'
 import type { Request, Response } from 'express'
@@ -25,5 +25,12 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   me(@Req() req: Request) {
     return req.user
+  }
+
+  @Post('logout')
+  @UseGuards(AuthGuard('jwt'))
+  async logout(@Req() req: Request) {
+    const user = req.user as AuthUser
+    await this.auth.revokeUserTokens(user.id)
   }
 }
