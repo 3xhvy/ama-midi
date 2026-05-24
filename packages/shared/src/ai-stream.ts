@@ -9,25 +9,25 @@ export type AiStreamStepDef = { stepId: string; label: string }
 
 export const AI_STREAM_STEPS: Record<AiStreamAction, AiStreamStepDef[]> = {
   'generate-chart': [
-    { stepId: 'load_chart', label: 'Load chart context' },
-    { stepId: 'build_prompt', label: 'Build generate prompt' },
-    { stepId: 'generate', label: 'Generate with AI' },
-    { stepId: 'normalize', label: 'Normalize chart' },
-    { stepId: 'ready', label: 'Ready to preview' },
+    { stepId: 'load_chart', label: 'Reading your chart' },
+    { stepId: 'build_prompt', label: 'Preparing the brief' },
+    { stepId: 'generate', label: 'Composing with AI' },
+    { stepId: 'normalize', label: 'Polishing the result' },
+    { stepId: 'ready', label: 'Preview ready' },
   ],
   'scale-chart': [
-    { stepId: 'load_chart', label: 'Load chart & analysis' },
-    { stepId: 'build_prompt', label: 'Build scale prompt' },
-    { stepId: 'generate', label: 'Generate with AI' },
-    { stepId: 'normalize', label: 'Normalize chart' },
-    { stepId: 'ready', label: 'Ready to preview' },
+    { stepId: 'load_chart', label: 'Reading your chart' },
+    { stepId: 'build_prompt', label: 'Preparing the brief' },
+    { stepId: 'generate', label: 'Rebalancing with AI' },
+    { stepId: 'normalize', label: 'Polishing the result' },
+    { stepId: 'ready', label: 'Preview ready' },
   ],
   'suggest-notes': [
-    { stepId: 'load_context', label: 'Load chart context' },
-    { stepId: 'analyze', label: 'Analyze sections & density' },
-    { stepId: 'generate', label: 'Generate suggestions' },
-    { stepId: 'validate', label: 'Validate placements' },
-    { stepId: 'ready', label: 'Ready — view on chart' },
+    { stepId: 'load_context', label: 'Reading your chart' },
+    { stepId: 'analyze', label: 'Feeling the groove' },
+    { stepId: 'generate', label: 'Finding the right notes' },
+    { stepId: 'validate', label: 'Checking for conflicts' },
+    { stepId: 'ready', label: 'Notes ready on chart' },
   ],
 }
 

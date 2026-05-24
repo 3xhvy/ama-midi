@@ -95,15 +95,15 @@ export class AiChartService {
     })
 
     const parsed = await runStep(steps, 'generate', onProgress, async () => {
-      emitDetail(steps, 'generate', `Calling AI for ~${targetCount} notes…`, onProgress)
+      emitDetail(steps, 'generate', `Sending your brief to AI — aiming for ~${targetCount} notes…`, onProgress)
       const result = await this.callClaudeForChart(prompt, 'generate')
-      emitDetail(steps, 'generate', `Received ${(result.notes as unknown[]).length} raw notes from AI`, onProgress)
+      emitDetail(steps, 'generate', `AI returned ${(result.notes as unknown[]).length} note ideas`, onProgress)
       return result
     })
 
     const notes = await runStep(steps, 'normalize', onProgress, async () => {
       const normalized = this.normalizeGeneratedNotes(parsed.notes, body.snapMode, ctx.song.bpm)
-      emitDetail(steps, 'normalize', `Kept ${normalized.length} valid notes after normalization`, onProgress)
+      emitDetail(steps, 'normalize', `Kept ${normalized.length} note${normalized.length !== 1 ? 's' : ''} after cleanup`, onProgress)
       return normalized
     })
     const sections = this.normalizeSections(parsed.sections)
@@ -137,15 +137,15 @@ export class AiChartService {
     )
 
     const parsed = await runStep(steps, 'generate', onProgress, async () => {
-      emitDetail(steps, 'generate', `Calling AI for ~${targetCount} notes (${body.targetTier})…`, onProgress)
+      emitDetail(steps, 'generate', `Asking AI to rewrite chart for ${body.targetTier} (~${targetCount} notes)…`, onProgress)
       const result = await this.callClaudeForChart(prompt, 'scale')
-      emitDetail(steps, 'generate', `Received ${(result.notes as unknown[]).length} raw notes from AI`, onProgress)
+      emitDetail(steps, 'generate', `AI returned ${(result.notes as unknown[]).length} note ideas`, onProgress)
       return result
     })
 
     const notes = await runStep(steps, 'normalize', onProgress, async () => {
       const normalized = this.normalizeGeneratedNotes(parsed.notes, body.snapMode, ctx.song.bpm)
-      emitDetail(steps, 'normalize', `Kept ${normalized.length} valid notes after normalization`, onProgress)
+      emitDetail(steps, 'normalize', `Kept ${normalized.length} note${normalized.length !== 1 ? 's' : ''} after cleanup`, onProgress)
       return normalized
     })
     const sections = this.normalizeSections(parsed.sections)

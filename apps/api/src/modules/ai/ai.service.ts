@@ -115,7 +115,7 @@ export class AiService {
     const context = this.buildContext(ctx, body, segments)
 
     const raw = await runStep(steps, 'generate', onProgress, async () => {
-      emitDetail(steps, 'generate', `Calling AI (${body.mode})…`, onProgress)
+      emitDetail(steps, 'generate', `Asking AI for note ideas…`, onProgress)
       const prompt = this.buildPrompt(
         body.mode,
         body.targetTrack,
@@ -124,13 +124,13 @@ export class AiService {
         body.selectedNotes,
       )
       const result = await this.callClaude(prompt)
-      emitDetail(steps, 'generate', `Received ${result.length} raw suggestion${result.length !== 1 ? 's' : ''}`, onProgress)
+      emitDetail(steps, 'generate', `AI returned ${result.length} idea${result.length !== 1 ? 's' : ''}`, onProgress)
       return result
     })
 
     const suggestions = await runStep(steps, 'validate', onProgress, async () => {
       const validated = this.postProcess(raw, context, body.mode, body.targetTrack, body.selectedNotes)
-      emitDetail(steps, 'validate', `${validated.length} valid placement${validated.length !== 1 ? 's' : ''}`, onProgress)
+      emitDetail(steps, 'validate', `${validated.length} note${validated.length !== 1 ? 's' : ''} fit perfectly`, onProgress)
       return validated
     })
 
