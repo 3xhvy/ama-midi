@@ -47,10 +47,18 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
         client.handshake.auth?.token ||
         client.handshake.headers?.authorization?.replace('Bearer ', '')
       if (!token) { client.disconnect(); return }
-      const payload = this.jwtService.verify(token)
+      const payload = this.jwtService.verify<{
+        sub: string
+        email: string
+        name?: string
+        role: string
+        title?: string
+        department?: string
+        tokenVersion?: number
+      }>(token)
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
-        select: { id: true, email: true, name: true, role: true, title: true, department: true, tokenVersion: true },
+        select: { id: true, email: true, name: true, role: true, title: true, department: true, avatarUrl: true, tokenVersion: true },
       })
       if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) {
         client.disconnect()
@@ -63,7 +71,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
         role:       user.role,
         title:      user.title ?? null,
         department: user.department ?? null,
+        avatarUrl:  user.avatarUrl ?? null,
       }
+      client.emit('authenticated')
     } catch {
       client.disconnect()
     }
@@ -95,49 +105,53 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { songId: string },
   ) {
-    if (!client.data.user) return
-    if (!(await this.canViewSong(client, data.songId))) return
-    client.join(`song:${data.songId}`)
-
-    await this.prisma.editorSession.deleteMany({
-      where: { songId: data.songId, userId: client.data.user.id, socketId: client.id },
-    })
-    await this.prisma.editorSession.create({
-      data: { songId: data.songId, userId: client.data.user.id, socketId: client.id },
-    })
-
-    const sessions = await this.prisma.editorSession.findMany({
-      where:   { songId: data.songId },
-      include: {
-        user: { select: { id: true, name: true, avatarUrl: true, email: true, role: true, title: true, department: true } },
-      },
-    })
-    const users = Array.from(
-      new Map(
-        sessions.map((s) => [
-          s.user.id,
-          {
-            id:         s.user.id,
-            name:       s.user.name,
-            avatarUrl:  s.user.avatarUrl,
-            email:      s.user.email,
-            role:       s.user.role,
-            title:      s.user.title,
-            department: s.user.department,
-          },
-        ]),
-      ).values(),
-    )
-
-    client.to(`song:${data.songId}`).emit('user-joined', client.data.user)
-    client.emit('presence-list', users)
-
+    if (!client.data.user || !data?.songId) return
     try {
-      const cursors = await this.cursorService.getCursors(data.songId)
-      client.emit('cursor-snapshot', { cursors })
+      if (!(await this.canViewSong(client, data.songId))) return
+      client.join(`song:${data.songId}`)
+
+      await this.prisma.editorSession.deleteMany({
+        where: { songId: data.songId, userId: client.data.user.id, socketId: client.id },
+      })
+      await this.prisma.editorSession.create({
+        data: { songId: data.songId, userId: client.data.user.id, socketId: client.id },
+      })
+
+      const sessions = await this.prisma.editorSession.findMany({
+        where:   { songId: data.songId },
+        include: {
+          user: { select: { id: true, name: true, avatarUrl: true, email: true, role: true, title: true, department: true } },
+        },
+      })
+      const users = Array.from(
+        new Map(
+          sessions.map((s) => [
+            s.user.id,
+            {
+              id:         s.user.id,
+              name:       s.user.name,
+              avatarUrl:  s.user.avatarUrl,
+              email:      s.user.email,
+              role:       s.user.role,
+              title:      s.user.title,
+              department: s.user.department,
+            },
+          ]),
+        ).values(),
+      )
+
+      client.to(`song:${data.songId}`).emit('user-joined', client.data.user)
+      client.emit('presence-list', users)
+
+      try {
+        const cursors = await this.cursorService.getCursors(data.songId)
+        client.emit('cursor-snapshot', { cursors })
+      } catch (err) {
+        console.error('[RealtimeGateway] getCursors failed, sending empty snapshot', err)
+        client.emit('cursor-snapshot', { cursors: [] })
+      }
     } catch (err) {
-      console.error('[RealtimeGateway] getCursors failed, sending empty snapshot', err)
-      client.emit('cursor-snapshot', { cursors: [] })
+      console.error('[RealtimeGateway] join-song failed', err)
     }
   }
 

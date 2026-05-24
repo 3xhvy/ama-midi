@@ -47,6 +47,11 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
   const queryClient = useQueryClient()
   const token       = useAuthStore(s => s.token)
   const socketRef   = useRef<Socket | null>(null)
+  const chartIdRef  = useRef(chartId)
+  const onActivityRef = useRef(options.onActivity)
+
+  chartIdRef.current = chartId
+  onActivityRef.current = options.onActivity
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -78,6 +83,11 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
     })
     socketRef.current = socket
 
+    function joinRooms() {
+      socket.emit('join-song', { songId })
+      if (projectId) socket.emit('join-project', { projectId })
+    }
+
     const connectTimer = window.setTimeout(() => {
       if (!disposed) socket.connect()
     }, 50)
@@ -85,8 +95,12 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
     socket.on('connect', () => {
       if (disposed) return
       setIsConnected(true)
-      socket.emit('join-song', { songId })
-      if (projectId) socket.emit('join-project', { projectId })
+    })
+
+    socket.on('authenticated', () => {
+      if (disposed) return
+      toast.dismiss('ws-disconnect')
+      joinRooms()
     })
 
     socket.on('disconnect', () => {
@@ -113,6 +127,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
       toast.dismiss('ws-disconnect')
       toast.success('Back online — syncing changes', { className: 'ama-toast ama-toast--success' })
       setIsConnected(true)
+      // joinRooms runs again on the server's `authenticated` event after reconnect
     })
 
     socket.on('presence-list', (users: PresenceUser[]) => {
@@ -162,7 +177,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
 
     socket.on('note-created', (payload: Note | RealtimeActivityPayload<Note>) => {
       const { actor, data: note } = unwrapActivityPayload(payload)
-      const noteChartId = note.chartId ?? chartId
+      const noteChartId = note.chartId ?? chartIdRef.current
       if (!noteChartId) return
       queryClient.setQueriesData<Note[]>(
         { queryKey: ['notes', noteChartId], exact: false },
@@ -174,7 +189,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
       )
       queryClient.invalidateQueries({ queryKey: ['events', noteChartId] })
       if (actor) {
-        options.onActivity?.({
+        onActivityRef.current?.({
           actor,
           type: 'NOTE_CREATED',
           weight: 1,
@@ -186,7 +201,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
 
     socket.on('note-updated', (payload: Note | RealtimeActivityPayload<Note>) => {
       const { actor, data: note } = unwrapActivityPayload(payload)
-      const noteChartId = note.chartId ?? chartId
+      const noteChartId = note.chartId ?? chartIdRef.current
       if (!noteChartId) return
       queryClient.setQueriesData<Note[]>(
         { queryKey: ['notes', noteChartId], exact: false },
@@ -194,7 +209,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
       )
       queryClient.invalidateQueries({ queryKey: ['events', noteChartId] })
       if (actor) {
-        options.onActivity?.({
+        onActivityRef.current?.({
           actor,
           type: 'NOTE_UPDATED',
           weight: 1,
@@ -214,9 +229,10 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
         },
         (old) => (old ? old.filter((n) => n.id !== noteId) : old),
       )
-      if (chartId) queryClient.invalidateQueries({ queryKey: ['events', chartId] })
+      const activeChartId = chartIdRef.current
+      if (activeChartId) queryClient.invalidateQueries({ queryKey: ['events', activeChartId] })
       if (actor) {
-        options.onActivity?.({
+        onActivityRef.current?.({
           actor,
           type: 'NOTE_DELETED',
           weight: 1,
@@ -228,7 +244,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
 
     socket.on('notes-batch-applied', (payload: NotesBatchAppliedPayload | RealtimeActivityPayload<NotesBatchAppliedPayload>) => {
       const { actor, data } = unwrapActivityPayload(payload)
-      const batchChartId = data.created[0]?.chartId ?? chartId
+      const batchChartId = data.created[0]?.chartId ?? chartIdRef.current
       if (!batchChartId) return
       queryClient.setQueriesData<Note[]>(
         { queryKey: ['notes', batchChartId], exact: false },
@@ -244,7 +260,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
       queryClient.invalidateQueries({ queryKey: ['events', batchChartId] })
       if (actor) {
         const totalNotes = data.created.length + data.deletedIds.length
-        options.onActivity?.({
+        onActivityRef.current?.({
           actor,
           type: 'NOTE_CREATED',
           weight: totalNotes,
@@ -256,19 +272,22 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
 
     socket.on('section-created', () => {
       queryClient.invalidateQueries({ queryKey: ['sections', songId] })
-      if (chartId) queryClient.invalidateQueries({ queryKey: ['events', chartId] })
+      const activeChartId = chartIdRef.current
+      if (activeChartId) queryClient.invalidateQueries({ queryKey: ['events', activeChartId] })
     })
     socket.on('section-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['sections', songId] })
-      if (chartId) queryClient.invalidateQueries({ queryKey: ['events', chartId] })
+      const activeChartId = chartIdRef.current
+      if (activeChartId) queryClient.invalidateQueries({ queryKey: ['events', activeChartId] })
     })
     socket.on('section-deleted', () => {
       queryClient.invalidateQueries({ queryKey: ['sections', songId] })
-      if (chartId) queryClient.invalidateQueries({ queryKey: ['events', chartId] })
+      const activeChartId = chartIdRef.current
+      if (activeChartId) queryClient.invalidateQueries({ queryKey: ['events', activeChartId] })
     })
 
     socket.on('chart-switched', (payload: { actor: ActivityActor; data: { chartId: string; chartName: string } }) => {
-      options.onActivity?.({
+      onActivityRef.current?.({
         actor: payload.actor,
         type: 'CHART_SWITCHED',
         weight: 1,
@@ -318,7 +337,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
       setIsConnected(false)
       toast.dismiss('ws-disconnect')
     }
-  }, [songId, chartId, projectId, token, queryClient])
+  }, [songId, projectId, token, queryClient])
 
   function emitCursorMove(track: number, time: number) {
     socketRef.current?.emit('cursor-move', { songId, track, time })
@@ -329,8 +348,9 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
   }
 
   function emitChartSwitch(chartName: string) {
-    if (!chartId) return
-    socketRef.current?.emit('chart-switch', { songId, chartId, chartName })
+    const activeChartId = chartIdRef.current
+    if (!activeChartId) return
+    socketRef.current?.emit('chart-switch', { songId, chartId: activeChartId, chartName })
   }
 
   return { presenceList, isConnected, cursors, emitCursorMove, emitCursorHide, emitChartSwitch }

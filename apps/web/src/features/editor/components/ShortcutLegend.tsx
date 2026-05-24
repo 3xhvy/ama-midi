@@ -7,6 +7,7 @@ interface Props {
 
 const SHORTCUTS = [
   { key: 'Click', action: 'Create note (Fast Mode)' },
+  { key: 'Shift + drag', action: 'Box select notes' },
   { key: 'E', action: 'Edit selected note' },
   { key: 'Delete / Backspace', action: 'Remove selected note' },
   { key: 'Cmd+Z', action: 'Undo last note' },

@@ -1,6 +1,7 @@
 import './load-env'
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
+import { NestExpressApplication } from '@nestjs/platform-express'
 import { AppModule } from './app.module'
 import { AllExceptionsFilter } from './common/all-exceptions.filter'
 import helmet from 'helmet'
@@ -8,7 +9,7 @@ import session = require('express-session')
 
 async function bootstrap() {
   const isProd = process.env.NODE_ENV === 'production'
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: isProd ? ['error', 'warn', 'log'] : undefined,
   })
 
