@@ -1,5 +1,21 @@
 import { create } from 'zustand'
-import type { SnapMode, SuggestNotesRequest } from '@ama-midi/shared'
+import type { NoteSuggestion, SnapMode } from '@ama-midi/shared'
+
+export type AiAssistantFeature =
+  | 'generate-chart'
+  | 'scale-chart'
+  | 'fill-track'
+  | 'improve-pattern'
+
+export type AiAssistantPhase = 'picker' | 'configure' | 'processing' | 'result'
+
+export interface AiAssistantState {
+  open: boolean
+  feature: AiAssistantFeature | null
+  phase: AiAssistantPhase
+  entry: 'toolbar' | 'selection'
+  improveSubMode?: 'extend' | 'refine'
+}
 
 type ViewMode = 'composer' | 'developer' | 'qa' | 'preview'
 type Zoom = 1 | 2 | 4 | 8
@@ -32,7 +48,8 @@ interface EditorStore {
   rightCollapsed: boolean
   playheadTime:   number
   isPlaying:      boolean
-  triggerAiSuggest: ((request: SuggestNotesRequest) => Promise<void>) | null
+  aiAssistant:        AiAssistantState | null
+  aiSuggestions:      NoteSuggestion[]
   snapMode:           SnapMode
   heatmapEnabled:     boolean
   activeTrack:        number | null
@@ -52,7 +69,10 @@ interface EditorStore {
   setRightCollapsed:   (collapsed: boolean) => void
   setPlayheadTime:     (time: number) => void
   setPlaying:          (playing: boolean) => void
-  setTriggerAiSuggest: (fn: ((request: SuggestNotesRequest) => Promise<void>) | null) => void
+  openAiAssistant:     (partial: Partial<AiAssistantState> & { open: true }) => void
+  closeAiAssistant:    () => void
+  setAiSuggestions:    (suggestions: NoteSuggestion[]) => void
+  clearAiSuggestions:  () => void
   setSnapMode:         (mode: SnapMode) => void
   setHeatmapEnabled:   (enabled: boolean) => void
   setActiveTrack:      (track: number | null) => void
@@ -80,7 +100,8 @@ export const useEditorStore = create<EditorStore>((set) => ({
   rightCollapsed:   false,
   playheadTime:     0,
   isPlaying:        false,
-  triggerAiSuggest: null,
+  aiAssistant:      null,
+  aiSuggestions:    [],
   snapMode:         '0.1s',
   heatmapEnabled:   false,
   activeTrack:      null,
@@ -109,7 +130,17 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setRightCollapsed:   (rightCollapsed) => set({ rightCollapsed }),
   setPlayheadTime:     (playheadTime) => set({ playheadTime }),
   setPlaying:          (isPlaying) => set({ isPlaying }),
-  setTriggerAiSuggest: (triggerAiSuggest) => set({ triggerAiSuggest }),
+  openAiAssistant:     (partial) => set({
+    aiAssistant: {
+      feature: null,
+      phase: 'picker',
+      entry: 'toolbar',
+      ...partial,
+    },
+  }),
+  closeAiAssistant:    () => set({ aiAssistant: null }),
+  setAiSuggestions:    (aiSuggestions) => set({ aiSuggestions }),
+  clearAiSuggestions:  () => set({ aiSuggestions: [] }),
   setSnapMode:         (snapMode) => set({ snapMode }),
   setHeatmapEnabled:   (heatmapEnabled) => set({ heatmapEnabled }),
   setActiveTrack:      (activeTrack) => set({ activeTrack }),

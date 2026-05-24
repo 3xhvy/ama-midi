@@ -1,16 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { useAuthStore } from '../../../store/auth.store'
 import { useEditorStore } from '../../../store/editor.store'
-import { apiClient } from '../../auth/api'
 import { useCreateNote } from '../../notes/useNotes'
 import { trackToX, timeToY, trackWidth } from '../engine'
 import {
   trackColor,
   type Note,
   type NoteSuggestion,
-  type SuggestNotesRequest,
-  type SuggestNotesResponse,
 } from '@ama-midi/shared'
 
 interface Props {
@@ -21,42 +16,17 @@ interface Props {
   notes:       Note[]
 }
 
-export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, notes }: Props) {
-  const [suggestions, setSuggestions] = useState<NoteSuggestion[]>([])
-  const token = useAuthStore(s => s.token)
+export function AiSuggestions({ chartId, gridWidth, pxPerSecond, notes }: Props) {
+  const suggestions = useEditorStore((s) => s.aiSuggestions)
+  const setAiSuggestions = useEditorStore((s) => s.setAiSuggestions)
   const createNote = useCreateNote(chartId)
-  const { setTriggerAiSuggest } = useEditorStore()
 
   const occupiedKeys = new Set(
     notes.map((n) => `${n.track}:${Math.round(n.time * 10) / 10}`),
   )
 
-  const handleSuggest = useCallback(async (request: SuggestNotesRequest) => {
-    try {
-      const result = await apiClient(token)<SuggestNotesResponse>(
-        `/songs/${songId}/suggest-notes`,
-        { method: 'POST', body: JSON.stringify({ ...request, chartId }) },
-      )
-      setSuggestions(result.suggestions)
-      if (result.suggestions.length === 0) {
-        const hint =
-          request.mode === 'fill_track'
-            ? 'No gaps found on that track — try another lane or add more context notes'
-            : 'No suggestions — try selecting a clearer rhythmic pattern'
-        toast.info(hint)
-      }
-    } catch {
-      toast.error('Failed to get suggestions')
-    }
-  }, [songId, chartId, token])
-
-  useEffect(() => {
-    setTriggerAiSuggest(handleSuggest)
-    return () => setTriggerAiSuggest(null)
-  }, [handleSuggest, setTriggerAiSuggest])
-
   function dismiss(idx: number) {
-    setSuggestions(prev => prev.filter((_, i) => i !== idx))
+    setAiSuggestions(suggestions.filter((_, i) => i !== idx))
   }
 
   async function accept(s: NoteSuggestion, idx: number) {

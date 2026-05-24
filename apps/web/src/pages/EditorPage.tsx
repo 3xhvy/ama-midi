@@ -57,7 +57,7 @@ export function EditorPage() {
     leftCollapsed, rightCollapsed,
     toggleLeftPanel, toggleRightPanel,
     setLeftCollapsed, setRightCollapsed,
-    playheadTime, triggerAiSuggest, snapMode,
+    playheadTime, openAiAssistant,
     selectedNoteIds, clearSelection, focusNote,
     activeTrack,
     activeChartId,
@@ -259,24 +259,15 @@ export function EditorPage() {
 
   const selectedNoteObjects = allNotes.filter(n => selectedNoteIds.has(n.id))
 
-  const handleContinuePattern = useCallback(async () => {
-    if (!canEdit || !chartId || selectedNoteObjects.length < 2 || !triggerAiSuggest) return
-    const selectedNotes = selectedNoteObjects
-      .map((n) => ({ track: n.track, time: n.time }))
-      .sort((a, b) => a.time - b.time || a.track - b.track)
-    const toastId = toast.loading('Getting AI suggestions…')
-    try {
-      await triggerAiSuggest({
-        chartId,
-        mode: 'continue_pattern',
-        playheadTime: selectedNotes[selectedNotes.length - 1]!.time,
-        snapMode,
-        selectedNotes,
-      })
-    } finally {
-      toast.dismiss(toastId)
-    }
-  }, [canEdit, chartId, selectedNoteObjects, triggerAiSuggest, snapMode])
+  const handleContinuePattern = useCallback(() => {
+    if (!canEdit || selectedNoteObjects.length < 2) return
+    openAiAssistant({
+      open: true,
+      feature: 'improve-pattern',
+      phase: 'configure',
+      entry: 'selection',
+    })
+  }, [canEdit, selectedNoteObjects.length, openAiAssistant])
 
   const topBar = (
     <>
@@ -522,7 +513,7 @@ export function EditorPage() {
       <MultiSelectBar
         count={selectedNoteIds.size}
         canEdit={canEdit}
-        onContinuePattern={() => void handleContinuePattern()}
+        onContinuePattern={handleContinuePattern}
         onRepeat={() => setShowRepeat(true)}
         onSavePattern={() => setShowSavePattern(true)}
         onCopyTo={() => setShowCopyTo(true)}

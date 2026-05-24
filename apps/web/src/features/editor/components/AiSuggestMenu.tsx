@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
-import { trackColor, type Song, type SuggestNotesRequest } from '@ama-midi/shared'
+import { trackColor, type Song } from '@ama-midi/shared'
 import { useEditorStore } from '../../../store/editor.store'
 import { AiGenerateChartModal } from './AiGenerateChartModal'
 import { AiScaleChartModal } from './AiScaleChartModal'
@@ -17,9 +16,8 @@ export function AiSuggestMenu({ disabled, songId, song, noteCount }: Props) {
   const [fillOpen, setFillOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [scaleOpen, setScaleOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
-  const { playheadTime, snapMode, triggerAiSuggest, activeChartId } = useEditorStore()
+  const { openAiAssistant, activeChartId } = useEditorStore()
 
   useEffect(() => {
     if (!open && !fillOpen) return
@@ -33,28 +31,15 @@ export function AiSuggestMenu({ disabled, songId, song, noteCount }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [open, fillOpen])
 
-  async function run(request: SuggestNotesRequest) {
-    if (!triggerAiSuggest || loading) return
+  function fillTrack(_track: number) {
+    if (!activeChartId) return
     setOpen(false)
     setFillOpen(false)
-    setLoading(true)
-    const toastId = toast.loading('Getting AI suggestions…')
-    try {
-      await triggerAiSuggest(request)
-    } finally {
-      setLoading(false)
-      toast.dismiss(toastId)
-    }
-  }
-
-  function fillTrack(track: number) {
-    if (!activeChartId) return
-    void run({
-      chartId: activeChartId,
-      mode: 'fill_track',
-      targetTrack: track,
-      playheadTime,
-      snapMode,
+    openAiAssistant({
+      open: true,
+      feature: 'fill-track',
+      phase: 'configure',
+      entry: 'toolbar',
     })
   }
 
@@ -63,7 +48,7 @@ export function AiSuggestMenu({ disabled, songId, song, noteCount }: Props) {
       <div ref={rootRef} className="relative mr-1">
         <button
           type="button"
-          disabled={loading}
+          disabled={disabled}
           onClick={() => { setOpen((v) => !v); setFillOpen(false) }}
           data-tour="ai-suggest"
           className="editor-toolbar-suggest flex items-center gap-1"
