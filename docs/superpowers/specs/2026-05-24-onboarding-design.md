@@ -1,22 +1,26 @@
 # Onboarding & Product Tour — Design Spec
 
 **Date:** 2026-05-24  
-**Status:** Approved (updated — unified Take a Tour journey)
+**Status:** Approved (updated — routed first-login onboarding + unified Take a Tour journey)
 
 ---
 
 ## Goal
 
-New users (first Google login) see:
-1. A welcome screen communicating core value
-2. A profile setup form (name, title, department)
-3. **Take a Tour** — one guided journey through the full product:
+New users (first Google login) see a dedicated, routed onboarding journey:
+1. **Welcome page** — core product promise with a 3D musical timeline visual
+2. **Feature highlight page** — editor, collaboration, validation, AI, and analysis value
+3. **Notes page** — tap notes, hold notes, tracks, and density explained visually
+4. **Profile completion page** — name, title, department
+5. **You are set up page** — asks whether to start **Take a Tour** or go to dashboard
+
+**Take a Tour** remains one guided journey through the full product:
 
 ```
 Project → Song → User (collaboration) → Editor (tracks, tools, validation, AI, difficulty, …)
 ```
 
-First-login onboarding handles (1) and (2). **Take a Tour** is the single product walkthrough — triggered automatically after profile save and re-launchable from the app chrome.
+First-login onboarding handles the five-page setup journey. **Take a Tour** is the single product walkthrough — launched from the final setup page or re-launchable from the app chrome.
 
 ---
 
@@ -24,10 +28,10 @@ First-login onboarding handles (1) and (2). **Take a Tour** is the single produc
 
 | Experience | When | What |
 |---|---|---|
-| **Onboarding modal** | `!profileComplete` | Welcome + profile form only |
-| **Take a Tour** | After profile, or user clicks "Take a tour" | Full 4-phase product tour (~22 steps) |
+| **Routed onboarding** | `!profileComplete` | Welcome → Features → Notes → Profile → Ready |
+| **Take a Tour** | User clicks "Take a tour" after setup, or later from app chrome | Full product tour |
 
-`OnboardingGate` shows the modal when needed. It does **not** run a separate dashboard mini-tour.
+`OnboardingGate` redirects incomplete users into `/onboarding/welcome`. It does **not** run a separate dashboard mini-tour.
 
 ---
 
@@ -35,7 +39,8 @@ First-login onboarding handles (1) and (2). **Take a Tour** is the single produc
 
 ```
 App.tsx
-  └── <OnboardingGate>              profile modal when !profileComplete
+  └── <OnboardingGate>              redirects !profileComplete users into onboarding
+  └── /onboarding/:step             routed first-login onboarding pages
   └── <ProductTourOrchestrator>     cross-route tour state + TourOverlay
         └── reads tourContext       first project/song from dashboard API
         └── navigates between routes before each step
@@ -46,8 +51,8 @@ App.tsx
 
 | `profileComplete` | `tourComplete` | Result |
 |---|---|---|
-| false | any | Show `OnboardingModal` |
-| true | false | Auto-start **Take a Tour** once (skippable) |
+| false | any | Redirect to `/onboarding/welcome` |
+| true | false | Show `/onboarding/ready` once, asking whether to take the tour |
 | true | true | Nothing — user fully onboarded; "Take a tour" still available from menu |
 
 **Persistence:**
@@ -66,14 +71,52 @@ App.tsx
 OAuth callback → GET /auth/me → navigate('/')
 
 if !profileComplete:
-  OnboardingModal (welcome → profile) → PATCH profileComplete
+  /onboarding/welcome
+    → /onboarding/features
+    → /onboarding/notes
+    → /onboarding/profile
+    → PATCH profileComplete
+    → /onboarding/ready
 
-if profileComplete && !tourComplete:
-  ProductTourOrchestrator.start()   ← full journey begins
+On /onboarding/ready:
+  Primary CTA: ProductTourOrchestrator.start({ force: true })
+  Secondary CTA: navigate('/')
 
 User clicks "Take a tour" anytime:
   ProductTourOrchestrator.start({ force: true })
 ```
+
+---
+
+## Routed First-login Onboarding
+
+Routes:
+
+| Route | Page | CTA |
+|---|---|---|
+| `/onboarding/welcome` | Welcome to AMA-MIDI | Continue |
+| `/onboarding/features` | Feature highlights | Continue |
+| `/onboarding/notes` | Notes and tracks | Continue |
+| `/onboarding/profile` | Complete your profile | Save & continue |
+| `/onboarding/ready` | You are set up | Take a tour / Go to dashboard |
+
+The onboarding shell is full-screen and page-like, not a modal. It uses a left content rail, a right 3D canvas visual, progress dots, and Back/Continue navigation. The route is the source of truth for the current step so refresh and browser back work naturally.
+
+### 3D Visualization
+
+Use a lightweight local `<canvas>` renderer rather than adding Three.js in v1. The login page already uses a custom animated canvas, and the onboarding visuals can reuse that pattern without increasing bundle size.
+
+Visual scenes:
+
+| Page | 3D visual |
+|---|---|
+| Welcome | Perspective timeline with floating note blocks and playhead |
+| Features | Orbiting feature nodes around a central AMA-MIDI mark |
+| Notes | Eight-lane note grid with tap notes, hold trails, and density glow |
+| Profile | Calm identity card / team presence constellation |
+| Ready | Launch tunnel from setup into product tour |
+
+The canvas is decorative and `aria-hidden`; all required information is present in text. Respect `prefers-reduced-motion` by rendering a static frame.
 
 ---
 
@@ -161,11 +204,24 @@ interface TourContext {
 ## Components
 
 ### `OnboardingGate`
-- Renders `OnboardingModal` when `!profileComplete`
-- On profile complete: calls `productTour.start()` if `!tourComplete`
+- Redirects authenticated users with `!profileComplete` to `/onboarding/welcome`
+- Lets onboarding routes render without redirect loops
+- Allows completed users to replay onboarding from the account menu
 
-### `OnboardingModal`
-Unchanged from prior spec (welcome + profile, forced step 0 CTA).
+### `OnboardingFlowPage`
+**File:** `features/onboarding/OnboardingFlowPage.tsx`
+
+- Reads `:step` from the route
+- Renders step copy, progress, Back/Continue controls, and profile form
+- On profile save: `PATCH /users/me { name, title, department, profileComplete: true }`, updates auth store, navigates to `/onboarding/ready`
+- On ready page: **Take a tour** calls `requestProductTour({ force: true })` then navigates to `/`; **Go to dashboard** navigates to `/`
+
+### `OnboardingVisualCanvas`
+**File:** `features/onboarding/OnboardingVisualCanvas.tsx`
+
+- Lightweight animated canvas for the five onboarding scenes
+- Decorative only, with reduced-motion static rendering
+- No external 3D dependency in v1
 
 ### `ProductTourOrchestrator` (new)
 **File:** `features/onboarding/ProductTourOrchestrator.tsx`
@@ -230,7 +286,8 @@ Unchanged from prior spec (welcome + profile, forced step 0 CTA).
 
 | Location | Behavior |
 |---|---|
-| Auto after profile save | `productTour.start()` |
+| `AppShell` account menu | "Restart onboarding" → `/onboarding/welcome` |
+| Final onboarding page | "Take a tour" → `productTour.start({ force: true })` |
 | `AppShell` account menu or header | "Take a tour" → `productTour.start({ force: true })` |
 | Skip during tour | Marks `tourComplete` + localStorage (user opted out) |
 
@@ -240,7 +297,9 @@ Unchanged from prior spec (welcome + profile, forced step 0 CTA).
 
 | Scenario | Behavior |
 |---|---|
-| Profile PATCH fails | Inline error in modal |
+| Profile PATCH fails | Inline error on the profile onboarding page |
+| User opens unknown onboarding step | Redirect to `/onboarding/welcome` |
+| Completed user opens onboarding intro/profile route | Allow replay; profile page can update existing profile details |
 | Tour PATCH fails | Swallow; set localStorage only |
 | No project/song for context | Phases 1–2 use centered tooltips; skip navigation steps; end editor phase with create-project hint |
 | `data-tour` missing | Centered tooltip (existing fallback) |
@@ -259,8 +318,9 @@ Unchanged from prior spec (welcome + profile, forced step 0 CTA).
 | NEW | `features/onboarding/editor-tour-storage.ts` → rename `product-tour-storage.ts` |
 | MOD | `features/onboarding/TourOverlay.tsx` — `prepare`, phase label, settle delay |
 | MOD | `features/onboarding/OnboardingGate.tsx` |
-| NEW | `features/onboarding/OnboardingModal.tsx` |
-| MOD | `App.tsx` — gate + orchestrator |
+| NEW | `features/onboarding/OnboardingFlowPage.tsx` |
+| NEW | `features/onboarding/OnboardingVisualCanvas.tsx` |
+| MOD | `App.tsx` — add `/onboarding/:step` route |
 | MOD | `pages/AuthCallbackPage.tsx` |
 | MOD | `components/layout/AppShell.tsx` — nav anchors + "Take a tour" menu item |
 | MOD | `features/dashboard/DashboardPage.tsx` |

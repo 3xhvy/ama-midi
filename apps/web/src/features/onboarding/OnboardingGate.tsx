@@ -1,21 +1,24 @@
 import { useAuthStore } from '../../store/auth.store'
-import { OnboardingModal } from './OnboardingModal'
-import { requestProductTour } from './product-tour.store'
+import { useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { onboardingPath } from './onboarding-flow'
 
 export function OnboardingGate() {
   const user = useAuthStore((s) => s.user)
   const token = useAuthStore((s) => s.token)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const inOnboarding = location.pathname.startsWith('/onboarding')
 
-  if (!user || !token) return null
-  if (user.profileComplete) return null
+  useEffect(() => {
+    if (!user || !token) return
 
-  return (
-    <OnboardingModal
-      onComplete={() => {
-        if (!useAuthStore.getState().user?.tourComplete) {
-          requestProductTour()
-        }
-      }}
-    />
-  )
+    if (!user.profileComplete && !inOnboarding) {
+      navigate(onboardingPath('welcome'), { replace: true })
+      return
+    }
+
+  }, [inOnboarding, navigate, token, user])
+
+  return null
 }

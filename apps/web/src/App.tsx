@@ -15,6 +15,7 @@ import { AuthCallbackPage }  from './pages/AuthCallbackPage'
 import { ProfileSetupPage }  from './pages/ProfileSetupPage'
 import { LoginPage }         from './pages/LoginPage'
 import { OnboardingGate }    from './features/onboarding/OnboardingGate'
+import { OnboardingFlowPage } from './features/onboarding/OnboardingFlowPage'
 import { ProductTourOrchestrator } from './features/onboarding/ProductTourOrchestrator'
 
 const queryClient = new QueryClient({
@@ -45,6 +46,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/onboarding/:step" element={<RequireAuth><OnboardingFlowPage /></RequireAuth>} />
           <Route path="/profile-setup" element={<ProfileSetupPage />} />
           <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="/projects" element={<RequireAuth><ProjectDashboardPage /></RequireAuth>} />

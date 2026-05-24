@@ -8,6 +8,7 @@ import { cn } from '../../lib/utils'
 import { useAuthStore } from '../../store/auth.store'
 import { useThemeStore } from '../../store/theme.store'
 import { requestProductTour } from '../../features/onboarding/product-tour.store'
+import { onboardingPath } from '../../features/onboarding/onboarding-flow'
 import { AmanotesIcon } from '../AmanotesLogo'
 import { Avatar, Button, IconButton, Input } from '../ui'
 
@@ -165,6 +166,19 @@ export function AppShell({
                     </div>
 
                     <div className="mt-3 space-y-2">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setAccountOpen(false)
+                          navigate(onboardingPath('welcome'))
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-shell-text transition-colors hover:bg-shell-bg"
+                      >
+                        <span aria-hidden className="text-base leading-none">◌</span>
+                        <span>Restart onboarding</span>
+                      </button>
+
                       <button
                         type="button"
                         role="menuitem"
