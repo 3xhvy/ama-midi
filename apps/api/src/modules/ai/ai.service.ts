@@ -1,10 +1,11 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import Anthropic from '@anthropic-ai/sdk'
+import { LLM_ADAPTER, type LLMAdapter } from './adapters/llm-adapter.interface'
 import {
   SNAP_RESOLUTION,
   TIME_MAX,
@@ -39,9 +40,10 @@ interface ChartContext {
 
 @Injectable()
 export class AiService {
-  private client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(LLM_ADAPTER) private readonly llm: LLMAdapter,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async suggestNotes(
     songId: string,
@@ -211,15 +213,12 @@ export class AiService {
   }
 
   private async callClaude(prompt: { system: string; user: string }): Promise<RawSuggestion[]> {
-    const message = await this.client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 600,
+    const text = await this.llm.complete({
       system: prompt.system,
       messages: [{ role: 'user', content: prompt.user }],
+      maxTokens: 600,
     })
-
-    const text = message.content[0].type === 'text' ? message.content[0].text : '[]'
-    const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+    const jsonText = (text || '[]').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 
     try {
       const parsed = JSON.parse(jsonText.trim()) as unknown

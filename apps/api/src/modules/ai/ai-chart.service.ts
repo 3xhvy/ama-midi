@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
-import Anthropic from '@anthropic-ai/sdk'
 import { randomUUID } from 'crypto'
+import { LLM_ADAPTER, type LLMAdapter } from './adapters/llm-adapter.interface'
 import {
   NOTE_EVENTS,
   SNAP_RESOLUTION,
@@ -43,9 +44,8 @@ const TARGET_NOTE_COUNT: Record<string, number> = {
 
 @Injectable()
 export class AiChartService {
-  private client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
   constructor(
+    @Inject(LLM_ADAPTER) private readonly llm: LLMAdapter,
     private readonly prisma: PrismaService,
     private readonly access: ProjectAccessService,
     private readonly eventEmitter: EventEmitter2,
@@ -262,14 +262,15 @@ export class AiChartService {
   }
 
   private async callClaudeForChart(prompt: { system: string; user: string }) {
-    const message = await this.client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8192,
+    const text = await this.llm.complete({
       system: prompt.system,
       messages: [{ role: 'user', content: prompt.user }],
+      maxTokens: 8192,
     })
+    return this.parseChartJson(text || '{}')
+  }
 
-    const text = message.content[0].type === 'text' ? message.content[0].text : '{}'
+  private parseChartJson(text: string): { notes: unknown[]; sections: unknown[] } {
     const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 
     try {
