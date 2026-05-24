@@ -30,6 +30,9 @@ services:
       - '127.0.0.1:3001:3001'
     env_file:
       - .env.prod
+    environment:
+      # Migrations run in the deploy pipeline before containers start (see deploy.yml).
+      RUN_MIGRATIONS_ON_START: "false"
     depends_on:
       redis:
         condition: service_healthy

@@ -154,6 +154,8 @@ jobs:
             'cd /opt/amanotes' \
             'echo "Pulling latest images..."' \
             'docker compose -f docker-compose.prod.yml pull' \
+            'echo "Running database migrations..."' \
+            'docker compose -f docker-compose.prod.yml run --rm --entrypoint prisma api migrate deploy' \
             'echo "Starting containers..."' \
             'docker compose -f docker-compose.prod.yml up -d' \
             'echo "Cleaning old images..."' \
