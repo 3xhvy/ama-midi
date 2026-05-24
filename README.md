@@ -174,6 +174,21 @@ k6 run scripts/load-test.js
 
 ---
 
+## Security
+
+| Layer | Implementation |
+|---|---|
+| Transport | HTTPS enforced at host level (Vercel/Railway) |
+| Security headers | `helmet()` — sets `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`, and more |
+| Authentication | Google OAuth 2.0 (OIDC) → JWT issued by API; client sends `Authorization: Bearer <token>` header on every request |
+| CSRF | **Not applicable.** CSRF attacks exploit ambient credentials (cookies). This app uses a custom `Authorization` header set by JavaScript — cross-origin requests cannot set custom headers (blocked by CORS preflight). The attack surface does not exist. |
+| XSS | Helmet's `Content-Security-Policy` blocks inline script injection. React's JSX escapes output by default. JWT stored in memory (`useAuthStore`) — not `httpOnly` cookie, which would re-introduce CSRF surface. |
+| Rate limiting | `ThrottlerModule` global guard — 100 requests / 60 s per IP via NestJS `@nestjs/throttler` |
+| Input validation | `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true` — rejects unknown fields on all endpoints |
+| Authorization | JWT guard on all protected routes; role-based guard (`COMPOSER` / `VIEWER`) on AI and mutation endpoints |
+
+---
+
 ## Environment Variables
 
 ```bash
