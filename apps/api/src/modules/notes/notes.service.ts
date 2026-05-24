@@ -340,8 +340,11 @@ export class NotesService {
 
   async getEvents(chartId: string, user: AuthUser, cursor?: string, limit = 50) {
     const { songId } = await this.resolveChart(chartId, user, 'view')
-    const events = await this.prisma.noteEvent.findMany({
-      where: { songId, ...(cursor ? { id: { lt: cursor } } : {}) },
+    const events = await this.prisma.editorEvent.findMany({
+      where: {
+        songId,
+        ...(cursor ? { id: { lt: cursor } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
       include: { user: { select: { id: true, name: true, avatarUrl: true } } },
@@ -349,7 +352,7 @@ export class NotesService {
     const hasMore = events.length > limit
     const items = hasMore ? events.slice(0, limit) : events
     return {
-      events: items,
+      events: items.map(event => ({ ...event, createdAt: event.createdAt.toISOString() })),
       nextCursor: hasMore ? items[items.length - 1].id : null,
     }
   }
