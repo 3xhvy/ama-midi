@@ -53,9 +53,10 @@ interface Props {
   cursors?:         Map<string, CursorData>
   onCursorMove?:    (track: number, time: number) => void
   onCursorHide?:    () => void
+  currentUserId?:   string
 }
 
-export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove, onCursorHide }: Props) {
+export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove, onCursorHide, currentUserId }: Props) {
   const containerRef          = useRef<HTMLDivElement>(null)
   const trackAreaRef          = useRef<HTMLDivElement>(null)
   const headerTracksScrollRef = useRef<HTMLDivElement>(null)
@@ -503,6 +504,8 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
                 gridWidth={layoutGridWidth}
                 pxPerSecond={pxPerSecond}
                 scrollTop={scrollTop}
+                viewportHeight={viewportHeight}
+                currentUserId={currentUserId}
               />
             )}
 

@@ -77,8 +77,8 @@ After a composer places at least 5 notes, a "Suggest next notes" button appears.
 1. The frontend collects the last 10 notes (track, time, color) from the current song state.
 2. These are sent to `POST /ai/suggest` with the song ID and note context.
 3. The API forwards a structured prompt to the configured AI provider (Anthropic Claude, OpenAI, or DeepSeek — selected via `AI_PROVIDER` env var):
-   - System: "You are a MIDI note pattern assistant. Return only valid JSON."
-   - User: "Here are notes placed so far: [...]. Suggest 4 next notes that continue this rhythmic pattern. Return JSON array: `[{track, time, color}]`"
+  - System: "You are a MIDI note pattern assistant. Return only valid JSON."
+  - User: "Here are notes placed so far: [...]. Suggest 4 next notes that continue this rhythmic pattern. Return JSON array: `[{track, time, color}]`"
 
 The provider is swappable at deploy time — same prompt contract, different underlying model. DeepSeek is the low-cost default for non-production; Anthropic Claude or OpenAI GPT-4o for production quality.
 

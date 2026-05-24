@@ -664,6 +664,7 @@ export function EditorPage() {
             cursors={cursors}
             onCursorMove={emitCursorMove}
             onCursorHide={emitCursorHide}
+            currentUserId={currentUser?.id}
           />
         </div>
       </EditorShell>

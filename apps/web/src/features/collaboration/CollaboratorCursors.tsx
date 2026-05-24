@@ -3,22 +3,28 @@ import { trackToX, timeToY, trackWidth } from '../editor/engine'
 import type { CursorData } from './useSocket'
 
 interface Props {
-  cursors:     Map<string, CursorData>
-  gridWidth:   number
-  pxPerSecond: number
-  scrollTop:   number
+  cursors:         Map<string, CursorData>
+  gridWidth:       number
+  pxPerSecond:     number
+  scrollTop:       number
+  viewportHeight:  number
+  currentUserId?:  string
 }
 
-export function CollaboratorCursors({ cursors, gridWidth, pxPerSecond, scrollTop }: Props) {
+export function CollaboratorCursors({ cursors, gridWidth, pxPerSecond, scrollTop, viewportHeight, currentUserId }: Props) {
   const tw = trackWidth(gridWidth)
 
   return (
     <>
       {Array.from(cursors.values()).map((cursor) => {
-        const x = trackToX(cursor.track, gridWidth) + tw / 2
-        const y = timeToY(cursor.time, pxPerSecond) - scrollTop
+        if (currentUserId && cursor.userId === currentUserId) return null
 
-        if (y < -20 || y > window.innerHeight) return null
+        const x = trackToX(cursor.track, gridWidth) + tw / 2
+        const y = timeToY(cursor.time, pxPerSecond)
+
+        const viewTop    = scrollTop
+        const viewBottom = scrollTop + viewportHeight
+        if (y < viewTop - 20 || y > viewBottom + 20) return null
 
         const color = getColorFromName(cursor.userId)
 
