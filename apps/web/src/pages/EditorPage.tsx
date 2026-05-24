@@ -20,6 +20,8 @@ import { useApplyNoteCopy }   from '../features/editor/hooks/useNoteCopy'
 import { PatternPanel }       from '../features/editor/components/PatternPanel'
 import { SectionJumpList }    from '../features/editor/components/SectionJumpList'
 import { AnalysisSummaryPanel } from '../features/editor/components/AnalysisSummaryPanel'
+import { PanelSectionHeader } from '../features/editor/components/PanelSectionHeader'
+import { analysisPanelHelp, tracksPanelHelp } from '../features/editor/components/panel-section-tooltips'
 import { BottomBarStats }     from '../features/editor/components/BottomBarStats'
 import { useCharts } from '../features/charts/useCharts'
 import { useNotes }           from '../features/notes/useNotes'
@@ -372,7 +374,7 @@ export function EditorPage() {
   const leftPanel = (
     <>
       <div className="px-3 py-2 border-b border-shell-border">
-        <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Tracks</span>
+        <PanelSectionHeader title="Tracks" help={tracksPanelHelp} />
       </div>
       <div className="py-1" data-tour="track-list">
         {Array.from({ length: 8 }, (_, i) => i + 1).map((track) => (
@@ -402,7 +404,7 @@ export function EditorPage() {
       {chartId && projectId && (
         <div className="border-t border-shell-border">
           <div className="px-3 py-2 border-b border-shell-border">
-            <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Analysis</span>
+            <PanelSectionHeader title="Analysis" help={analysisPanelHelp} />
           </div>
           <AnalysisSummaryPanel
             notes={allNotes}
@@ -479,39 +481,47 @@ export function EditorPage() {
   const npsColor = liveNps < 3 ? '#10B981' : liveNps < 6 ? '#F59E0B' : '#EF4444'
 
   const bottomBar = (
-    <div className="flex w-full items-center gap-3">
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="text-xs font-mono" style={{ color: npsColor }}>
-          {liveNps} NPS
+    <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div className="flex min-w-0 items-center gap-2 justify-self-start">
+        <span
+          className="inline-block w-10 text-right text-xs font-mono tabular-nums"
+          style={{ color: npsColor }}
+        >
+          {liveNps.toFixed(1)}
         </span>
-        <div className="w-24 h-1 rounded-full bg-shell-border">
+        <span className="shrink-0 text-xs font-mono text-shell-muted">NPS</span>
+        <div className="h-1 w-24 shrink-0 rounded-full bg-shell-border">
           <div
             className="h-full rounded-full transition-all duration-100"
             style={{ width: `${Math.min(100, (liveNps / 10) * 100)}%`, backgroundColor: npsColor }}
           />
         </div>
-        {selectedNoteIds.size > 0 && (
-          <span className="text-xs text-shell-muted">
-            <span className="text-shell-text font-medium">{selectedNoteIds.size}</span> selected
-          </span>
-        )}
+        <span className="inline-block w-[5.5rem] shrink-0 text-xs text-shell-muted">
+          {selectedNoteIds.size > 0 ? (
+            <>
+              <span className="font-medium text-shell-text">{selectedNoteIds.size}</span> selected
+            </>
+          ) : (
+            '\u00A0'
+          )}
+        </span>
       </div>
 
-      <div className="flex flex-1 justify-center">
-        <TransportBar
-          songId={songId!}
-          bpm={song?.bpm ?? 120}
-          canEdit={canEdit}
-        />
-      </div>
+      <TransportBar
+        songId={songId!}
+        bpm={song?.bpm ?? 120}
+        canEdit={canEdit}
+      />
 
-      <div className="ml-auto shrink-0">
-        {!validationData ? null : errCount === 0 && warnCount === 0 ? (
-          <span className="text-xs text-green-500">✓ Valid</span>
+      <div className="flex w-28 shrink-0 items-center justify-end justify-self-end text-xs">
+        {!validationData ? (
+          <span aria-hidden="true">&nbsp;</span>
+        ) : errCount === 0 && warnCount === 0 ? (
+          <span className="text-green-500">✓ Valid</span>
         ) : (
-          <span className="flex items-center gap-2 text-xs">
-            {errCount > 0 && <span className="bottombar-errors">{errCount} err</span>}
-            {warnCount > 0 && <span className="bottombar-warnings">{warnCount} warn</span>}
+          <span className="flex items-center justify-end gap-2">
+            {errCount > 0 && <span className="bottombar-errors tabular-nums">{errCount} err</span>}
+            {warnCount > 0 && <span className="bottombar-warnings tabular-nums">{warnCount} warn</span>}
           </span>
         )}
       </div>

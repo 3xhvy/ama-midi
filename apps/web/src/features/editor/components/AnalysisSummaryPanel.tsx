@@ -1,13 +1,11 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { QuestionMarkCircledIcon } from '@radix-ui/react-icons'
 import { analyzeChart, SongDifficultyEnum } from '@ama-midi/shared'
 import type { Note } from '@ama-midi/shared'
-import { Badge, Tooltip } from '../../../components/ui'
+import { Badge } from '../../../components/ui'
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue'
 import { SectionTimeline } from '../../analysis/SectionTimeline'
 import {
-  analysisHelpText,
   analysisReviewStatus,
   formatChartSpeedLabel,
   mainReviewReason,
@@ -62,19 +60,7 @@ export function AnalysisSummaryPanel({
     }>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-xs text-shell-muted">Difficulty</span>
-            <Tooltip content={analysisHelpText} side="top" className="max-w-64 leading-relaxed">
-              <span
-                role="button"
-                tabIndex={0}
-                aria-label="What does analysis mean?"
-                className="inline-flex rounded-sm text-shell-muted hover:text-shell-text"
-              >
-                <QuestionMarkCircledIcon className="h-3.5 w-3.5" />
-              </span>
-            </Tooltip>
-          </div>
+          <span className="truncate text-xs text-shell-muted">Difficulty</span>
           <span className="shrink-0 text-[11px] text-shell-muted">
             {formatChartSpeedLabel(speedMultiplier)}
           </span>

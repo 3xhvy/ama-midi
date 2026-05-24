@@ -1,6 +1,8 @@
 import { useDeleteSection } from '../../sections/useSections'
 import { useEditorStore } from '../../../store/editor.store'
 import type { SectionMarker } from '@ama-midi/shared'
+import { PanelSectionHeader } from './PanelSectionHeader'
+import { sectionsPanelHelp } from './panel-section-tooltips'
 
 interface Props {
   songId:   string
@@ -18,7 +20,7 @@ export function SectionJumpList({ songId, sections }: Props) {
 
   return (
     <div className="px-3 py-2 border-t border-shell-border">
-      <div className="text-xs font-medium text-shell-text uppercase tracking-wide mb-2">Sections</div>
+      <PanelSectionHeader title="Sections" help={sectionsPanelHelp} className="mb-2" />
       {sections.length === 0 ? (
         <p className="text-[10px] text-shell-muted">No sections yet. Click the time axis to add one.</p>
       ) : (

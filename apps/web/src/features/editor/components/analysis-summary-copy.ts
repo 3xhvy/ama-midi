@@ -2,7 +2,7 @@ import { TIER_LIMITS } from '@ama-midi/shared'
 import type { AnalysisWarningDraft, SongDifficulty } from '@ama-midi/shared'
 
 export const analysisHelpText =
-  'Difficulty estimates how demanding the chart feels. Average load is the overall challenge; hardest moment is the peak. Chart speed is how fast notes move during gameplay.'
+  'Live tier and review status for this chart. Average load = overall difficulty; hardest moment = peak. Chart speed is scroll rate in play.'
 
 export function formatChartSpeedLabel(speedMultiplier: number): string {
   return `Chart speed ${speedMultiplier.toFixed(1)}x`

@@ -18,6 +18,8 @@ import {
 } from './pattern-placement'
 import { ConflictReviewModal } from './ConflictReviewModal'
 import { mergeResolutions, patternPreviewToPlacement } from './placement-preview'
+import { PanelSectionHeader } from './PanelSectionHeader'
+import { patternsPanelHelp } from './panel-section-tooltips'
 
 interface Props { songId: string; chartId?: string }
 
@@ -150,7 +152,7 @@ export function PatternPanel({ songId, chartId }: Props) {
 
   return (
     <div data-tour="pattern-panel" className="px-3 py-2 border-t border-shell-border">
-      <div className="text-xs font-medium text-shell-text uppercase tracking-wide mb-2">Patterns</div>
+      <PanelSectionHeader title="Patterns" help={patternsPanelHelp} className="mb-2" />
       {patterns.length === 0 ? (
         <p className="text-[10px] text-shell-muted">
           No patterns yet. Select 2+ notes and{' '}

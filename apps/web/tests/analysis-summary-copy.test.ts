@@ -44,6 +44,6 @@ describe('analysis summary copy', () => {
   })
 
   it('explains chart speed in the help text', () => {
-    assert.match(analysisHelpText, /Chart speed is how fast notes move during gameplay/)
+    assert.match(analysisHelpText, /Chart speed is scroll rate in play/)
   })
 })
