@@ -1,13 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { cn } from '../../../lib/utils'
 import { toast } from 'sonner'
-import { HOLD_DRAG_THRESHOLD_PX } from '@ama-midi/shared'
+import { HOLD_DRAG_THRESHOLD_PX, trackColor } from '@ama-midi/shared'
 import { useEditorStore } from '../../../store/editor.store'
 import { useNotes, useCreateNote, useDeleteNote } from '../../notes/useNotes'
 import { useAuthStore } from '../../../store/auth.store'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../../auth/api'
-import { xToTrack, yToTime, timeToY, trackToX, getVisibleTimeGridLines, resolveLayoutGridWidth, MIN_GRID_WIDTH } from '../engine'
+import { xToTrack, yToTime, timeToY, trackToX, trackWidth, getVisibleTimeGridLines, resolveLayoutGridWidth, MIN_GRID_WIDTH } from '../engine'
 import { getTotalHeight, getPrefetchTimeRange } from '../engine'
 import { NoteCircle  } from './NoteCircle'
 import { GhostCircle } from './GhostCircle'
@@ -212,7 +212,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
       setSelectionDrag({ start, current: start, hasMoved: false })
       return
     }
-    if (useEditorStore.getState().activeNoteType !== 'HOLD') return
+    if (useEditorStore.getState().createMode !== 'fast') return
     const rect  = containerRef.current.getBoundingClientRect()
     const scrollLeft = containerRef.current.scrollLeft
     const x     = e.clientX - rect.left + scrollLeft
@@ -301,21 +301,10 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
       if (!effectiveCanEdit) notifyReadOnly()
       return
     }
-    if (useEditorStore.getState().activeNoteType === 'HOLD') return
-    if (createMode === 'popup') {
-      setPopup({ type: 'create', track: ghost.track, time: ghost.time, pos: { x: e.clientX, y: e.clientY } })
-      setGhost(null)
-      return
-    }
-    const activeNoteType = useEditorStore.getState().activeNoteType
+    if (createMode !== 'popup') return
+    setPopup({ type: 'create', track: ghost.track, time: ghost.time, pos: { x: e.clientX, y: e.clientY } })
     setGhost(null)
-    createNote.mutate({
-      track:    ghost.track,
-      time:     ghost.time,
-      noteType: activeNoteType === 'SWIPE' ? 'SWIPE' : 'TAP',
-      title:    `${activeNoteType} ${ghost.track}:${ghost.time}`,
-    })
-  }, [effectiveCanEdit, ghost, createNote, createMode, readOnlyMessage])
+  }, [effectiveCanEdit, ghost, createMode, readOnlyMessage])
 
   const handleNoteClick = useCallback((note: Note, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -422,7 +411,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
         <div ref={trackAreaRef} className="relative flex-1 min-h-0 overflow-hidden">
           <div
             ref={containerRef}
-            className={`overflow-y-auto overflow-x-auto w-full h-full select-none [scrollbar-gutter:stable] ${effectiveCanEdit ? 'cursor-crosshair' : 'cursor-not-allowed'}`}
+            className={`overflow-y-auto overflow-x-auto w-full h-full select-none [scrollbar-gutter:stable] ${effectiveCanEdit ? 'cursor-ns-resize' : 'cursor-not-allowed'}`}
             onScroll={handleScroll}
             onMouseDownCapture={(e) => {
               if (e.shiftKey) {
@@ -518,14 +507,17 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
               const startY = timeToY(drag.start.time, pxPerSecond)
               const px     = Math.max(HOLD_DRAG_THRESHOLD_PX, drag.currentY - drag.start.y)
               const x      = trackToX(drag.start.track, layoutGridWidth)
+              const tw     = trackWidth(layoutGridWidth)
+              const color  = trackColor(drag.start.track)
               return (
                 <div
-                  className="absolute rounded-sm bg-primary/40 pointer-events-none"
+                  className="absolute rounded-sm pointer-events-none"
                   style={{
                     left:   x + tw / 3,
                     top:    startY,
                     width:  tw / 3,
                     height: px,
+                    backgroundColor: `${color}66`,
                   }}
                 />
               )
@@ -533,7 +525,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
 
             {visibleNotes.length === 0 && viewMode === 'composer' && effectiveCanEdit && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <p className="text-sm text-canvas-muted">Click anywhere to place your first note</p>
+                <p className="text-sm text-canvas-muted">Click for tap · drag down for hold</p>
               </div>
             )}
 
