@@ -208,6 +208,13 @@ export const PRODUCT_TOUR_STEPS: TourStep[] = [
   },
   {
     phase: 'editor',
+    target: 'multi-select-bar',
+    route: (ctx) => editorRoute(ctx) ?? '/',
+    prepare: setTourDemo('multi-select-actions'),
+    message: 'Multi-select actions — choose multiple notes to unlock Improve pattern, Repeat, Save as Pattern, Copy to, Delete, and quick deselect actions.',
+  },
+  {
+    phase: 'editor',
     target: 'save-pattern-modal',
     route: (ctx) => editorRoute(ctx) ?? '/',
     prepare: setTourDemo('save-pattern'),

@@ -8,6 +8,7 @@ interface StartOptions {
 
 export type ProductTourDemoModal =
   | null
+  | 'multi-select-actions'
   | 'save-pattern'
   | 'repeat'
   | 'paste-pattern'

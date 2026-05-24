@@ -1,10 +1,26 @@
 import { Button } from '../../../components/ui'
 import { EditorModalCompact, EditorModalOverlay } from './EditorModal'
 import { useProductTourStore } from '../../onboarding/product-tour.store'
+import { MultiSelectBar } from './MultiSelectBar'
 
 export function TourDemoModals() {
   const demoModal = useProductTourStore((s) => s.demoModal)
   if (!demoModal) return null
+
+  if (demoModal === 'multi-select-actions') {
+    return (
+      <MultiSelectBar
+        count={4}
+        canEdit
+        onImprovePattern={() => {}}
+        onRepeat={() => {}}
+        onSavePattern={() => {}}
+        onCopyTo={() => {}}
+        onDelete={() => {}}
+        onDeselect={() => {}}
+      />
+    )
+  }
 
   return (
     <EditorModalOverlay onClick={() => {}}>
