@@ -22,7 +22,7 @@ export function EditorShell({
   const isTablet = useIsTablet()
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-shell-bg">
+    <div className="editor-chrome-shell flex flex-col h-screen overflow-hidden">
       <header className="editor-toolbar shrink-0 flex flex-col px-4">
         {topBar}
       </header>
@@ -32,7 +32,7 @@ export function EditorShell({
         {/* Desktop left panel — always mounted, width slides */}
         {!isMobile && (
           <aside
-            className="shrink-0 border-r border-shell-border bg-shell-surface overflow-y-auto overflow-x-hidden"
+            className="editor-chrome-panel shrink-0 border-r overflow-y-auto overflow-x-hidden"
             style={{
               width: leftCollapsed ? 0 : PANEL_WIDTHS.left,
               transition: 'width 250ms ease',
@@ -46,14 +46,7 @@ export function EditorShell({
 
         {/* Left separator */}
         {!isMobile && !leftCollapsed && (
-          <div
-            className="shrink-0 self-stretch"
-            style={{
-              width: 2,
-              background: 'linear-gradient(180deg, transparent, var(--color-primary) 30%, var(--color-primary) 70%, transparent)',
-              opacity: 0.20,
-            }}
-          />
+          <div className="shrink-0 self-stretch w-px bg-chrome-border/50" />
         )}
 
         <main className="flex-1 overflow-hidden bg-canvas-bg flex flex-col min-h-0">
@@ -62,20 +55,13 @@ export function EditorShell({
 
         {/* Right separator */}
         {!isMobile && !isTablet && !rightCollapsed && (
-          <div
-            className="shrink-0 self-stretch"
-            style={{
-              width: 2,
-              background: 'linear-gradient(180deg, transparent, var(--color-primary) 30%, var(--color-primary) 70%, transparent)',
-              opacity: 0.20,
-            }}
-          />
+          <div className="shrink-0 self-stretch w-px bg-chrome-border/50" />
         )}
 
         {/* Desktop right panel — always mounted, width slides */}
         {!isMobile && !isTablet && (
           <aside
-            className="shrink-0 flex flex-col border-l border-shell-border bg-shell-surface overflow-hidden"
+            className="editor-chrome-panel shrink-0 flex flex-col border-l overflow-hidden"
             style={{
               width: rightCollapsed ? 0 : PANEL_WIDTHS.right,
               transition: 'width 250ms ease',
@@ -90,7 +76,7 @@ export function EditorShell({
         {/* Tablet right panel — overlay drawer, slides from right */}
         {isTablet && (
           <aside
-            className="absolute top-0 right-0 h-full flex flex-col border-l border-shell-border bg-shell-surface overflow-hidden shadow-lg z-40"
+            className="editor-chrome-panel absolute top-0 right-0 h-full flex flex-col border-l overflow-hidden shadow-lg z-40"
             style={{
               width: PANEL_WIDTHS.right,
               transform: rightCollapsed ? 'translateX(100%)' : 'translateX(0)',
@@ -112,7 +98,7 @@ export function EditorShell({
             }}
           >
             <aside
-              className="w-[280px] h-full bg-shell-surface border-r border-shell-border overflow-y-auto shadow-lg"
+              className="editor-chrome-panel w-[280px] h-full border-r overflow-y-auto shadow-lg"
               style={{
                 transform: leftCollapsed ? 'translateX(-100%)' : 'translateX(0)',
                 transition: 'transform 250ms ease',
@@ -150,7 +136,7 @@ export function EditorShell({
               onClick={onRightToggle}
             />
             <aside
-              className="w-[280px] h-full flex flex-col bg-shell-surface border-l border-shell-border overflow-hidden shadow-lg"
+              className="editor-chrome-panel w-[280px] h-full flex flex-col border-l overflow-hidden shadow-lg"
               style={{
                 transform: rightCollapsed ? 'translateX(100%)' : 'translateX(0)',
                 transition: 'transform 250ms ease',
@@ -162,7 +148,7 @@ export function EditorShell({
         )}
       </div>
 
-      <footer className="shrink-0 flex items-center border-t border-shell-border bg-shell-surface px-4" style={{ height: BOTTOMBAR_HEIGHT }}>
+      <footer className="editor-chrome-footer shrink-0 flex items-center border-t px-4" style={{ height: BOTTOMBAR_HEIGHT }}>
         {bottomBar}
       </footer>
     </div>

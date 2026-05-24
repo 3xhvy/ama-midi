@@ -202,10 +202,10 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
 
   return (
     <>
-      <div className="-mx-4 flex w-auto items-center justify-between gap-3 border-t border-primary/30 bg-primary/10 px-4 py-2">
-        <div className="min-w-0 text-xs text-shell-text">
+      <div className="editor-chrome-bar -mx-4 flex w-auto items-center justify-between gap-3 border-t px-4 py-2">
+        <div className="min-w-0 text-xs text-chrome-text">
           <span className="font-medium">AI chart preview</span>
-          <span className="ml-2 text-shell-muted">
+          <span className="ml-2 text-chrome-muted">
             {notes.length} notes
             {(sections?.length ?? 0) > 0 ? ` · ${sections?.length} sections` : ''}
             {replaceExisting

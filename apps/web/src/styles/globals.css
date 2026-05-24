@@ -128,6 +128,14 @@
   --shell-muted: var(--color-text-secondary);
   --shell-tertiary: var(--color-text-tertiary);
 
+  /* Chrome aliases (light) */
+  --chrome-bg: var(--shell-bg);
+  --chrome-surface: var(--shell-surface);
+  --chrome-border: var(--shell-border);
+  --chrome-border-strong: var(--color-border-strong);
+  --chrome-text: var(--shell-text);
+  --chrome-muted: var(--shell-muted);
+
   /* Canvas tokens — alias to existing editor dark-zone vars */
   --canvas-bg: var(--color-editor-bg);
   --canvas-surface: var(--color-editor-surface);
@@ -153,16 +161,25 @@
 
 .dark {
   --shell-bg: #13111E;
-  --shell-surface: #181628;
-  --shell-border: #2D2847;
-  --shell-text: #E2DEFF;
-  --shell-muted: #6B6585;
-  --shell-tertiary: #4A4560;
+  --shell-surface: #12101c;
+  --shell-border: rgba(180, 175, 255, 0.14);
+  --shell-text: #f4f2ff;
+  --shell-muted: rgba(244, 242, 255, 0.55);
+  --shell-tertiary: rgba(244, 242, 255, 0.38);
+
+  /* App + editor chrome — match editor popup surfaces; canvas stays #13111E */
+  --chrome-bg: #13111E;
+  --chrome-surface: #12101c;
+  --chrome-surface-bg: linear-gradient(165deg, #141122 0%, #0e0c16 55%, #12101c 100%);
+  --chrome-border: rgba(180, 175, 255, 0.14);
+  --chrome-border-strong: rgba(180, 175, 255, 0.22);
+  --chrome-text: #f4f2ff;
+  --chrome-muted: rgba(244, 242, 255, 0.55);
 
   /* Modal tokens (dark) */
   --modal-bg:                  #252040;
   --modal-border:              rgba(255, 255, 255, 0.08);
-  --modal-shadow:              0 24px 64px rgba(0,0,0,0.64), 0 0 0 1px rgba(108,99,255,0.18);
+  --modal-shadow:              0 20px 48px rgba(0, 0, 0, 0.64), 0 0 0 1px rgba(180, 175, 255, 0.08);
   --modal-overlay:             rgba(10, 9, 22, 0.72);
   --modal-text:                rgba(255, 255, 255, 0.90);
   --modal-muted:               rgba(255, 255, 255, 0.55);
@@ -214,13 +231,13 @@
   --panel-tab: var(--shell-muted);
   --panel-tab-active: var(--shell-text);
 
-  /* Editor toolbar — dark recessed chrome */
-  --toolbar-bg: var(--color-editor-bg);
-  --toolbar-border: rgba(255, 255, 255, 0.06);
-  --toolbar-text: rgba(255, 255, 255, 0.88);
-  --toolbar-muted: rgba(255, 255, 255, 0.42);
-  --toolbar-faint: rgba(255, 255, 255, 0.28);
-  --toolbar-btn-border: rgba(255, 255, 255, 0.14);
+  /* Editor toolbar + chrome bars */
+  --toolbar-bg: #141122;
+  --toolbar-border: rgba(180, 175, 255, 0.14);
+  --toolbar-text: #f4f2ff;
+  --toolbar-muted: rgba(244, 242, 255, 0.55);
+  --toolbar-faint: rgba(244, 242, 255, 0.32);
+  --toolbar-btn-border: rgba(180, 175, 255, 0.18);
 
   /* AI Assistant — high-contrast dark chrome */
   --ai-accent: #b4afff;
@@ -386,6 +403,53 @@ body {
   color: var(--toolbar-muted);
 }
 
+.dark .editor-toolbar {
+  background: var(--chrome-surface-bg);
+}
+
+/* App + editor chrome surfaces */
+.app-chrome-header {
+  background: var(--chrome-surface, var(--shell-surface));
+  border-color: var(--chrome-border, var(--shell-border));
+}
+
+.editor-chrome-shell {
+  background: var(--chrome-bg, var(--shell-bg));
+}
+
+.editor-chrome-panel {
+  background: var(--chrome-surface, var(--shell-surface));
+  border-color: var(--chrome-border, var(--shell-border));
+}
+
+.dark .editor-chrome-panel {
+  background: var(--chrome-surface-bg);
+}
+
+.editor-chrome-footer {
+  background: var(--chrome-surface, var(--shell-surface));
+  border-color: var(--chrome-border, var(--shell-border));
+}
+
+.dark .editor-chrome-footer {
+  background: var(--chrome-surface-bg);
+}
+
+.editor-chrome-bar {
+  background: var(--chrome-surface-bg);
+  border-color: var(--chrome-border-strong, rgba(180, 175, 255, 0.22));
+}
+
+.dark .editor-chrome-panel .border-shell-border,
+.dark .editor-chrome-footer .border-shell-border {
+  border-color: var(--chrome-border);
+}
+
+.dark .app-chrome-header {
+  background: var(--chrome-surface-bg);
+  border-color: var(--chrome-border);
+}
+
 .editor-toolbar-sep {
   color: var(--toolbar-faint);
   user-select: none;
@@ -430,9 +494,8 @@ body {
 
 .editor-toolbar-suggest:hover:not(:disabled) {
   color: var(--ai-accent-bright, var(--toolbar-text));
-  border-color: rgba(180, 175, 255, 0.45);
-  background: rgba(108, 99, 255, 0.12);
-  box-shadow: 0 0 16px rgba(108, 99, 255, 0.25);
+  border-color: rgba(180, 175, 255, 0.35);
+  background: rgba(108, 99, 255, 0.1);
 }
 
 .editor-toolbar-suggest:disabled {
@@ -512,17 +575,16 @@ body {
 }
 
 @keyframes ai-pulse-ring {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(108, 99, 255, 0.35); }
-  50% { box-shadow: 0 0 0 4px rgba(108, 99, 255, 0.08); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(108, 99, 255, 0.15); }
+  50% { box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.06); }
 }
 
 .dark .editor-modal {
-  background: linear-gradient(165deg, #12101f 0%, #0c0a14 55%, #100e1a 100%) !important;
+  background: var(--chrome-surface-bg) !important;
   border: 1px solid var(--ai-border, rgba(180, 175, 255, 0.22));
   box-shadow:
-    0 0 0 1px rgba(180, 175, 255, 0.12),
-    0 24px 64px rgba(0, 0, 0, 0.72),
-    0 0 48px rgba(108, 99, 255, 0.12) !important;
+    0 0 0 1px rgba(180, 175, 255, 0.08),
+    0 20px 48px rgba(0, 0, 0, 0.65) !important;
   --modal-border: rgba(180, 175, 255, 0.14);
   --modal-text: #f4f2ff;
   --modal-muted: rgba(244, 242, 255, 0.55);
@@ -555,7 +617,7 @@ body {
 }
 
 .dark .editor-modal button.bg-primary:not(:disabled) {
-  box-shadow: 0 0 22px rgba(108, 99, 255, 0.4);
+  box-shadow: none;
 }
 
 .dark .editor-modal button.text-shell-muted:hover:not(:disabled),
@@ -585,10 +647,10 @@ body {
 }
 
 .dark .editor-modal .editor-modal-segment--active {
-  border-color: rgba(180, 175, 255, 0.55);
-  background: rgba(108, 99, 255, 0.22);
+  border-color: rgba(180, 175, 255, 0.45);
+  background: rgba(108, 99, 255, 0.18);
   color: #fff;
-  box-shadow: 0 0 14px rgba(108, 99, 255, 0.25);
+  box-shadow: none;
 }
 
 .dark .editor-modal .editor-modal-chip {
@@ -620,10 +682,8 @@ body {
 .dark .editor-modal .modal-body select:focus,
 .dark .editor-modal .modal-body textarea:focus {
   outline: none;
-  border-color: rgba(180, 175, 255, 0.55) !important;
-  box-shadow:
-    0 0 0 3px rgba(108, 99, 255, 0.18),
-    0 0 24px rgba(108, 99, 255, 0.12);
+  border-color: rgba(180, 175, 255, 0.45) !important;
+  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
 }
 
 .dark .editor-modal .modal-body label {
@@ -648,8 +708,8 @@ body {
   text-transform: uppercase;
   color: var(--ai-accent-bright, #d4d0ff);
   background: rgba(108, 99, 255, 0.18);
-  border: 1px solid rgba(180, 175, 255, 0.35);
-  box-shadow: 0 0 12px rgba(108, 99, 255, 0.2);
+  border: 1px solid rgba(180, 175, 255, 0.28);
+  box-shadow: none;
 }
 
 .ai-assistant-badge-dot {
@@ -677,12 +737,7 @@ body {
 }
 
 .dark .ai-feature-grid::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(108, 99, 255, 0.14), transparent 70%);
-  pointer-events: none;
+  display: none;
 }
 
 .ai-feature-card {
@@ -715,7 +770,7 @@ body {
 
 .ai-feature-card:not(:disabled):hover {
   border-color: var(--ai-card-accent);
-  box-shadow: 0 0 20px var(--ai-card-glow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: none;
   transform: translateY(-1px);
 }
 
@@ -763,7 +818,7 @@ body {
 
 .ai-feature-card:not(:disabled):hover .ai-feature-icon {
   background: color-mix(in srgb, var(--ai-card-accent) 22%, transparent);
-  box-shadow: 0 0 14px var(--ai-card-glow);
+  box-shadow: none;
 }
 
 .ai-feature-title {
@@ -793,7 +848,7 @@ body {
 
 .dark .ai-progress-label--active {
   color: var(--ai-accent-bright, #d4d0ff) !important;
-  text-shadow: 0 0 12px rgba(108, 99, 255, 0.35);
+  text-shadow: none;
 }
 
 .dark .ai-progress-label--done {
@@ -835,10 +890,8 @@ body {
 .dark .editor-modal .ai-flow-input:focus,
 .dark .editor-modal textarea.ai-flow-input:focus {
   outline: none;
-  border-color: rgba(180, 175, 255, 0.55) !important;
-  box-shadow:
-    0 0 0 3px rgba(108, 99, 255, 0.18),
-    0 0 24px rgba(108, 99, 255, 0.12);
+  border-color: rgba(180, 175, 255, 0.45) !important;
+  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
 }
 
 .dark .editor-modal .ai-flow-input option {
@@ -852,9 +905,9 @@ body {
 }
 
 .dark .editor-modal .ai-flow-checkbox:has(.ai-flow-checkbox-input:checked) {
-  border-color: rgba(180, 175, 255, 0.4);
-  background: rgba(108, 99, 255, 0.1);
-  box-shadow: inset 0 0 20px rgba(108, 99, 255, 0.06);
+  border-color: rgba(180, 175, 255, 0.35);
+  background: rgba(108, 99, 255, 0.08);
+  box-shadow: none;
 }
 
 .dark .editor-modal .ai-flow-checkbox-title {
@@ -900,7 +953,7 @@ body {
 }
 
 .dark .editor-modal .ai-flow-primary:not(:disabled) {
-  box-shadow: 0 0 22px rgba(108, 99, 255, 0.4);
+  box-shadow: none;
 }
 
 .dark .editor-modal .ai-flow-primary:disabled {
@@ -943,6 +996,6 @@ body {
 
 .ai-flow-track-btn:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 

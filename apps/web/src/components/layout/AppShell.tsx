@@ -93,7 +93,7 @@ export function AppShell({
   return (
     <div className={cn('min-h-screen bg-shell-bg', className)}>
       {showHeader && (
-        <header className="h-16 border-b border-shell-border bg-shell-surface flex items-center px-6">
+        <header className="app-chrome-header h-16 border-b flex items-center px-6">
           <div className="flex items-center gap-2">
             <AmanotesIcon className="w-7 h-7 shrink-0" />
             <span className="font-semibold text-shell-text">AMA-MIDI</span>

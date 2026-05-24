@@ -32,7 +32,7 @@ export function LiveContextStrip({ playheadTime, notes }: Props) {
   const color = npsColor(nps)
 
   return (
-    <div className="shrink-0 px-3 py-2 border-b border-shell-border bg-shell-surface/50">
+    <div className="editor-chrome-bar shrink-0 border-b px-3 py-2">
       {/* NPS label */}
       <div className="flex items-center justify-end mb-1">
         <span className="text-[10px] font-mono" style={{ color }}>

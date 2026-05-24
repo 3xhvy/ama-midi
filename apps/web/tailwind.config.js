@@ -47,6 +47,13 @@ export default {
           muted:    'var(--shell-muted)',
           tertiary: 'var(--shell-tertiary)',
         },
+        chrome: {
+          bg:      'var(--chrome-bg)',
+          surface: 'var(--chrome-surface)',
+          border:  'var(--chrome-border)',
+          text:    'var(--chrome-text)',
+          muted:   'var(--chrome-muted)',
+        },
         canvas: {
           bg:      'var(--canvas-bg)',
           surface: 'var(--canvas-surface)',
