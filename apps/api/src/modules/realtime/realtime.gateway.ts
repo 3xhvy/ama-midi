@@ -11,6 +11,7 @@ import {
 import { Server, Socket } from 'socket.io'
 import { JwtService } from '@nestjs/jwt'
 import { PrismaService } from '../prisma/prisma.service'
+import { CursorService } from './cursor.service'
 import { createAdapter } from '@socket.io/redis-adapter'
 import Redis from 'ioredis'
 
@@ -24,12 +25,13 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   @WebSocketServer() server!: Server
 
   constructor(
-    private readonly jwtService: JwtService,
-    private readonly prisma: PrismaService,
+    private readonly jwtService:    JwtService,
+    private readonly prisma:        PrismaService,
+    private readonly cursorService: CursorService,
   ) {}
 
   async afterInit(server: Server) {
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
+    const redisUrl  = process.env.REDIS_URL || 'redis://localhost:6379'
     const pubClient = new Redis(redisUrl)
     const subClient = pubClient.duplicate()
     server.adapter(createAdapter(pubClient, subClient))
@@ -40,10 +42,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       const token =
         client.handshake.auth?.token ||
         client.handshake.headers?.authorization?.replace('Bearer ', '')
-      if (!token) {
-        client.disconnect()
-        return
-      }
+      if (!token) { client.disconnect(); return }
       const payload = this.jwtService.verify(token)
       client.data.user = {
         id:         payload.sub,
@@ -60,12 +59,22 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
 
   async handleDisconnect(client: Socket) {
     if (!client.data.user) return
+
     const sessions = await this.prisma.editorSession.findMany({
       where: { userId: client.data.user.id, socketId: client.id },
     })
+
     for (const session of sessions) {
       await this.prisma.editorSession.deleteMany({ where: { id: session.id } })
-      this.server.to(`song:${session.songId}`).emit('user-left', { userId: client.data.user.id })
+
+      const remaining = await this.prisma.editorSession.count({
+        where: { songId: session.songId, userId: client.data.user.id },
+      })
+      if (remaining === 0) {
+        await this.cursorService.deleteCursor(session.songId, client.data.user.id)
+        this.server.to(`song:${session.songId}`).emit('cursor-hidden', { userId: client.data.user.id })
+        this.server.to(`song:${session.songId}`).emit('user-left', { userId: client.data.user.id })
+      }
     }
   }
 
@@ -77,16 +86,15 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     if (!client.data.user) return
     client.join(`song:${data.songId}`)
 
-    // Remove any stale session for this user+song, then create fresh
     await this.prisma.editorSession.deleteMany({
-      where: { songId: data.songId, userId: client.data.user.id },
+      where: { songId: data.songId, userId: client.data.user.id, socketId: client.id },
     })
     await this.prisma.editorSession.create({
       data: { songId: data.songId, userId: client.data.user.id, socketId: client.id },
     })
 
     const sessions = await this.prisma.editorSession.findMany({
-      where: { songId: data.songId },
+      where:   { songId: data.songId },
       include: {
         user: { select: { id: true, name: true, avatarUrl: true, email: true, role: true, title: true, department: true } },
       },
@@ -103,6 +111,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
 
     client.to(`song:${data.songId}`).emit('user-joined', client.data.user)
     client.emit('presence-list', users)
+
+    const cursors = await this.cursorService.getCursors(data.songId)
+    client.emit('cursor-snapshot', { cursors })
   }
 
   @SubscribeMessage('join-project')
@@ -138,24 +149,43 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     if (!client.data.user) return
     client.leave(`song:${data.songId}`)
     await this.prisma.editorSession.deleteMany({
+      where: { songId: data.songId, userId: client.data.user.id, socketId: client.id },
+    })
+    const remaining = await this.prisma.editorSession.count({
       where: { songId: data.songId, userId: client.data.user.id },
     })
-    this.server.to(`song:${data.songId}`).emit('user-left', { userId: client.data.user.id })
+    if (remaining === 0) {
+      await this.cursorService.deleteCursor(data.songId, client.data.user.id)
+      this.server.to(`song:${data.songId}`).emit('cursor-hidden', { userId: client.data.user.id })
+      this.server.to(`song:${data.songId}`).emit('user-left', { userId: client.data.user.id })
+    }
   }
 
   @SubscribeMessage('cursor-move')
-  handleCursorMove(
+  async handleCursorMove(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { songId: string; track: number; time: number },
   ) {
     if (!client.data.user) return
-    client.to(`song:${data.songId}`).emit('cursor-moved', {
+    const cursorData = {
       userId: client.data.user.id,
       name:   client.data.user.name,
       title:  client.data.user.title ?? null,
       track:  data.track,
       time:   data.time,
-    })
+    }
+    await this.cursorService.setCursor(data.songId, client.data.user.id, cursorData)
+    client.to(`song:${data.songId}`).emit('cursor-moved', cursorData)
+  }
+
+  @SubscribeMessage('cursor-hide')
+  async handleCursorHide(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { songId: string },
+  ) {
+    if (!client.data.user) return
+    await this.cursorService.deleteCursor(data.songId, client.data.user.id)
+    client.to(`song:${data.songId}`).emit('cursor-hidden', { userId: client.data.user.id })
   }
 
   broadcastToSong(songId: string, event: string, data: unknown) {
