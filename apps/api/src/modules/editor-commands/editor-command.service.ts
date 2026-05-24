@@ -5,12 +5,15 @@ import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { CommandType, Note, NoteCreatedEvent, NoteDeletedEvent, UndoConflict, UndoPreview } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import type { RecordCommandInput, UndoResolution } from './editor-command.types'
+import { ProjectAccessService } from '../project-access/project-access.service'
+import type { AuthUser } from '@ama-midi/shared'
 
 @Injectable()
 export class EditorCommandService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly access: ProjectAccessService,
   ) {}
 
   record(input: RecordCommandInput) {
@@ -42,6 +45,26 @@ export class EditorCommandService {
 
   findById(id: string) {
     return this.prisma.editorCommand.findUnique({ where: { id } })
+  }
+
+  async findMutations(chartId: string, commandId: string, user: AuthUser) {
+    const command = await this.findById(commandId)
+    if (!command || command.chartId !== chartId) throw new NotFoundException('Command not found')
+
+    await this.access.assertCanViewSong(command.songId, user)
+
+    const rows = await this.prisma.editorEvent.findMany({
+      where: { commandId },
+      orderBy: { createdAt: 'asc' },
+      include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+    })
+
+    return {
+      mutations: rows.map(row => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+      })),
+    }
   }
 
   async previewUndo(chartId: string, userId: string): Promise<UndoPreview> {
@@ -88,7 +111,11 @@ export class EditorCommandService {
       chartId: command.chartId,
       commandType: 'UNDO',
       userId,
-      summary: { targetCommandId: command.id, targetCommandType: command.commandType },
+      summary: {
+        targetCommandId: command.id,
+        targetCommandType: command.commandType,
+        targetSummary: command.summary as Record<string, unknown>,
+      },
       undoable: false,
       isCompensation: true,
     })

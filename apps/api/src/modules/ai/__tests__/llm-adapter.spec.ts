@@ -10,6 +10,7 @@ import { getLLMAdapterClass } from '../ai.module'
 import { OpenAICompatibleAdapter } from '../adapters/openai-compatible.adapter'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { EditorCommandService } from '../../editor-commands/editor-command.service'
 
 const fakeLlm: LLMAdapter = {
   complete: jest.fn(),

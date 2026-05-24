@@ -210,7 +210,8 @@ export class NoteCopyService {
       commandType,
       userId: user.id,
       summary: {
-        noteCount: createdEntries.length,
+        createdCount: createdEntries.length,
+        removedCount: deletedBeforeStates.length,
         operation: request.operation,
         mode: request.mode,
         batchId,

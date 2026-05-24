@@ -170,7 +170,8 @@ export class PatternPasteService {
       commandType: 'PATTERN_PASTED',
       userId: user.id,
       summary: {
-        noteCount: createdEntries.length,
+        createdCount: createdEntries.length,
+        removedCount: deletedBeforeStates.length,
         patternId,
         patternName: pattern.name,
         batchId,

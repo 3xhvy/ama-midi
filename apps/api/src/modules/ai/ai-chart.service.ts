@@ -239,7 +239,7 @@ export class AiChartService {
       chartId,
       commandType: 'AI_NOTES_APPLIED',
       userId: user.id,
-      summary: { noteCount: createdEntries.length, replacedCount: deletedIds.length, batchId, mode: 'replace' },
+      summary: { createdCount: createdEntries.length, removedCount: deletedIds.length, batchId, mode: 'replace' },
     })
 
     this.emitBatchEvents(songId, user.id, batchId, createdEntries, deletedBeforeStates, cmd.id)
@@ -315,7 +315,7 @@ export class AiChartService {
       chartId,
       commandType: 'AI_NOTES_APPLIED',
       userId: user.id,
-      summary: { noteCount: createdEntries.length, batchId, mode: 'merge' },
+      summary: { createdCount: createdEntries.length, removedCount: 0, batchId, mode: 'merge' },
     })
 
     this.emitBatchEvents(songId, user.id, batchId, createdEntries, [], cmd.id)
@@ -436,7 +436,7 @@ export class AiChartService {
       chartId,
       commandType: 'AI_NOTES_APPLIED',
       userId: user.id,
-      summary: { noteCount: createdNotes.length, replacedCount: deletedIds.length, batchId, mode: 'merge-resolutions' },
+      summary: { createdCount: createdNotes.length, removedCount: deletedIds.length, batchId, mode: 'merge-resolutions' },
     })
 
     for (const { noteId, beforeState } of deletedBeforeStates) {

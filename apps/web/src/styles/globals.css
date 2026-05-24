@@ -267,6 +267,35 @@ body {
   to   { transform: translateY(0);   opacity: 1; }
 }
 
+@keyframes history-flash {
+  0%, 100% {
+    transform: scale(1);
+    background-color: transparent;
+  }
+  18% {
+    transform: scale(0.972);
+    background-color: rgba(255, 255, 255, 0.07);
+  }
+  36% {
+    transform: scale(1);
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+  54% {
+    transform: scale(0.982);
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+  72% {
+    transform: scale(1);
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+}
+
+.history-row-highlight {
+  animation: history-flash 2.4s ease-in-out;
+  border-radius: 8px;
+  transform-origin: center;
+}
+
 .note-circle  { animation: note-appear 150ms cubic-bezier(0.34, 1.56, 0.64, 1); }
 .note-ghost   { animation: ghost-pulse 1.5s ease-in-out infinite; }
 .panel-right  { animation: slide-in-right 250ms ease; }

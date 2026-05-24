@@ -3,6 +3,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { EditorCommandService } from '../editor-command.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { ProjectAccessService } from '../../project-access/project-access.service'
 
 describe('EditorCommandService', () => {
   let service: EditorCommandService
@@ -53,6 +54,10 @@ describe('EditorCommandService', () => {
         {
           provide: EventEmitter2,
           useValue: { emit: jest.fn() },
+        },
+        {
+          provide: ProjectAccessService,
+          useValue: { assertCanViewSong: jest.fn() },
         },
       ],
     }).compile()

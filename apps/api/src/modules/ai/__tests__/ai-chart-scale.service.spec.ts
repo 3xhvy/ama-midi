@@ -7,6 +7,7 @@ import { ChartApplyPreviewService } from '../chart-apply-preview.service'
 import { LLM_ADAPTER, type LLMAdapter } from '../adapters/llm-adapter.interface'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { EditorCommandService } from '../../editor-commands/editor-command.service'
 
 const songId = 'song-1'
 const chartId = 'chart-1'

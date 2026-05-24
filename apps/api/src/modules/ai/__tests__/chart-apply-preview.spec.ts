@@ -6,6 +6,7 @@ import { ChartContextService } from '../chart-context.service'
 import { AiChartService } from '../ai-chart.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { EditorCommandService } from '../../editor-commands/editor-command.service'
 import { LLM_ADAPTER } from '../adapters/llm-adapter.interface'
 import type { AuthUser } from '@ama-midi/shared'
 

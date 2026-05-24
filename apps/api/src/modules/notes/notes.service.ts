@@ -46,6 +46,16 @@ function toNote(n: {
   }
 }
 
+function noteCommandSummary(note: Pick<Note, 'track' | 'time' | 'title' | 'noteType' | 'duration'>) {
+  return {
+    track: note.track,
+    time: note.time,
+    title: note.title,
+    noteType: note.noteType,
+    ...(note.duration != null ? { duration: note.duration } : {}),
+  }
+}
+
 @Injectable()
 export class NotesService {
   constructor(
@@ -93,7 +103,7 @@ export class NotesService {
         chartId,
         commandType: 'SINGLE_NOTE_CREATED',
         userId: user.id,
-        summary: { track: note.track, time: note.time, title: note.title },
+        summary: noteCommandSummary(note),
       })
 
       this.eventEmitter.emit(NOTE_EVENTS.CREATED, {
@@ -135,7 +145,7 @@ export class NotesService {
       chartId,
       commandType: 'SINGLE_NOTE_DELETED',
       userId: user.id,
-      summary: { track: note.track, time: note.time, title: note.title },
+      summary: noteCommandSummary(toNote(note)),
     })
 
     this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
@@ -182,7 +192,7 @@ export class NotesService {
       chartId: existing.chartId,
       commandType: 'SINGLE_NOTE_UPDATED',
       userId: user.id,
-      summary: { noteId: note.id, track: note.track, time: note.time },
+      summary: { noteId: note.id, ...noteCommandSummary(note) },
     })
 
     this.eventEmitter.emit(NOTE_EVENTS.UPDATED, {
