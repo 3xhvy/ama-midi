@@ -77,4 +77,27 @@ describe('UndoService', () => {
 
     await expect(service.undo('chart-1', { id: 'user-1' } as any)).rejects.toBeInstanceOf(NotFoundException)
   })
+
+  it('deletes a section created by the latest event', async () => {
+    prisma.songChart.findUnique.mockResolvedValue({ songId: 'song-1' })
+    editorEvents.findLatestUndoable.mockResolvedValue({
+      id: 'event-section-created',
+      songId: 'song-1',
+      chartId: null,
+      entityType: 'SECTION',
+      entityId: 'section-1',
+      eventType: 'SECTION_CREATED',
+      afterState: { id: 'section-1', songId: 'song-1', label: 'Verse', time: 1, color: '#fff' },
+      batchId: null,
+    })
+    prisma.sectionMarker.findUnique.mockResolvedValue({ id: 'section-1', songId: 'song-1' })
+    prisma.sectionMarker.delete.mockResolvedValue({ id: 'section-1' })
+    editorEvents.record.mockResolvedValue({ id: 'undo-section-event' })
+    const service = new UndoService(prisma as any, editorEvents as any, events as any, access as any, analyze as any)
+
+    await service.undo('chart-1', { id: 'user-1', role: 'ADMIN' } as any)
+
+    expect(prisma.sectionMarker.delete).toHaveBeenCalledWith({ where: { id: 'section-1' } })
+    expect(editorEvents.markUndone).toHaveBeenCalledWith(['event-section-created'], 'undo-section-event')
+  })
 })

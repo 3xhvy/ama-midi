@@ -91,6 +91,89 @@ export class UndoService {
         undoEventId = undoEvent.id
         undoneIds.push(event.id)
       }
+
+      if (event.entityType === 'SECTION' && event.eventType === 'SECTION_CREATED') {
+        if (!event.entityId) continue
+        const existing = await this.prisma.sectionMarker.findUnique({ where: { id: event.entityId } })
+        if (!existing) continue
+        await this.prisma.sectionMarker.delete({ where: { id: event.entityId } })
+        const undoEvent = await this.editorEvents.record({
+          songId: event.songId,
+          entityType: 'SECTION',
+          entityId: event.entityId,
+          eventType: 'SECTION_DELETED',
+          userId: user.id,
+          beforeState: event.afterState as object,
+          batchId: undoBatchId,
+          undoable: true,
+        })
+        undoEventId = undoEvent.id
+        undoneIds.push(event.id)
+      }
+
+      if (event.entityType === 'SECTION' && event.eventType === 'SECTION_DELETED') {
+        const before = event.beforeState as {
+          id?: string
+          songId?: string
+          time?: number
+          label?: string
+          color?: string
+          createdBy?: string
+        } | null
+        if (!before?.songId || before.time == null || !before.label) continue
+        const restored = await this.prisma.sectionMarker.create({
+          data: {
+            songId: before.songId,
+            time: before.time,
+            label: before.label,
+            color: before.color ?? '#6C63FF',
+            createdBy: before.createdBy ?? user.id,
+          },
+        })
+        const undoEvent = await this.editorEvents.record({
+          songId: event.songId,
+          entityType: 'SECTION',
+          entityId: restored.id,
+          eventType: 'SECTION_CREATED',
+          userId: user.id,
+          afterState: restored as object,
+          batchId: undoBatchId,
+          undoable: true,
+        })
+        undoEventId = undoEvent.id
+        undoneIds.push(event.id)
+      }
+
+      if (event.entityType === 'SECTION' && event.eventType === 'SECTION_UPDATED') {
+        const before = event.beforeState as {
+          id?: string
+          label?: string
+          color?: string
+        } | null
+        if (!event.entityId || !before) continue
+        const existing = await this.prisma.sectionMarker.findUnique({ where: { id: event.entityId } })
+        if (!existing) continue
+        const updated = await this.prisma.sectionMarker.update({
+          where: { id: event.entityId },
+          data: {
+            label: before.label,
+            color: before.color,
+          },
+        })
+        const undoEvent = await this.editorEvents.record({
+          songId: event.songId,
+          entityType: 'SECTION',
+          entityId: event.entityId,
+          eventType: 'SECTION_UPDATED',
+          userId: user.id,
+          beforeState: existing as object,
+          afterState: updated as object,
+          batchId: undoBatchId,
+          undoable: true,
+        })
+        undoEventId = undoEvent.id
+        undoneIds.push(event.id)
+      }
     }
 
     if (!undoEventId || undoneIds.length === 0) throw new NotFoundException('Nothing to undo')
