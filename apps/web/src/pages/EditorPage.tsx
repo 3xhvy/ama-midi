@@ -112,7 +112,7 @@ export function EditorPage() {
   const updateNote = useUpdateNote(chartId)
   const { data: allNotes = [] } = useNotes(chartId)
   const { data: sections = [] } = useSections(songId!)
-  const { presenceList, cursors, emitCursorMove } = useSocket(songId!, chartId, projectId)
+  const { presenceList, isConnected, cursors, emitCursorMove, emitCursorHide } = useSocket(songId!, chartId, projectId)
   const token = useAuthStore((s) => s.token)
 
   const { data: song } = useQuery<Song>({
@@ -224,6 +224,7 @@ export function EditorPage() {
         bpm={song?.bpm ?? 120}
         song={song}
         presenceList={presenceList}
+        isConnected={isConnected}
         onShowShortcuts={() => setShowShortcuts(true)}
         leftCollapsed={leftCollapsed}
         rightCollapsed={rightCollapsed}
@@ -502,6 +503,7 @@ export function EditorPage() {
             onNoteSelected={handleNoteSelected}
             cursors={cursors}
             onCursorMove={emitCursorMove}
+            onCursorHide={emitCursorHide}
           />
         </div>
       </EditorShell>

@@ -20,6 +20,7 @@ import { EditorBreadcrumb } from '../../navigation/EditorBreadcrumb'
 import { ChartSwitcher } from '../../charts/ChartSwitcher'
 import { ReadOnlyBanner } from './ReadOnlyBanner'
 import { AiSuggestMenu } from './AiSuggestMenu'
+import { PresenceBar } from '../../collaboration/PresenceBar'
 import type { Song, SongChart } from '@ama-midi/shared'
 
 function PanelLeftIcon({ open }: { open: boolean }) {
@@ -59,6 +60,7 @@ interface ToolbarProps {
   bpm:             number
   song?:           Song
   presenceList:    { id: string; name: string; avatarUrl?: string; title?: string | null; department?: string | null }[]
+  isConnected?:    boolean
   onShowShortcuts: () => void
   leftCollapsed:   boolean
   rightCollapsed:  boolean
@@ -70,6 +72,7 @@ export function Toolbar({
   projectId, projectName, songId, songName, songStatus,
   charts, activeChartId,
   canEdit, readOnlyMessage, bpm, song,
+  presenceList, isConnected = false,
   onShowShortcuts,
   leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
 }: ToolbarProps) {
@@ -226,6 +229,13 @@ export function Toolbar({
         >
           <PanelRightIcon open={!rightCollapsed} />
         </button>
+
+        <PresenceBar users={presenceList} />
+
+        <div
+          className={`w-2 h-2 rounded-full shrink-0 ${isConnected ? 'bg-green-400' : 'bg-amber-400 animate-pulse'}`}
+          title={isConnected ? 'Connected' : 'Reconnecting...'}
+        />
 
         {user && (
           <div className="ml-1 pl-1">

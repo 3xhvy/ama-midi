@@ -38,3 +38,23 @@ export const SYNC_STATUS_COLORS = {
   outdated: { color: '#EF4444', bg: '#FEF2F2', label: 'Outdated' },
   draft: { color: '#6B6585', bg: '#F3F0F9', label: 'Draft' },
 } as const
+
+const USER_COLOR_PALETTE = [
+  '#6C63FF',
+  '#10B981',
+  '#F59E0B',
+  '#EF4444',
+  '#06B6D4',
+  '#EC4899',
+  '#8B5CF6',
+  '#3B82F6',
+] as const
+
+/**
+ * Deterministic color for a user. Pass userId (not name) for consistency.
+ */
+export function getColorFromName(id: string): string {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash)
+  return USER_COLOR_PALETTE[Math.abs(hash) % USER_COLOR_PALETTE.length]
+}

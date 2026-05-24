@@ -1,4 +1,4 @@
-import { getColorFromName } from '../../lib/utils'
+import { getColorFromName } from '@ama-midi/shared'
 import { trackToX, timeToY, trackWidth } from '../editor/engine'
 import type { CursorData } from './useSocket'
 
