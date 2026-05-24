@@ -24,3 +24,25 @@ export function useAddProjectMember(projectId?: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['project-members', projectId] }),
   })
 }
+
+export function useUpdateProjectMember(projectId?: string) {
+  const token = useAuthStore((s) => s.token)
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: {
+      memberId: string
+      permission: ProjectPermission
+      songScope: SongScope
+      songIds?: string[]
+    }) =>
+      apiClient(token)<ProjectMember>(`/projects/${projectId}/members/${body.memberId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          permission: body.permission,
+          songScope: body.songScope,
+          songIds: body.songIds,
+        }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-members', projectId] }),
+  })
+}

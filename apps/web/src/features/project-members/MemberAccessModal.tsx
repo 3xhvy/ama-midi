@@ -2,19 +2,8 @@ import { useMemo, useState } from 'react'
 import { Button, Modal, SearchSelect, ToggleGroup } from '../../components/ui'
 import { useAddProjectMember } from './useProjectMembers'
 import { useUserSearch } from './useUserSearch'
+import { MEMBER_PERMISSION_OPTIONS, MEMBER_SCOPE_OPTIONS } from './member-access-options'
 import type { ProjectPermission, Song, SongScope } from '@ama-midi/shared'
-
-const PERMISSIONS = [
-  { value: 'READ', label: 'Read' },
-  { value: 'EDIT', label: 'Edit' },
-  { value: 'ADMIN', label: 'Admin' },
-]
-
-const SCOPES = [
-  { value: 'ALL_SONGS', label: 'All' },
-  { value: 'SELECTED_SONGS', label: 'Selected' },
-  { value: 'NO_SONGS', label: 'None' },
-]
 
 export function MemberAccessModal({
   projectId,
@@ -29,7 +18,7 @@ export function MemberAccessModal({
 }) {
   const addMember = useAddProjectMember(projectId)
   const [userQuery, setUserQuery] = useState('')
-  const { data: users = [], isLoading: usersLoading } = useUserSearch(userQuery)
+  const { data: users = [], isLoading: usersLoading } = useUserSearch(projectId, userQuery)
   const [userId, setUserId] = useState('')
   const [permission, setPermission] = useState<ProjectPermission>('READ')
   const [songScope, setSongScope] = useState<SongScope>('NO_SONGS')
@@ -90,11 +79,11 @@ export function MemberAccessModal({
             </div>
             <div className="space-y-1.5">
               <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>Permission</span>
-              <ToggleGroup items={PERMISSIONS} value={permission} onValueChange={(v) => setPermission(v as ProjectPermission)} />
+              <ToggleGroup items={[...MEMBER_PERMISSION_OPTIONS]} value={permission} onValueChange={(v) => setPermission(v as ProjectPermission)} />
             </div>
             <div className="space-y-1.5">
               <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>Song scope</span>
-              <ToggleGroup items={SCOPES} value={songScope} onValueChange={(v) => setSongScope(v as SongScope)} />
+              <ToggleGroup items={[...MEMBER_SCOPE_OPTIONS]} value={songScope} onValueChange={(v) => setSongScope(v as SongScope)} />
             </div>
             {songScope === 'SELECTED_SONGS' && (
               <div className="space-y-1.5">
