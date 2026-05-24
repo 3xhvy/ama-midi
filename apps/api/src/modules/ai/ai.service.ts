@@ -23,6 +23,8 @@ import {
 } from '@ama-midi/shared'
 import { type AiProgressEmitter, runStep, emitDetail } from './ai-progress.util'
 import { ChartContextService } from './chart-context.service'
+import { ProjectAccessService } from '../project-access/project-access.service'
+import type { AuthUser } from '@ama-midi/shared'
 
 interface RawSuggestion {
   track: number
@@ -59,11 +61,12 @@ export class AiService {
   constructor(
     @Inject(LLM_ADAPTER) private readonly llm: LLMAdapter,
     private readonly chartContext: ChartContextService,
+    private readonly access: ProjectAccessService,
   ) {}
 
   async suggestNotes(
     songId: string,
-    userRole: string,
+    user: AuthUser | string,
     body: {
       chartId: string
       mode: SuggestNotesMode
@@ -75,7 +78,11 @@ export class AiService {
     },
     onProgress?: AiProgressEmitter,
   ): Promise<{ suggestions: RawSuggestion[] }> {
+    const userRole = typeof user === 'string' ? user : user.role
     if (userRole === 'VIEWER') throw new ForbiddenException('VIEWER cannot use AI suggestions')
+    if (typeof user !== 'string') {
+      await this.access.assertCanEditSongChart(songId, user)
+    }
     if (body.mode === 'fill_track' && body.targetTrack == null) {
       throw new BadRequestException('targetTrack is required for fill_track mode')
     }

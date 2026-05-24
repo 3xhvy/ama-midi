@@ -132,7 +132,7 @@ describe('AiController.streamAi', () => {
 
     expect(aiChart.generateChart).toHaveBeenCalledWith(
       songId,
-      composerUser.role,
+      composerUser,
       envelope.payload,
       expect.any(Function),
     )
@@ -203,7 +203,7 @@ describe('AiController.streamAi', () => {
     await controller.streamAi(songId, envelope, makeReq(), res)
 
     const events = parseSseEvents(chunks)
-    expect(events.some((e) => e.type === 'error' && e.message === 'Generation failed')).toBe(true)
+    expect(events.some((e) => e.type === 'error' && e.message === 'AI request failed — try again in a moment.')).toBe(true)
     expect(res.end).toHaveBeenCalled()
   })
 

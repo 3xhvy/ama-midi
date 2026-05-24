@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common'
@@ -34,6 +35,7 @@ import {
   type SongDifficulty,
 } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
+import { mapPrismaToHttpException } from '../../common/prisma-error.util'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { EditorCommandService } from '../editor-commands/editor-command.service'
 import { AI_STREAM_STEPS, type AiProgressEmitter, runStep, emitDetail } from './ai-progress.util'
@@ -55,6 +57,8 @@ const TARGET_NOTE_COUNT: Record<string, number> = {
 
 @Injectable()
 export class AiChartService {
+  private readonly logger = new Logger(AiChartService.name)
+
   constructor(
     @Inject(LLM_ADAPTER) private readonly llm: LLMAdapter,
     private readonly prisma: PrismaService,
@@ -67,11 +71,15 @@ export class AiChartService {
 
   async generateChart(
     songId: string,
-    userRole: string,
+    user: AuthUser | string,
     body: GenerateChartDto,
     onProgress?: AiProgressEmitter,
   ): Promise<GenerateChartResponse> {
+    const userRole = typeof user === 'string' ? user : user.role
     if (userRole === 'VIEWER') throw new ForbiddenException('VIEWER cannot use AI chart generation')
+    if (typeof user !== 'string') {
+      await this.access.assertCanEditSongChart(songId, user)
+    }
 
     const steps = AI_STREAM_STEPS['generate-chart']
 
@@ -116,11 +124,15 @@ export class AiChartService {
 
   async scaleChart(
     songId: string,
-    userRole: string,
+    user: AuthUser | string,
     body: { chartId: string; targetTier: SongDifficulty; instruction?: string; snapMode: SnapMode },
     onProgress?: AiProgressEmitter,
   ): Promise<GenerateChartResponse> {
+    const userRole = typeof user === 'string' ? user : user.role
     if (userRole === 'VIEWER') throw new ForbiddenException('VIEWER cannot use AI chart scaling')
+    if (typeof user !== 'string') {
+      await this.access.assertCanEditSongChart(songId, user)
+    }
 
     const steps = AI_STREAM_STEPS['scale-chart']
 
@@ -300,6 +312,8 @@ export class AiChartService {
             skippedCount++
             continue
           }
+          const mapped = mapPrismaToHttpException(e)
+          if (mapped) throw mapped
           throw e
         }
       }
@@ -621,13 +635,8 @@ export class AiChartService {
       return this.parseChartJson(text || '{}')
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
-      let hint = `AI chart ${operation} failed — try again in a moment.`
-      if (/api[_-]?key|401|403|authentication/i.test(detail)) {
-        hint = 'AI API key is missing or invalid — check ANTHROPIC_API_KEY (or OPENAI_API_KEY) on the API server.'
-      } else if (/insufficient[_-]?quota|quota|rate.?limit|429/i.test(detail)) {
-        hint = 'AI provider quota or rate limit reached — check billing, quota, or choose another configured model/provider.'
-      }
-      throw new ServiceUnavailableException(hint)
+      this.logger.error(`LLM chart ${operation} failed`, detail)
+      throw new ServiceUnavailableException(`AI chart ${operation} failed — try again in a moment.`)
     }
   }
 

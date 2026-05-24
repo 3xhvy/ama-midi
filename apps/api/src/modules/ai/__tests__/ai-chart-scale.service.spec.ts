@@ -229,14 +229,14 @@ describe('AiChartService.scaleChart', () => {
     expect(result).toEqual({ notes: [], sections: [] })
   })
 
-  it('reports provider quota errors clearly', async () => {
+  it('returns a generic message when the LLM provider fails', async () => {
     ;(llm.complete as jest.Mock).mockRejectedValueOnce(new Error('OpenAI-compatible LLM failed: 429 insufficient_quota'))
 
     await expect(service.scaleChart(songId, 'COMPOSER', {
       chartId,
       targetTier: 'NORMAL',
       snapMode: '0.1s',
-    })).rejects.toThrow('AI provider quota or rate limit reached')
+    })).rejects.toThrow('AI chart scale failed — try again in a moment.')
   })
 
   it('uses updateMany (not per-note updates) when replacing existing notes', async () => {

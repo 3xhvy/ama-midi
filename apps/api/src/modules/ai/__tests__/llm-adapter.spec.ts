@@ -23,6 +23,7 @@ describe('AI services LLM adapter injection', () => {
         AiService,
         { provide: LLM_ADAPTER, useValue: fakeLlm },
         { provide: ChartContextService, useValue: {} },
+        { provide: ProjectAccessService, useValue: {} },
       ],
     }).compile()
 
@@ -129,6 +130,6 @@ describe('OpenAICompatibleAdapter', () => {
       system: 'System',
       messages: [{ role: 'user', content: 'Prompt' }],
       maxTokens: 10,
-    })).rejects.toThrow('OpenAI-compatible LLM failed: 401 bad key')
+    })).rejects.toThrow('LLM provider request failed')
   })
 })

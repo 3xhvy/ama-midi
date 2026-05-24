@@ -39,8 +39,9 @@ export async function streamAiRequest(
   })
 
   if (!res.ok) {
-    const errBody = await res.json().catch(() => ({}))
-    throw new Error(typeof errBody.message === 'string' ? errBody.message : res.statusText)
+    const errBody = await res.json().catch(() => ({})) as { message?: string }
+    const fallback = res.status >= 500 ? 'AI request failed — try again in a moment.' : res.statusText
+    throw new Error(typeof errBody.message === 'string' ? errBody.message : fallback)
   }
 
   if (!res.body) throw new Error('No response body')

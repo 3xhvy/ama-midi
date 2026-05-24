@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Param, Post, Req, Res, UseGuards } from '@nestjs/common'
+import { Body, Controller, Headers, Logger, Param, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { AuthGuard } from '@nestjs/passport'
 import { randomUUID } from 'crypto'
@@ -9,6 +9,7 @@ import { SuggestNotesDto } from './dto/suggest-notes.dto'
 import { ApplyChartDto, GenerateChartDto, PreviewChartDto, ScaleChartDto } from './dto/chart.dto'
 import { AiStreamEnvelopeDto } from './dto/ai-stream.dto'
 import { endSse, initSse, writeSse } from './ai-stream.util'
+import { toPublicAiErrorMessage } from '../../common/public-error.util'
 import type {
   ApplyChartResponse,
   AuthUser,
@@ -21,6 +22,8 @@ import type {
 @UseGuards(AuthGuard('jwt'))
 @Throttle({ default: { limit: 10, ttl: 60000 } })
 export class AiController {
+  private readonly logger = new Logger(AiController.name)
+
   constructor(
     private readonly ai: AiService,
     private readonly aiChart: AiChartService,
@@ -33,7 +36,7 @@ export class AiController {
     @Req() req: Request,
   ): Promise<SuggestNotesResponse> {
     const user = req.user as AuthUser
-    return this.ai.suggestNotes(songId, user.role, body)
+    return this.ai.suggestNotes(songId, user, body)
   }
 
   @Post('generate-chart')
@@ -43,7 +46,7 @@ export class AiController {
     @Req() req: Request,
   ): Promise<GenerateChartResponse> {
     const user = req.user as AuthUser
-    return this.aiChart.generateChart(songId, user.role, body)
+    return this.aiChart.generateChart(songId, user, body)
   }
 
   @Post('scale-chart')
@@ -53,7 +56,7 @@ export class AiController {
     @Req() req: Request,
   ): Promise<GenerateChartResponse> {
     const user = req.user as AuthUser
-    return this.aiChart.scaleChart(songId, user.role, body)
+    return this.aiChart.scaleChart(songId, user, body)
   }
 
   @Post('charts/:chartId/preview-chart')
@@ -110,7 +113,7 @@ export class AiController {
       if (envelope.action === 'generate-chart') {
         const payload = await this.aiChart.generateChart(
           songId,
-          user.role,
+          user,
           envelope.payload as GenerateChartDto,
           emitStep,
         )
@@ -118,7 +121,7 @@ export class AiController {
       } else if (envelope.action === 'scale-chart') {
         const payload = await this.aiChart.scaleChart(
           songId,
-          user.role,
+          user,
           envelope.payload as ScaleChartDto,
           emitStep,
         )
@@ -126,7 +129,7 @@ export class AiController {
       } else {
         const payload = await this.ai.suggestNotes(
           songId,
-          user.role,
+          user,
           envelope.payload as SuggestNotesDto,
           emitStep,
         )
@@ -134,8 +137,8 @@ export class AiController {
       }
       endSse(res)
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'AI stream failed'
-      writeSse(res, { type: 'error', runId, message })
+      this.logger.error('AI stream failed', e instanceof Error ? e.stack : String(e))
+      writeSse(res, { type: 'error', runId, message: toPublicAiErrorMessage(e) })
       endSse(res)
     }
   }

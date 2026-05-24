@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import type { LLMAdapter, LLMMessage } from './llm-adapter.interface'
 
 interface OpenAICompatibleResponse {
@@ -7,6 +7,7 @@ interface OpenAICompatibleResponse {
 
 @Injectable()
 export class OpenAICompatibleAdapter implements LLMAdapter {
+  private readonly logger = new Logger(OpenAICompatibleAdapter.name)
   private readonly base = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'
   private readonly apiKey = process.env.OPENAI_API_KEY ?? ''
   private readonly model = process.env.OPENAI_MODEL ?? 'gpt-4o-mini'
@@ -34,7 +35,8 @@ export class OpenAICompatibleAdapter implements LLMAdapter {
 
     if (!res.ok) {
       const text = await res.text()
-      throw new Error(`OpenAI-compatible LLM failed: ${res.status} ${text}`)
+      this.logger.error(`LLM provider error ${res.status}`, text.slice(0, 500))
+      throw new Error('LLM provider request failed')
     }
 
     const data = await res.json() as OpenAICompatibleResponse
