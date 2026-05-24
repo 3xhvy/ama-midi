@@ -376,12 +376,12 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
 
   const NOTE_RADIUS_PX = 10 // half-height of a note circle, prevents edge-clipping
   const visibleRange = getVisibleTimeRange(scrollTop, viewportHeight, pxPerSecond)
-  const visibleNotes = notes.filter(
-    (n) =>
-      !mutedTracks.has(n.track) &&
-      n.time >= visibleRange.timeFrom - NOTE_RADIUS_PX / pxPerSecond &&
-      n.time <= visibleRange.timeTo + NOTE_RADIUS_PX / pxPerSecond,
-  )
+  const visibleNotes = notes.filter((n) => {
+    if (mutedTracks.has(n.track)) return false
+    const noteEnd = n.time + (n.duration ?? 0) // TAP: end == start; HOLD: end == start + duration
+    const pad = NOTE_RADIUS_PX / pxPerSecond
+    return noteEnd >= visibleRange.timeFrom - pad && n.time <= visibleRange.timeTo + pad
+  })
 
   if (isLoading) {
     return (
