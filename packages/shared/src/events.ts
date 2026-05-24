@@ -46,3 +46,42 @@ export interface NotesBatchAppliedPayload {
   deletedIds: string[]
   actorId: string
 }
+
+export type EditorEntityType = 'NOTE' | 'SECTION' | 'CHART'
+
+export type EditorEventType =
+  | 'NOTE_CREATED'
+  | 'NOTE_UPDATED'
+  | 'NOTE_DELETED'
+  | 'SECTION_CREATED'
+  | 'SECTION_UPDATED'
+  | 'SECTION_DELETED'
+  | 'CHART_SWITCHED'
+
+export interface ActivityActor {
+  id: string
+  name: string
+  avatarUrl?: string | null
+}
+
+export interface RealtimeActivityPayload<T> {
+  actor: ActivityActor
+  data: T
+}
+
+export interface EditorEventRow {
+  id: string
+  songId: string
+  chartId?: string | null
+  entityType: EditorEntityType
+  entityId?: string | null
+  eventType: EditorEventType
+  userId: string
+  beforeState: Record<string, unknown> | null
+  afterState: Record<string, unknown> | null
+  batchId?: string | null
+  undoable: boolean
+  undoneByEventId?: string | null
+  createdAt: string
+  user: { id: string; name: string; avatarUrl?: string | null }
+}
