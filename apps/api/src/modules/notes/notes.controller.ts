@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler'
 import { NotesService } from './notes.service'
 import { NoteQueryService } from './note-query.service'
 import { NoteCopyService } from './note-copy.service'
+import { UndoService } from '../undo/undo.service'
 import { CreateNoteDto } from './dto/create-note.dto'
 import { UpdateNoteDto } from './dto/update-note.dto'
 import { NoteCopyApplyDto, NoteCopyPreviewDto } from './dto/note-copy.dto'
@@ -17,6 +18,7 @@ export class NotesController {
     private readonly notes: NotesService,
     private readonly query: NoteQueryService,
     private readonly noteCopy: NoteCopyService,
+    private readonly undoService: UndoService,
   ) {}
 
   @Get('notes')
@@ -83,7 +85,7 @@ export class NotesController {
 
   @Post('events/undo')
   undo(@Param('chartId') chartId: string, @Req() req: Request) {
-    return this.notes.undo(chartId, req.user as AuthUser)
+    return this.undoService.undo(chartId, req.user as AuthUser)
   }
 
   @Get('events')
