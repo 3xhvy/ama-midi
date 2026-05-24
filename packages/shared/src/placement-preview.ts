@@ -63,7 +63,7 @@ export interface PlacementPreview {
 export type ConflictResolutionMap = Record<string, ConflictAction>
 
 export type NoteCopyOperation = 'COPY' | 'MOVE'
-export type NoteCopyTransformMode = 'TIME_SHIFT' | 'TRACK_SHIFT' | 'TRACK_TIME_ANCHOR'
+export type NoteCopyTransformMode = 'TIME_SHIFT' | 'TRACK_SHIFT' | 'TRACK_TIME_ANCHOR' | 'REPEAT_INTERVAL'
 
 export interface NoteCopyPreviewRequest {
   noteIds: string[]
@@ -73,6 +73,8 @@ export interface NoteCopyPreviewRequest {
   targetTrack?: number
   anchorTrack?: number
   anchorTime?: number
+  repeatCount?: number
+  repeatInterval?: number
 }
 
 export interface NoteCopyApplyRequest extends NoteCopyPreviewRequest {

@@ -4,6 +4,9 @@ import {
   BadRequestException,
   UnprocessableEntityException,
 } from '@nestjs/common'
+import { validate } from 'class-validator'
+import { plainToInstance } from 'class-transformer'
+import { NoteCopyPreviewDto } from '../dto/note-copy.dto'
 import { NoteCopyService } from '../note-copy.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
@@ -48,6 +51,31 @@ function makeNote(overrides: Partial<{
     creator: { name: 'Test User', avatarUrl: null },
   }
 }
+
+describe('NoteCopyPreviewDto repeat validation', () => {
+  it('accepts REPEAT_INTERVAL with repeat count and interval', async () => {
+    const dto = plainToInstance(NoteCopyPreviewDto, {
+      noteIds: ['a', 'b'],
+      operation: 'COPY',
+      mode: 'REPEAT_INTERVAL',
+      repeatCount: 3,
+      repeatInterval: 4.0,
+    })
+
+    await expect(validate(dto)).resolves.toHaveLength(0)
+  })
+
+  it('rejects REPEAT_INTERVAL without repeat parameters', async () => {
+    const dto = plainToInstance(NoteCopyPreviewDto, {
+      noteIds: ['a', 'b'],
+      operation: 'COPY',
+      mode: 'REPEAT_INTERVAL',
+    })
+
+    const errors = await validate(dto)
+    expect(errors.map((error) => error.property).sort()).toEqual(['repeatCount', 'repeatInterval'])
+  })
+})
 
 describe('NoteCopyService', () => {
   let service: NoteCopyService

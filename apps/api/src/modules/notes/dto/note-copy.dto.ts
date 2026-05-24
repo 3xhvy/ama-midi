@@ -37,7 +37,7 @@ export class NoteCopyPreviewDto {
   @IsEnum(['COPY', 'MOVE'] as const)
   operation!: NoteCopyOperation
 
-  @IsEnum(['TIME_SHIFT', 'TRACK_SHIFT', 'TRACK_TIME_ANCHOR'] as const)
+  @IsEnum(['TIME_SHIFT', 'TRACK_SHIFT', 'TRACK_TIME_ANCHOR', 'REPEAT_INTERVAL'] as const)
   mode!: NoteCopyTransformMode
 
   @ValidateIf((dto: NoteCopyPreviewDto) => dto.mode === 'TIME_SHIFT')
@@ -61,6 +61,18 @@ export class NoteCopyPreviewDto {
   @Min(0)
   @Max(300)
   anchorTime!: number
+
+  @ValidateIf((dto: NoteCopyPreviewDto) => dto.mode === 'REPEAT_INTERVAL')
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  repeatCount!: number
+
+  @ValidateIf((dto: NoteCopyPreviewDto) => dto.mode === 'REPEAT_INTERVAL')
+  @IsNumber()
+  @Min(0.1)
+  @Max(300)
+  repeatInterval!: number
 }
 
 export class NoteCopyApplyDto extends NoteCopyPreviewDto {
