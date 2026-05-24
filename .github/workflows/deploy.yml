@@ -148,16 +148,23 @@ jobs:
           ssh-keyscan -p "$PORT" -H "$VM_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy to VM
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
         run: |
           printf '%s\n' \
             'set -e' \
             'cd /opt/amanotes' \
-            'echo "Pulling latest images..."' \
+            "export IMAGE_TAG=${DEPLOY_SHA}" \
+            'echo "Deploying IMAGE_TAG=${IMAGE_TAG}"' \
+            'echo "Pulling images for this commit..."' \
             'docker compose -f docker-compose.prod.yml pull' \
             'echo "Running database migrations..."' \
             'docker compose -f docker-compose.prod.yml run --rm --entrypoint prisma api migrate deploy' \
-            'echo "Starting containers..."' \
-            'docker compose -f docker-compose.prod.yml up -d' \
+            'echo "Starting containers (force recreate)..."' \
+            'docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans' \
+            'echo "Running containers:"' \
+            'docker inspect --format="  api: {{.Config.Image}}" ama-midi-api' \
+            'docker inspect --format="  web: {{.Config.Image}}" ama-midi-web' \
             'echo "Cleaning old images..."' \
             'docker image prune -af --filter "until=72h"' \
             'echo "Waiting for API to become healthy..."' \
