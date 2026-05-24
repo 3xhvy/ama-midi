@@ -318,7 +318,9 @@ export class NoteCopyService {
         ? String(request.timeDelta ?? '')
         : request.mode === 'TRACK_SHIFT'
           ? String(request.targetTrack ?? '')
-          : `${request.anchorTrack ?? ''},${request.anchorTime ?? ''}`
+          : request.mode === 'TRACK_TIME_ANCHOR'
+            ? `${request.anchorTrack ?? ''},${request.anchorTime ?? ''}`
+            : `${request.repeatCount ?? ''},${request.repeatInterval ?? ''}`
 
     const payload = [
       sortedIds.join(','),
@@ -337,6 +339,10 @@ export class NoteCopyService {
   ): { slots: IncomingSlot[]; minTime: number; minTrack: number } {
     const minTrack = Math.min(...notes.map((note) => note.track))
     const minTime = Math.min(...notes.map((note) => note.time))
+
+    if (request.mode === 'REPEAT_INTERVAL') {
+      return this.computeRepeatedSlots(notes, request, minTime, minTrack)
+    }
 
     let trackDelta = 0
     let timeDelta = 0
@@ -360,19 +366,7 @@ export class NoteCopyService {
       const note = notes[sourceIndex]
       const track = note.track + trackDelta
       const time = snapTime(note.time + timeDelta)
-
-      if (track < TRACK_MIN || track > TRACK_MAX) {
-        throw new BadRequestException(`Track ${track} is out of range`)
-      }
-      if (time < TIME_MIN || time > TIME_MAX) {
-        throw new BadRequestException(`Time ${time} is out of range`)
-      }
-      if (note.noteType === 'HOLD' && note.duration != null && note.duration > 0) {
-        const endTime = snapTime(time + note.duration)
-        if (endTime > TIME_MAX) {
-          throw new BadRequestException(`HOLD end time ${endTime} is out of range`)
-        }
-      }
+      this.assertDestinationInRange(track, time, note)
 
       slots.push({
         sourceIndex,
@@ -387,6 +381,72 @@ export class NoteCopyService {
     }
 
     return { slots, minTime, minTrack }
+  }
+
+  private computeRepeatedSlots(
+    notes: SelectionNoteRow[],
+    request: NoteCopyPreviewRequest,
+    minTime: number,
+    minTrack: number,
+  ): { slots: IncomingSlot[]; minTime: number; minTrack: number } {
+    if (request.operation !== 'COPY') {
+      throw new BadRequestException('REPEAT_INTERVAL only supports COPY operation')
+    }
+
+    const repeatCount = request.repeatCount ?? 0
+    const repeatInterval = request.repeatInterval ?? 0
+
+    if (!Number.isInteger(repeatCount) || repeatCount < 1) {
+      throw new BadRequestException('repeatCount must be at least 1')
+    }
+    if (!Number.isFinite(repeatInterval) || repeatInterval <= 0) {
+      throw new BadRequestException('repeatInterval must be greater than 0')
+    }
+    if (notes.length * repeatCount > MAX_NOTE_IDS) {
+      throw new BadRequestException(`Cannot create more than ${MAX_NOTE_IDS} notes at once`)
+    }
+
+    const slots: IncomingSlot[] = []
+    for (let repeatIndex = 1; repeatIndex <= repeatCount; repeatIndex++) {
+      for (let sourceIndex = 0; sourceIndex < notes.length; sourceIndex++) {
+        const note = notes[sourceIndex]
+        const track = note.track
+        const time = snapTime(note.time + repeatInterval * repeatIndex)
+        this.assertDestinationInRange(track, time, note)
+
+        slots.push({
+          sourceIndex,
+          sourceNoteId: note.id,
+          track,
+          time,
+          noteType: note.noteType,
+          duration: note.duration,
+          title: note.title,
+          description: note.description,
+        })
+      }
+    }
+
+    return { slots, minTime, minTrack }
+  }
+
+  private assertDestinationInRange(
+    track: number,
+    time: number,
+    note: SelectionNoteRow,
+  ): void {
+    if (track < TRACK_MIN || track > TRACK_MAX) {
+      throw new BadRequestException(`Track ${track} is out of range`)
+    }
+    if (time < TIME_MIN || time > TIME_MAX) {
+      throw new BadRequestException(`Time ${time} is out of range`)
+    }
+    if (note.noteType === 'HOLD' && note.duration != null && note.duration > 0) {
+      const endTime = snapTime(time + note.duration)
+      if (endTime > TIME_MAX) {
+        throw new BadRequestException(`HOLD end time ${endTime} is out of range`)
+      }
+    }
   }
 
   private async buildPreview(

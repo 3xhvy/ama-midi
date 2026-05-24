@@ -241,6 +241,128 @@ describe('NoteCopyService', () => {
         timeDelta: 0,
       }, mockUser)).rejects.toThrow(UnprocessableEntityException)
     })
+
+    it('REPEAT_INTERVAL creates multiple interval copies on the same tracks', async () => {
+      const notes = [
+        makeNote({ id: 'a', track: 1, time: 1.0, title: 'Kick' }),
+        makeNote({ id: 'b', track: 3, time: 1.5, title: 'Snare' }),
+      ]
+      mockSelection(notes)
+
+      const preview = await service.previewCopy(chartId, {
+        noteIds: ['a', 'b'],
+        operation: 'COPY',
+        mode: 'REPEAT_INTERVAL',
+        repeatCount: 3,
+        repeatInterval: 4.0,
+      }, mockUser)
+
+      expect(preview.mode).toBe('REPEAT_INTERVAL')
+      expect(preview.creatable).toHaveLength(6)
+      expect(preview.creatable.map((slot) => ({ id: slot.sourceNoteId, track: slot.track, time: slot.time }))).toEqual([
+        { id: 'a', track: 1, time: 5.0 },
+        { id: 'b', track: 3, time: 5.5 },
+        { id: 'a', track: 1, time: 9.0 },
+        { id: 'b', track: 3, time: 9.5 },
+        { id: 'a', track: 1, time: 13.0 },
+        { id: 'b', track: 3, time: 13.5 },
+      ])
+      expect(preview.summary.totalNotes).toBe(6)
+    })
+
+    it('REPEAT_INTERVAL detects conflicts with existing destination notes', async () => {
+      const notes = [
+        makeNote({ id: 'a', track: 1, time: 1.0 }),
+        makeNote({ id: 'b', track: 2, time: 1.5 }),
+      ]
+      const existing = [makeNote({ id: 'ex-1', track: 1, time: 5.0, title: 'Existing' })]
+      mockSelection(notes, existing)
+
+      const preview = await service.previewCopy(chartId, {
+        noteIds: ['a', 'b'],
+        operation: 'COPY',
+        mode: 'REPEAT_INTERVAL',
+        repeatCount: 1,
+        repeatInterval: 4.0,
+      }, mockUser)
+
+      expect(preview.creatable).toHaveLength(1)
+      expect(preview.conflicts).toHaveLength(1)
+      expect(preview.conflicts[0]).toMatchObject({ conflictId: 'ex-1', sourceNoteId: 'a', track: 1, time: 5.0 })
+    })
+
+    it('REPEAT_INTERVAL rejects MOVE operation', async () => {
+      const notes = [
+        makeNote({ id: 'a', track: 1, time: 1.0 }),
+        makeNote({ id: 'b', track: 2, time: 1.5 }),
+      ]
+      mockSelection(notes)
+
+      await expect(service.previewCopy(chartId, {
+        noteIds: ['a', 'b'],
+        operation: 'MOVE',
+        mode: 'REPEAT_INTERVAL',
+        repeatCount: 2,
+        repeatInterval: 4.0,
+      }, mockUser)).rejects.toThrow(BadRequestException)
+    })
+
+    it('REPEAT_INTERVAL rejects generated slots above the copy cap', async () => {
+      const notes = [
+        makeNote({ id: 'a', track: 1, time: 1.0 }),
+        makeNote({ id: 'b', track: 2, time: 1.5 }),
+      ]
+      mockSelection(notes)
+
+      await expect(service.previewCopy(chartId, {
+        noteIds: ['a', 'b'],
+        operation: 'COPY',
+        mode: 'REPEAT_INTERVAL',
+        repeatCount: 251,
+        repeatInterval: 0.1,
+      }, mockUser)).rejects.toThrow(BadRequestException)
+    })
+
+    it('REPEAT_INTERVAL rejects repeated hold notes that end after timeline max', async () => {
+      const notes = [
+        makeNote({ id: 'a', track: 1, time: 298.0, noteType: 'HOLD', duration: 1.0 }),
+        makeNote({ id: 'b', track: 2, time: 298.5 }),
+      ]
+      mockSelection(notes)
+
+      await expect(service.previewCopy(chartId, {
+        noteIds: ['a', 'b'],
+        operation: 'COPY',
+        mode: 'REPEAT_INTERVAL',
+        repeatCount: 1,
+        repeatInterval: 1.5,
+      }, mockUser)).rejects.toThrow(BadRequestException)
+    })
+
+    it('REPEAT_INTERVAL selection version changes when repeat parameters change', async () => {
+      const notes = [
+        makeNote({ id: 'a', track: 1, time: 1.0 }),
+        makeNote({ id: 'b', track: 2, time: 1.5 }),
+      ]
+      mockSelection(notes)
+
+      const first = await service.previewCopy(chartId, {
+        noteIds: ['a', 'b'],
+        operation: 'COPY',
+        mode: 'REPEAT_INTERVAL',
+        repeatCount: 2,
+        repeatInterval: 4.0,
+      }, mockUser)
+      const second = await service.previewCopy(chartId, {
+        noteIds: ['a', 'b'],
+        operation: 'COPY',
+        mode: 'REPEAT_INTERVAL',
+        repeatCount: 3,
+        repeatInterval: 4.0,
+      }, mockUser)
+
+      expect(first.selectionVersion).not.toBe(second.selectionVersion)
+    })
   })
 
   describe('applyCopy', () => {
