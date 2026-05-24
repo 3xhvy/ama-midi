@@ -1,10 +1,13 @@
-import { Body, Controller, Param, Post, UseGuards, Req } from '@nestjs/common'
+import { Body, Controller, Headers, Param, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
+import { randomUUID } from 'crypto'
+import type { Request, Response } from 'express'
 import { AiService } from './ai.service'
 import { AiChartService } from './ai-chart.service'
 import { SuggestNotesDto } from './dto/suggest-notes.dto'
 import { ApplyChartDto, GenerateChartDto, ScaleChartDto } from './dto/chart.dto'
-import type { Request } from 'express'
+import { AiStreamEnvelopeDto } from './dto/ai-stream.dto'
+import { endSse, initSse, writeSse } from './ai-stream.util'
 import type {
   ApplyChartResponse,
   AuthUser,
@@ -58,5 +61,67 @@ export class AiController {
   ): Promise<ApplyChartResponse> {
     const user = req.user as AuthUser
     return this.aiChart.applyChart(songId, user, body)
+  }
+
+  @Post('ai/stream')
+  async streamAi(
+    @Param('songId') songId: string,
+    @Body() envelope: AiStreamEnvelopeDto,
+    @Req() req: Request,
+    @Res() res: Response,
+    @Headers('accept') accept?: string,
+  ): Promise<void> {
+    const user = req.user as AuthUser
+    const runId = randomUUID()
+
+    if (accept && !accept.includes('text/event-stream')) {
+      res.status(406).json({ message: 'Accept text/event-stream required' })
+      return
+    }
+
+    initSse(res)
+    writeSse(res, { type: 'run', runId, action: envelope.action })
+
+    const emitStep = (step: {
+      type: 'step'
+      stepId: string
+      label: string
+      status: 'active' | 'done' | 'error'
+      detail?: string
+    }) => {
+      writeSse(res, { ...step, runId })
+    }
+
+    try {
+      if (envelope.action === 'generate-chart') {
+        const payload = await this.aiChart.generateChart(
+          songId,
+          user.role,
+          envelope.payload as GenerateChartDto,
+          emitStep,
+        )
+        writeSse(res, { type: 'result', runId, action: 'generate-chart', payload })
+      } else if (envelope.action === 'scale-chart') {
+        const payload = await this.aiChart.scaleChart(
+          songId,
+          user.role,
+          envelope.payload as ScaleChartDto,
+          emitStep,
+        )
+        writeSse(res, { type: 'result', runId, action: 'scale-chart', payload })
+      } else {
+        const payload = await this.ai.suggestNotes(
+          songId,
+          user.role,
+          envelope.payload as SuggestNotesDto,
+        )
+        writeSse(res, { type: 'result', runId, action: 'suggest-notes', payload })
+      }
+      endSse(res)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'AI stream failed'
+      writeSse(res, { type: 'error', runId, message })
+      endSse(res)
+    }
   }
 }

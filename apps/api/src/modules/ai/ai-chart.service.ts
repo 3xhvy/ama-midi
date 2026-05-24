@@ -33,6 +33,7 @@ import {
 } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
+import { AI_STREAM_STEPS, type AiProgressEmitter, runStep } from './ai-progress.util'
 
 const MAX_GENERATED_NOTES = 150
 const NOTE_TYPES = new Set(['TAP', 'HOLD', 'SWIPE'])
@@ -58,20 +59,35 @@ export class AiChartService {
     songId: string,
     userRole: string,
     body: { description: string; snapMode: SnapMode; targetTier?: keyof typeof TARGET_NOTE_COUNT },
+    onProgress?: AiProgressEmitter,
   ): Promise<GenerateChartResponse> {
     if (userRole === 'VIEWER') throw new ForbiddenException('VIEWER cannot use AI chart generation')
 
-    const song = await this.prisma.song.findUnique({ where: { id: songId } })
-    if (!song) throw new NotFoundException('Song not found')
+    const steps = AI_STREAM_STEPS['generate-chart']
 
-    const description = body.description.trim()
-    if (!description) throw new BadRequestException('Description is required')
+    const { song, prompt } = await runStep(steps, 'prepare', onProgress, async () => {
+      const song = await this.prisma.song.findUnique({ where: { id: songId } })
+      if (!song) throw new NotFoundException('Song not found')
 
-    const targetCount = body.targetTier ? TARGET_NOTE_COUNT[body.targetTier] ?? 90 : 90
-    const prompt = this.buildGeneratePrompt(song, description, body.snapMode, targetCount, body.targetTier)
-    const parsed = await this.callClaudeForChart(prompt, 'generate')
-    const notes = this.normalizeGeneratedNotes(parsed.notes, body.snapMode, song.bpm)
+      const description = body.description.trim()
+      if (!description) throw new BadRequestException('Description is required')
+
+      const targetCount = body.targetTier ? TARGET_NOTE_COUNT[body.targetTier] ?? 90 : 90
+      const prompt = this.buildGeneratePrompt(song, description, body.snapMode, targetCount, body.targetTier)
+      return { song, prompt }
+    })
+
+    const parsed = await runStep(steps, 'generate', onProgress, () =>
+      this.callClaudeForChart(prompt, 'generate'),
+    )
+
+    const notes = await runStep(steps, 'normalize', onProgress, async () =>
+      this.normalizeGeneratedNotes(parsed.notes, body.snapMode, song.bpm),
+    )
     const sections = this.normalizeSections(parsed.sections)
+
+    const readyDef = steps.find((s) => s.stepId === 'ready')!
+    onProgress?.({ type: 'step', stepId: 'ready', label: readyDef.label, status: 'done' })
 
     return { notes, sections }
   }
@@ -80,91 +96,108 @@ export class AiChartService {
     songId: string,
     userRole: string,
     body: { chartId: string; targetTier: SongDifficulty; instruction?: string; snapMode: SnapMode },
+    onProgress?: AiProgressEmitter,
   ): Promise<GenerateChartResponse> {
     if (userRole === 'VIEWER') throw new ForbiddenException('VIEWER cannot use AI chart scaling')
 
-    const song = await this.prisma.song.findUnique({ where: { id: songId } })
-    if (!song) throw new NotFoundException('Song not found')
+    const steps = AI_STREAM_STEPS['scale-chart']
 
-    const chart = await this.prisma.songChart.findFirst({
-      where: { id: body.chartId, songId },
-      select: {
-        id: true,
-        name: true,
-        speedMultiplier: true,
-        computedDifficulty: true,
-        averageDifficultyScore: true,
-        peakDifficultyScore: true,
-      },
+    const loaded = await runStep(steps, 'load_chart', onProgress, async () => {
+      const song = await this.prisma.song.findUnique({ where: { id: songId } })
+      if (!song) throw new NotFoundException('Song not found')
+
+      const chart = await this.prisma.songChart.findFirst({
+        where: { id: body.chartId, songId },
+        select: {
+          id: true,
+          name: true,
+          speedMultiplier: true,
+          computedDifficulty: true,
+          averageDifficultyScore: true,
+          peakDifficultyScore: true,
+        },
+      })
+      if (!chart) throw new NotFoundException('Chart not found')
+
+      const [notes, sections, persistedSegments, warnings] = await Promise.all([
+        this.prisma.note.findMany({
+          where: { chartId: chart.id, deletedAt: null },
+          orderBy: [{ time: 'asc' }, { track: 'asc' }],
+          select: { track: true, time: true, noteType: true, duration: true, title: true },
+        }),
+        this.prisma.sectionMarker.findMany({
+          where: { songId },
+          orderBy: { time: 'asc' },
+          select: { time: true, label: true, color: true },
+        }),
+        this.prisma.chartDifficultySegment.findMany({
+          where: { chartId: chart.id },
+          orderBy: { startTimeMs: 'asc' },
+          select: { startTimeMs: true, endTimeMs: true, notesPerSecond: true, difficultyLevel: true, difficultyScore: true },
+        }),
+        this.prisma.chartValidationWarning.findMany({
+          where: { chartId: chart.id },
+          orderBy: [{ severity: 'asc' }, { startTimeMs: 'asc' }],
+          select: { code: true, severity: true, startTimeMs: true, endTimeMs: true, message: true },
+        }),
+      ])
+
+      if (notes.length === 0) throw new BadRequestException('Cannot scale an empty chart')
+
+      const localAnalysis = persistedSegments.length === 0
+        ? analyzeChart({
+            chartId: chart.id,
+            notes: notes.map((n) => ({
+              track: n.track,
+              time: n.time,
+              noteType: n.noteType as 'TAP' | 'HOLD' | 'SWIPE',
+              duration: n.duration,
+            })),
+            bpm: song.bpm,
+            timeSignature: song.timeSignature,
+            speedMultiplier: chart.speedMultiplier,
+          })
+        : null
+      const segments = persistedSegments.length > 0 ? persistedSegments : localAnalysis!.segments.map((s) => ({
+        startTimeMs: s.startTimeMs,
+        endTimeMs: s.endTimeMs,
+        notesPerSecond: s.notesPerSecond,
+        difficultyLevel: s.difficultyLevel,
+        difficultyScore: s.difficultyScore,
+      }))
+
+      return { song, chart, notes, sections, segments, warnings }
     })
-    if (!chart) throw new NotFoundException('Chart not found')
 
-    const [notes, sections, persistedSegments, warnings] = await Promise.all([
-      this.prisma.note.findMany({
-        where: { chartId: chart.id, deletedAt: null },
-        orderBy: [{ time: 'asc' }, { track: 'asc' }],
-        select: { track: true, time: true, noteType: true, duration: true, title: true },
-      }),
-      this.prisma.sectionMarker.findMany({
-        where: { songId },
-        orderBy: { time: 'asc' },
-        select: { time: true, label: true, color: true },
-      }),
-      this.prisma.chartDifficultySegment.findMany({
-        where: { chartId: chart.id },
-        orderBy: { startTimeMs: 'asc' },
-        select: { startTimeMs: true, endTimeMs: true, notesPerSecond: true, difficultyLevel: true, difficultyScore: true },
-      }),
-      this.prisma.chartValidationWarning.findMany({
-        where: { chartId: chart.id },
-        orderBy: [{ severity: 'asc' }, { startTimeMs: 'asc' }],
-        select: { code: true, severity: true, startTimeMs: true, endTimeMs: true, message: true },
-      }),
-    ])
-
-    if (notes.length === 0) throw new BadRequestException('Cannot scale an empty chart')
-
-    const localAnalysis = persistedSegments.length === 0
-      ? analyzeChart({
-          chartId: chart.id,
-          notes: notes.map((n) => ({
-            track: n.track,
-            time: n.time,
-            noteType: n.noteType as 'TAP' | 'HOLD' | 'SWIPE',
-            duration: n.duration,
-          })),
-          bpm: song.bpm,
-          timeSignature: song.timeSignature,
-          speedMultiplier: chart.speedMultiplier,
-        })
-      : null
-    const segments = persistedSegments.length > 0 ? persistedSegments : localAnalysis!.segments.map((s) => ({
-      startTimeMs: s.startTimeMs,
-      endTimeMs: s.endTimeMs,
-      notesPerSecond: s.notesPerSecond,
-      difficultyLevel: s.difficultyLevel,
-      difficultyScore: s.difficultyScore,
-    }))
-
-    const targetCount = TARGET_NOTE_COUNT[body.targetTier] ?? 90
-    const prompt = this.buildScalePrompt({
-      song,
-      chart,
-      notes,
-      sections,
-      segments,
-      warnings,
-      targetTier: body.targetTier,
-      targetCount,
-      instruction: body.instruction?.trim(),
-      snapMode: body.snapMode,
+    const prompt = await runStep(steps, 'build_prompt', onProgress, async () => {
+      const targetCount = TARGET_NOTE_COUNT[body.targetTier] ?? 90
+      return this.buildScalePrompt({
+        song: loaded.song,
+        chart: loaded.chart,
+        notes: loaded.notes,
+        sections: loaded.sections,
+        segments: loaded.segments,
+        warnings: loaded.warnings,
+        targetTier: body.targetTier,
+        targetCount,
+        instruction: body.instruction?.trim(),
+        snapMode: body.snapMode,
+      })
     })
-    const parsed = await this.callClaudeForChart(prompt, 'scale')
 
-    return {
-      notes: this.normalizeGeneratedNotes(parsed.notes, body.snapMode, song.bpm),
-      sections: this.normalizeSections(parsed.sections),
-    }
+    const parsed = await runStep(steps, 'generate', onProgress, () =>
+      this.callClaudeForChart(prompt, 'scale'),
+    )
+
+    const notes = await runStep(steps, 'normalize', onProgress, async () =>
+      this.normalizeGeneratedNotes(parsed.notes, body.snapMode, loaded.song.bpm),
+    )
+    const sections = this.normalizeSections(parsed.sections)
+
+    const readyDef = steps.find((s) => s.stepId === 'ready')!
+    onProgress?.({ type: 'step', stepId: 'ready', label: readyDef.label, status: 'done' })
+
+    return { notes, sections }
   }
 
   async applyChart(
