@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { SongDifficultyEnum } from '@ama-midi/shared'
@@ -36,6 +37,17 @@ export function AnalysisBoardPage() {
   const { data: analysis, isLoading: analysisLoading } = useChartAnalysis(chartId)
   const { data: notes = [] } = useNotes(chartId)
   const reanalyze = useRunChartAnalysis(chartId ?? '', songId ?? '')
+
+  const timelineEndMs = useMemo(() => {
+    if (!notes.length) return 30_000
+    const lastEnd = Math.max(...notes.map((n) => (n.time + (n.duration ?? 0)) * 1000))
+    return Math.min(300_000, lastEnd + 5_000)
+  }, [notes])
+
+  const visibleSegments = useMemo(
+    () => analysis?.segments.filter((s) => s.startTimeMs < timelineEndMs) ?? [],
+    [analysis, timelineEndMs],
+  )
 
   if (!projectId || !songId || !chartId) return null
 
@@ -94,7 +106,8 @@ export function AnalysisBoardPage() {
                 Section timeline
               </h3>
               <SectionTimeline
-                segments={analysis.segments}
+                segments={visibleSegments}
+                maxDurationMs={timelineEndMs}
                 onSeek={jumpToEditor}
               />
               <p className="text-[10px] text-shell-muted">Click a band to jump to that section in the editor.</p>

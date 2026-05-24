@@ -1,3 +1,4 @@
+import type { ChartFactorBreakdown } from './difficulty/types'
 import type {
   NoteEventType,
   NoteType,
@@ -121,6 +122,7 @@ export interface SongChart {
   computedDifficulty: SongDifficulty
   averageDifficultyScore: number
   peakDifficultyScore: number
+  factorBreakdown?: ChartFactorBreakdown | null
   analyzedAt?: string | null
   createdAt: string
   updatedAt: string

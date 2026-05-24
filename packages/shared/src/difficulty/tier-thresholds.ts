@@ -30,8 +30,17 @@ export const TIER_LIMITS: Record<SongDifficulty, TierLimits> = {
   MASTER: { maxNpsWarn: 10.0, maxNpsError: 12.0, maxOffbeatRatio: 0.80, maxDoublesPer10s: 8 },
 }
 
+export function segmentTierToColor(tier: SongDifficulty): string {
+  const map: Record<SongDifficulty, string> = {
+    EASY: 'rgba(16, 185, 129, 0.18)',
+    NORMAL: 'rgba(59, 130, 246, 0.18)',
+    HARD: 'rgba(245, 158, 11, 0.22)',
+    EXPERT: 'rgba(239, 68, 68, 0.22)',
+    MASTER: 'rgba(239, 68, 68, 0.35)',
+  }
+  return map[tier]
+}
+
 export function segmentScoreToColor(score: number): string {
-  if (score < 4) return 'rgba(16, 185, 129, 0.15)'
-  if (score < 10) return 'rgba(245, 158, 11, 0.20)'
-  return 'rgba(239, 68, 68, 0.25)'
+  return segmentTierToColor(scoreToDifficulty(score))
 }

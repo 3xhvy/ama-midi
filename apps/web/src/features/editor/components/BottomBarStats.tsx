@@ -1,22 +1,41 @@
 import { useMemo } from 'react'
-import { maxCombo, difficultyRating, computeNpsOverTime } from '../engine/difficulty-calculator'
-import type { Note } from '@ama-midi/shared'
+import { analyzeChart, maxCombo, computeNpsOverTime } from '../engine/difficulty-calculator'
+import { SongDifficultyEnum, type Note } from '@ama-midi/shared'
 
-interface Props { notes: Note[] }
-
-const RATING_COLOR: Record<string, string> = {
-  Easy:   'text-green-400',
-  Normal: 'text-yellow-400',
-  Hard:   'text-orange-400',
-  Expert: 'text-red-400',
+interface Props {
+  notes: Note[]
+  bpm?: number
+  speedMultiplier?: number
 }
 
-export function BottomBarStats({ notes }: Props) {
-  const rating = useMemo(() => difficultyRating(notes), [notes])
-  const combo  = useMemo(() => maxCombo(notes),         [notes])
+const TIER_TEXT: Record<string, string> = {
+  EASY: 'text-green-400',
+  NORMAL: 'text-blue-400',
+  HARD: 'text-orange-400',
+  EXPERT: 'text-red-400',
+  MASTER: 'text-red-500',
+}
+
+export function BottomBarStats({ notes, bpm = 120, speedMultiplier = 1 }: Props) {
+  const tier = useMemo(() => {
+    const r = analyzeChart({
+      notes: notes.map((n) => ({
+        track: n.track,
+        time: n.time,
+        noteType: n.noteType,
+        duration: n.duration,
+      })),
+      bpm,
+      timeSignature: '4/4',
+      speedMultiplier,
+    })
+    return r.computedDifficulty
+  }, [notes, bpm, speedMultiplier])
+
+  const combo = useMemo(() => maxCombo(notes), [notes])
   const peakNps = useMemo(() => {
     const bands = computeNpsOverTime(notes)
-    return bands.length ? Math.max(...bands.map(b => b.nps)) : 0
+    return bands.length ? Math.max(...bands.map((b) => b.nps)) : 0
   }, [notes])
 
   return (
@@ -28,7 +47,9 @@ export function BottomBarStats({ notes }: Props) {
       <span>Peak NPS</span>
       <span className="font-medium text-right text-shell-text">{peakNps.toFixed(1)}</span>
       <span>Difficulty</span>
-      <span className={`font-semibold text-right ${RATING_COLOR[rating]}`}>{rating}</span>
+      <span className={`font-semibold text-right ${TIER_TEXT[tier] ?? 'text-shell-text'}`}>
+        {SongDifficultyEnum.label(tier)}
+      </span>
     </div>
   )
 }

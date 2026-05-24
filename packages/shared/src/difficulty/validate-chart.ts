@@ -1,6 +1,6 @@
 import type { SongDifficulty } from '../enums'
 import {
-  countSimultaneousPairsInRange,
+  countSimultaneousPairsIn10sWindow,
   countTriplePlusInRange,
   laneJumps,
   peakNpsInRange,
@@ -13,6 +13,7 @@ export function validateChart(
   tier: SongDifficulty,
   speedMultiplier: number,
   chartName = '',
+  noteCount = 0,
 ): AnalysisWarningDraft[] {
   const warnings: AnalysisWarningDraft[] = []
   const limits = TIER_LIMITS[tier]
@@ -75,7 +76,7 @@ export function validateChart(
   }
 
   const suggested = difficultyToSpeedSuggestion(tier)
-  if (Math.abs(speedMultiplier - suggested) > 0.3) {
+  if (noteCount >= 20 && Math.abs(speedMultiplier - suggested) > 0.3) {
     warnings.push({
       code: 'SPEED_TIER_MISMATCH',
       severity: 'WARN',
@@ -103,8 +104,15 @@ export function validateChartWithNotes(
   notes: AnalyzeNote[],
   chartName = '',
 ): AnalysisWarningDraft[] {
-  const warnings = validateChart(analysis, tier, speedMultiplier, chartName)
+  const warnings = validateChart(analysis, tier, speedMultiplier, chartName, notes.length)
   const limits = TIER_LIMITS[tier]
+
+  const sorted = [...notes].sort((a, b) => a.time - b.time)
+  const contentStart = sorted[0]?.time ?? 0
+  const lastNote = sorted[sorted.length - 1]
+  const contentEnd = lastNote
+    ? lastNote.time + (lastNote.duration ?? 0)
+    : 0
 
   for (const seg of analysis.segments) {
     const startSec = seg.startTimeMs / 1000
@@ -121,29 +129,41 @@ export function validateChartWithNotes(
       })
     }
 
-    const doubles = countSimultaneousPairsInRange(notes, startSec, endSec)
+    const doubles = countSimultaneousPairsIn10sWindow(notes, startSec)
     if (doubles > limits.maxDoublesPer10s) {
       warnings.push({
         code: 'TOO_MANY_DOUBLES',
         severity: 'WARN',
         startTimeMs: seg.startTimeMs,
         endTimeMs: seg.endTimeMs,
-        message: `${doubles} double-note groups in section (limit ${limits.maxDoublesPer10s}).`,
+        message: `${doubles} double-note groups in 10s window (limit ${limits.maxDoublesPer10s}).`,
       })
     }
 
-    const triples = countTriplePlusInRange(notes, startSec, endSec)
-    if (triples > 0 && (tier === 'EASY' || tier === 'NORMAL')) {
+    const triplesInSegment = countTriplePlusInRange(notes, startSec, endSec)
+    const triplesPerMinute = countTriplePlusInRange(notes, startSec, startSec + 60)
+    if (tier === 'EASY' || tier === 'NORMAL') {
+      if (triplesInSegment > 0) {
+        warnings.push({
+          code: 'TOO_MANY_TRIPLES',
+          severity: 'ERROR',
+          startTimeMs: seg.startTimeMs,
+          endTimeMs: seg.endTimeMs,
+          message: `Triple+ simultaneous notes not allowed on ${tier}.`,
+        })
+      }
+    } else if (triplesPerMinute > 2) {
       warnings.push({
         code: 'TOO_MANY_TRIPLES',
-        severity: 'ERROR',
+        severity: 'WARN',
         startTimeMs: seg.startTimeMs,
-        endTimeMs: seg.endTimeMs,
-        message: `Triple+ simultaneous notes not allowed on ${tier}.`,
+        endTimeMs: Math.min(seg.endTimeMs, Math.round((startSec + 60) * 1000)),
+        message: `${triplesPerMinute} triple+ groups in 60s window (limit 2/min on ${tier}).`,
       })
     }
 
-    if (seg.notesPerSecond === 0 && notes.length > 20) {
+    const segMid = (startSec + endSec) / 2
+    if (seg.notesPerSecond === 0 && notes.length > 20 && segMid > contentStart && segMid < contentEnd) {
       warnings.push({
         code: 'EMPTY_SECTION',
         severity: 'INFO',
@@ -154,17 +174,36 @@ export function validateChartWithNotes(
     }
   }
 
-  const sorted = [...notes].sort((a, b) => a.time - b.time)
-  const jumps = laneJumps(sorted)
+  for (const h of sorted.filter(n => n.noteType === 'HOLD' && n.duration)) {
+    const holdEnd = h.time + (h.duration ?? 0)
+    const overlaps = sorted.filter(
+      n => n !== h && n.time >= h.time && n.time <= holdEnd && n.track !== h.track,
+    )
+    if (overlaps.length >= 2) {
+      warnings.push({
+        code: 'HOLD_OVERLAP_STRESS',
+        severity: 'WARN',
+        startTimeMs: Math.round(h.time * 1000),
+        endTimeMs: Math.round(holdEnd * 1000),
+        message: `Hold on lane ${h.track} overlaps ${overlaps.length} notes on other lanes.`,
+        metadata: { holdTrack: h.track, overlapCount: overlaps.length },
+      })
+    }
+  }
+
   let consecutiveBig = 0
-  for (const j of jumps) {
-    if (j >= 5) {
+  for (let i = 1; i < sorted.length; i++) {
+    const jump = Math.abs(sorted[i].track - sorted[i - 1].track)
+    if (jump >= 5) {
       consecutiveBig++
       if (consecutiveBig >= 3) {
+        const atTime = sorted[i].time
         warnings.push({
           code: 'EXCESSIVE_LANE_JUMP',
           severity: 'WARN',
-          message: 'Three or more consecutive large lane jumps (≥5 lanes).',
+          startTimeMs: Math.round(atTime * 1000),
+          endTimeMs: Math.round((atTime + 0.5) * 1000),
+          message: `Three consecutive large lane jumps (≥5 lanes) ending at ${formatRange(atTime, atTime + 0.5)}.`,
         })
         break
       }

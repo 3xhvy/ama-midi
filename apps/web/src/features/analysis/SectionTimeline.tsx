@@ -1,5 +1,6 @@
 import type { AnalyzedSegment } from '@ama-midi/shared'
-import { segmentScoreToColor } from '../editor/engine/difficulty-calculator'
+import { SongDifficultyEnum } from '@ama-midi/shared'
+import { segmentTierToColor } from '../editor/engine/difficulty-calculator'
 
 interface Props {
   segments: AnalyzedSegment[]
@@ -34,17 +35,18 @@ export function SectionTimeline({
           0.5,
           ((seg.endTimeMs - seg.startTimeMs) / maxDurationMs) * 100,
         )
+        const tierLabel = SongDifficultyEnum.label(seg.difficultyLevel)
         return (
           <button
             key={`${seg.startTimeMs}-${seg.endTimeMs}`}
             type="button"
-            title={`${(seg.startTimeMs / 1000).toFixed(0)}s – ${(seg.endTimeMs / 1000).toFixed(0)}s · score ${seg.difficultyScore.toFixed(1)}`}
+            title={`${(seg.startTimeMs / 1000).toFixed(0)}s – ${(seg.endTimeMs / 1000).toFixed(0)}s · ${tierLabel} (${seg.difficultyScore.toFixed(1)})`}
             onClick={() => onSeek?.(seg.startTimeMs)}
             disabled={!onSeek}
             className={`min-w-0 shrink-0 transition-opacity ${onSeek ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
             style={{
               width: `${widthPct}%`,
-              backgroundColor: segmentScoreToColor(seg.difficultyScore),
+              backgroundColor: segmentTierToColor(seg.difficultyLevel),
             }}
           />
         )

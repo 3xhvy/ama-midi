@@ -3,13 +3,47 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
+import { EventEmitter2 } from '@nestjs/event-emitter'
+import { randomUUID } from 'crypto'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { ChartAnalyzeService } from './chart-analyze.service'
 import { CreateChartDto } from './dto/create-chart.dto'
 import { UpdateChartDto } from './dto/update-chart.dto'
 import { DuplicateChartDto } from './dto/duplicate-chart.dto'
-import type { AuthUser, SongChart, SongDifficulty } from '@ama-midi/shared'
+import { NOTE_EVENTS } from '@ama-midi/shared'
+import type { AuthUser, Note, NoteCreatedEvent, SongChart, SongDifficulty } from '@ama-midi/shared'
+
+function toNote(n: {
+  id: string
+  chartId: string
+  songId: string
+  track: number
+  time: number
+  title: string
+  description: string
+  createdBy: string
+  noteType?: string
+  duration?: number | null
+  createdAt: Date
+  updatedAt: Date
+}): Note {
+  return {
+    id: n.id,
+    chartId: n.chartId,
+    songId: n.songId,
+    track: n.track,
+    time: n.time,
+    title: n.title,
+    description: n.description,
+    createdBy: n.createdBy,
+    creatorName: '',
+    createdAt: n.createdAt.toISOString(),
+    updatedAt: n.updatedAt.toISOString(),
+    noteType: (n.noteType as Note['noteType']) ?? 'TAP',
+    duration: n.duration ?? undefined,
+  }
+}
 
 @Injectable()
 export class ChartsService {
@@ -17,6 +51,7 @@ export class ChartsService {
     private readonly prisma: PrismaService,
     private readonly access: ProjectAccessService,
     private readonly analyze: ChartAnalyzeService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async listBySong(songId: string, user: AuthUser): Promise<SongChart[]> {
@@ -102,19 +137,35 @@ export class ChartsService {
     })
 
     if (notes.length) {
-      await this.prisma.note.createMany({
-        data: notes.map((n) => ({
-          chartId: copy.id,
+      const batchId = randomUUID()
+      const createdNotes = await this.prisma.$transaction(
+        notes.map((n) =>
+          this.prisma.note.create({
+            data: {
+              chartId: copy.id,
+              songId: src.songId,
+              track: n.track,
+              time: n.time,
+              title: n.title,
+              description: n.description,
+              noteType: n.noteType,
+              duration: n.duration,
+              createdBy: user.id,
+            },
+          }),
+        ),
+      )
+
+      for (const n of createdNotes) {
+        this.eventEmitter.emit(NOTE_EVENTS.CREATED, {
           songId: src.songId,
-          track: n.track,
-          time: n.time,
-          title: n.title,
-          description: n.description,
-          noteType: n.noteType,
-          duration: n.duration,
-          createdBy: user.id,
-        })),
-      })
+          noteId: n.id,
+          userId: user.id,
+          afterState: toNote(n),
+          batchId,
+          realtimeMode: 'batch',
+        } satisfies NoteCreatedEvent)
+      }
     }
 
     await this.analyze.run(copy.id)
@@ -155,6 +206,7 @@ export class ChartsService {
     computedDifficulty: string
     averageDifficultyScore: number
     peakDifficultyScore: number
+    factorBreakdown?: unknown
     analyzedAt: Date | null
     createdAt: Date
     updatedAt: Date
@@ -167,6 +219,7 @@ export class ChartsService {
       computedDifficulty: c.computedDifficulty as SongDifficulty,
       averageDifficultyScore: c.averageDifficultyScore,
       peakDifficultyScore: c.peakDifficultyScore,
+      factorBreakdown: (c.factorBreakdown as SongChart['factorBreakdown']) ?? null,
       analyzedAt: c.analyzedAt?.toISOString() ?? null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),

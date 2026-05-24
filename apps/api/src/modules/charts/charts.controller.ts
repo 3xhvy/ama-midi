@@ -80,7 +80,7 @@ export class ChartsController {
   @Post('charts/:chartId/analyze')
   runAnalysis(@Param('chartId') chartId: string, @Req() req: Request) {
     return this.charts.findOne(chartId, req.user as AuthUser).then(() =>
-      this.analyze.run(chartId),
+      this.analyze.runManual(chartId),
     )
   }
 }

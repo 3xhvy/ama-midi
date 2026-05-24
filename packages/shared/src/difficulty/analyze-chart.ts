@@ -28,8 +28,8 @@ export function analyzeChart(input: AnalyzeChartInput): ChartAnalysisResult {
     const end = Math.min(start + segmentWindowSeconds, songDurationSeconds)
     const m = segmentMetrics(notes, start, end, bpm)
     const score = computeSegmentScore(m, speedMultiplier, globalSurprise)
-    peak = Math.max(peak, score)
     if (m.noteCount > 0) {
+      peak = Math.max(peak, score)
       weightedScore += score * m.noteCount
       totalWeight += m.noteCount
     }

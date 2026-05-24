@@ -39,7 +39,7 @@ export function syncopationWeight(time: number, bpm: number): number {
     Math.abs(phase), Math.abs(phase - 0.5),
     Math.abs(phase - 0.25), Math.abs(phase - 0.75),
   )
-  if (dist < 0.05 / beatDuration(bpm)) return 0
+  if (dist < 0.05) return 0
   if (dist < 0.08) return 0.5
   return 1
 }
@@ -88,13 +88,13 @@ export function patternEntropy(notes: AnalyzeNote[]): number {
 export function surpriseScore(notes: AnalyzeNote[]): number {
   if (notes.length < 16) return 0
   const sorted = [...notes].sort((a, b) => a.time - b.time)
-  const windowTracks = sorted.slice(0, 8).map(n => n.track)
   let matches = 0, total = 0
-  for (let start = 8; start + 8 <= sorted.length; start += 4) {
-    const next = sorted.slice(start, start + 8).map(n => n.track)
+  for (let start = 0; start + 16 <= sorted.length; start += 4) {
+    const prev = sorted.slice(start, start + 8).map(n => n.track)
+    const next = sorted.slice(start + 8, start + 16).map(n => n.track)
     for (let k = 0; k < 8; k++) {
       total++
-      if (windowTracks[k] === next[k]) matches++
+      if (prev[k] === next[k]) matches++
     }
   }
   return total > 0 ? 1 - matches / total : 0
@@ -137,6 +137,8 @@ export function computeSegmentScore(
   speedMultiplier: number,
   surprise: number,
 ): number {
+  const speedContrib = m.noteCount > 0 ? speedMultiplier * 2.0 : 0
+  const surpriseContrib = m.noteCount > 0 ? surprise * 1.5 : 0
   return (
     m.nps * 2.0
     + m.avgJump * 1.5
@@ -144,8 +146,8 @@ export function computeSegmentScore(
     + m.holdRatio * 2.0
     + m.simRatio * 3.0
     + m.complexity * 2.5
-    + speedMultiplier * 2.0
-    + surprise * 1.5
+    + speedContrib
+    + surpriseContrib
   )
 }
 
@@ -160,6 +162,12 @@ export function peakNpsInRange(
     peak = Math.max(peak, count / windowSeconds)
   }
   return peak
+}
+
+export function countSimultaneousPairsIn10sWindow(
+  notes: AnalyzeNote[], startSec: number,
+): number {
+  return countSimultaneousPairsInRange(notes, startSec, startSec + 10)
 }
 
 export function countSimultaneousPairsInRange(

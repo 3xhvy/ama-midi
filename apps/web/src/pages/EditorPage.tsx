@@ -323,7 +323,11 @@ export function EditorPage() {
         <div className="px-3 py-2 border-b border-shell-border">
           <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Song Stats</span>
         </div>
-        <BottomBarStats notes={allNotes} />
+        <BottomBarStats
+          notes={allNotes}
+          bpm={song?.bpm ?? 120}
+          speedMultiplier={activeChart?.speedMultiplier ?? 1}
+        />
       </div>
       {chartId && projectId && (
         <div className="border-t border-shell-border">

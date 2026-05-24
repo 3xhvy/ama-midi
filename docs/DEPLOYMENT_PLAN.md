@@ -438,19 +438,34 @@ docker compose -f docker-compose.prod.yml restart api
 
 ## Nginx routing reference
 
-Host nginx (`deploy/nginx/ama-midi.conf`) routes:
+Host nginx (`deploy/nginx/ama-midi.conf`) uses **Accept-header splitting** because the SPA and API share the same paths (e.g. `/projects`, `/songs`).
 
+Add once in the `http {}` block (top of `default`, before `server {}`):
 
-| Path           | Upstream    | Notes                      |
-| -------------- | ----------- | -------------------------- |
-| `/`            | web `:8080` | React SPA                  |
-| `/auth/*`      | api `:3001` | OAuth + JWT                |
-| `/songs/*`     | api `:3001` | Song/note CRUD             |
-| `/users/*`     | api `:3001` | User profile               |
-| `/patterns/*`  | api `:3001` | Note patterns              |
-| `/health`      | api `:3001` | Health check               |
-| `/projects/*`  | api `:3001` | Future project routes      |
-| `/socket.io/*` | api `:3001` | WebSocket upgrade required |
+```nginx
+map $http_accept $ama_midi_backend {
+    default       ama_midi_api;
+    "~*text/html" ama_midi_web;
+}
+```
+
+| Request | Accept header | Upstream |
+| --- | --- | --- |
+| Browser URL bar / refresh on `/projects` | `text/html,...` | web → SPA |
+| `fetch('/projects')` from React | `*/*` or `application/json` | api → NestJS |
+| `/auth/google` | always | api (OAuth redirect) |
+| `/auth/callback` | always | web (token handoff) |
+| `/socket.io/*` | always | api (WebSocket) |
+
+Without this map, direct visits to `/projects` hit the JWT-protected API and return **401**.
+
+| Path | Upstream | Notes |
+| --- | --- | --- |
+| `/` | web | React SPA |
+| `/auth/google` | api | OAuth start/callback |
+| `/auth/callback` | web | SPA token handoff |
+| `/auth`, `/songs`, `/projects`, … | `$ama_midi_backend` | Split by Accept |
+| `/socket.io/*` | api | WebSocket upgrade |
 
 
 ---
