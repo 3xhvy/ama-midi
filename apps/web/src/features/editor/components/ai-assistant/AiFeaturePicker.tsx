@@ -55,8 +55,6 @@ interface Props {
 }
 
 export function AiFeaturePicker({ noteCount, selectedCount, onSelect }: Props) {
-  const improveDisabled = selectedCount < 2
-
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-medium text-shell-text">What would you like AI to do?</h3>
@@ -96,10 +94,6 @@ export function AiFeaturePicker({ noteCount, selectedCount, onSelect }: Props) {
           return card
         })}
       </div>
-
-      {improveDisabled && (
-        <p className="text-xs text-shell-muted">Select 2+ notes on the chart first.</p>
-      )}
     </div>
   )
 }

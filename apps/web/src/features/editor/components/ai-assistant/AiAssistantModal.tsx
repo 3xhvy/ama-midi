@@ -94,6 +94,7 @@ export function AiAssistantModal({
     sections,
     onPhaseChange: setPhase,
     onResultMessage: setResultMessage,
+    onCancel: () => handleOpenChange(false),
     streamRun,
   }
 
@@ -163,14 +164,9 @@ export function AiAssistantModal({
           )}
         </Modal.Body>
 
+        {phase !== 'configure' && (
         <Modal.Footer>
           {phase === 'picker' && (
-            <Button variant="ghost" size="sm" onClick={() => handleOpenChange(false)}>
-              Cancel
-            </Button>
-          )}
-
-          {phase === 'configure' && (
             <Button variant="ghost" size="sm" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
@@ -202,6 +198,7 @@ export function AiAssistantModal({
             </Button>
           )}
         </Modal.Footer>
+        )}
       </Modal.Content>
     </Modal.Root>
   )

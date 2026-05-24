@@ -27,6 +27,7 @@ export interface AiFlowBaseProps {
   sections: SectionMarker[]
   onPhaseChange: (phase: AiAssistantPhase) => void
   onResultMessage: (message: string) => void
+  onCancel: () => void
   streamRun: AiStreamRun
 }
 

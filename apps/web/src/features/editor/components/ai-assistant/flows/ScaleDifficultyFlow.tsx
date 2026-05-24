@@ -14,6 +14,7 @@ export function ScaleDifficultyFlow({
   chartId,
   noteCount,
   onPhaseChange,
+  onCancel,
   streamRun,
 }: AiFlowBaseProps) {
   const { snapMode, setChartPreview, closeAiAssistant } = useEditorStore()
@@ -102,6 +103,9 @@ export function ScaleDifficultyFlow({
         </p>
       </div>
       <div className="mt-4 flex justify-end gap-2 border-t border-shell-border pt-4">
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={processing}>
+          Cancel
+        </Button>
         <Button
           variant="primary"
           size="sm"

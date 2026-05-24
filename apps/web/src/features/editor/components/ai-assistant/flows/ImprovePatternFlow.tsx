@@ -34,6 +34,7 @@ export function ImprovePatternFlow({
   sections,
   onPhaseChange,
   onResultMessage,
+  onCancel,
   streamRun,
 }: AiFlowBaseProps) {
   const aiAssistant = useEditorStore((s) => s.aiAssistant)
@@ -153,6 +154,9 @@ export function ImprovePatternFlow({
         />
       </div>
       <div className="mt-4 flex justify-end gap-2 border-t border-shell-border pt-4">
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={processing}>
+          Cancel
+        </Button>
         <Button
           variant="primary"
           size="sm"
