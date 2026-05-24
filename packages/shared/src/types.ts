@@ -254,6 +254,13 @@ export interface GenerateChartRequest {
   snapMode: SnapMode
 }
 
+export interface ScaleChartRequest {
+  chartId: string
+  targetTier: SongDifficulty
+  instruction?: string
+  snapMode: SnapMode
+}
+
 export interface GenerateChartResponse {
   notes: GeneratedChartNote[]
   sections: GeneratedChartSection[]

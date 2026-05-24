@@ -3,7 +3,7 @@ import { AuthGuard } from '@nestjs/passport'
 import { AiService } from './ai.service'
 import { AiChartService } from './ai-chart.service'
 import { SuggestNotesDto } from './dto/suggest-notes.dto'
-import { ApplyChartDto, GenerateChartDto } from './dto/chart.dto'
+import { ApplyChartDto, GenerateChartDto, ScaleChartDto } from './dto/chart.dto'
 import type { Request } from 'express'
 import type {
   ApplyChartResponse,
@@ -38,6 +38,16 @@ export class AiController {
   ): Promise<GenerateChartResponse> {
     const user = req.user as AuthUser
     return this.aiChart.generateChart(songId, user.role, body)
+  }
+
+  @Post('scale-chart')
+  scaleChart(
+    @Param('songId') songId: string,
+    @Body() body: ScaleChartDto,
+    @Req() req: Request,
+  ): Promise<GenerateChartResponse> {
+    const user = req.user as AuthUser
+    return this.aiChart.scaleChart(songId, user.role, body)
   }
 
   @Post('apply-chart')

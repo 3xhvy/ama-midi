@@ -56,6 +56,22 @@ class GeneratedChartSectionDto {
   color?: string
 }
 
+export class ScaleChartDto {
+  @IsUUID()
+  chartId!: string
+
+  @IsIn(['EASY', 'NORMAL', 'HARD', 'EXPERT', 'MASTER'])
+  targetTier!: SongDifficulty
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  instruction?: string
+
+  @IsIn(['0.1s', 'beat', 'halfBeat'])
+  snapMode!: SnapMode
+}
+
 export class ApplyChartDto {
   @IsUUID()
   chartId!: string

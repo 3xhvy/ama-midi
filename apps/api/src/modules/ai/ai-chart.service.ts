@@ -15,6 +15,7 @@ import {
   TIME_MIN,
   TRACK_MAX,
   TRACK_MIN,
+  analyzeChart,
   measureDuration,
   snapTime,
   type ApplyChartResponse,
@@ -27,6 +28,7 @@ import {
   type NoteDeletedEvent,
   type NotesBatchAppliedPayload,
   type SnapMode,
+  type SongDifficulty,
 } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
@@ -71,6 +73,97 @@ export class AiChartService {
     const sections = this.normalizeSections(parsed.sections)
 
     return { notes, sections }
+  }
+
+  async scaleChart(
+    songId: string,
+    userRole: string,
+    body: { chartId: string; targetTier: SongDifficulty; instruction?: string; snapMode: SnapMode },
+  ): Promise<GenerateChartResponse> {
+    if (userRole === 'VIEWER') throw new ForbiddenException('VIEWER cannot use AI chart scaling')
+
+    const song = await this.prisma.song.findUnique({ where: { id: songId } })
+    if (!song) throw new NotFoundException('Song not found')
+
+    const chart = await this.prisma.songChart.findFirst({
+      where: { id: body.chartId, songId },
+      select: {
+        id: true,
+        name: true,
+        speedMultiplier: true,
+        computedDifficulty: true,
+        averageDifficultyScore: true,
+        peakDifficultyScore: true,
+      },
+    })
+    if (!chart) throw new NotFoundException('Chart not found')
+
+    const [notes, sections, persistedSegments, warnings] = await Promise.all([
+      this.prisma.note.findMany({
+        where: { chartId: chart.id, deletedAt: null },
+        orderBy: [{ time: 'asc' }, { track: 'asc' }],
+        select: { track: true, time: true, noteType: true, duration: true, title: true },
+      }),
+      this.prisma.sectionMarker.findMany({
+        where: { songId },
+        orderBy: { time: 'asc' },
+        select: { time: true, label: true, color: true },
+      }),
+      this.prisma.chartDifficultySegment.findMany({
+        where: { chartId: chart.id },
+        orderBy: { startTimeMs: 'asc' },
+        select: { startTimeMs: true, endTimeMs: true, notesPerSecond: true, difficultyLevel: true, difficultyScore: true },
+      }),
+      this.prisma.chartValidationWarning.findMany({
+        where: { chartId: chart.id },
+        orderBy: [{ severity: 'asc' }, { startTimeMs: 'asc' }],
+        select: { code: true, severity: true, startTimeMs: true, endTimeMs: true, message: true },
+      }),
+    ])
+
+    if (notes.length === 0) throw new BadRequestException('Cannot scale an empty chart')
+
+    const localAnalysis = persistedSegments.length === 0
+      ? analyzeChart({
+          chartId: chart.id,
+          notes: notes.map((n) => ({
+            track: n.track,
+            time: n.time,
+            noteType: n.noteType as 'TAP' | 'HOLD' | 'SWIPE',
+            duration: n.duration,
+          })),
+          bpm: song.bpm,
+          timeSignature: song.timeSignature,
+          speedMultiplier: chart.speedMultiplier,
+        })
+      : null
+    const segments = persistedSegments.length > 0 ? persistedSegments : localAnalysis!.segments.map((s) => ({
+      startTimeMs: s.startTimeMs,
+      endTimeMs: s.endTimeMs,
+      notesPerSecond: s.notesPerSecond,
+      difficultyLevel: s.difficultyLevel,
+      difficultyScore: s.difficultyScore,
+    }))
+
+    const targetCount = TARGET_NOTE_COUNT[body.targetTier] ?? 90
+    const prompt = this.buildScalePrompt({
+      song,
+      chart,
+      notes,
+      sections,
+      segments,
+      warnings,
+      targetTier: body.targetTier,
+      targetCount,
+      instruction: body.instruction?.trim(),
+      snapMode: body.snapMode,
+    })
+    const parsed = await this.callClaudeForChart(prompt)
+
+    return {
+      notes: this.normalizeGeneratedNotes(parsed.notes, body.snapMode, song.bpm),
+      sections: this.normalizeSections(parsed.sections),
+    }
   }
 
   async applyChart(
@@ -256,6 +349,57 @@ export class AiChartService {
       `Also suggest 3–6 section markers when they help structure the chart.`,
       `JSON shape: {"notes":[{"track":1,"time":0.0,"noteType":"TAP","title":"Kick"}],"sections":[{"time":0,"label":"Intro","color":"#10B981"}]}`,
       `HOLD notes must include duration. Keep titles short.`,
+    ].filter(Boolean).join(' ')
+
+    return { system, user }
+  }
+
+  private buildScalePrompt(input: {
+    song: { name: string; bpm: number; timeSignature: string; category: string }
+    chart: {
+      name: string
+      speedMultiplier: number
+      computedDifficulty: string
+      averageDifficultyScore: number
+      peakDifficultyScore: number
+    }
+    notes: Array<{ track: number; time: number; noteType: string; duration: number | null; title: string }>
+    sections: Array<{ time: number; label: string; color: string }>
+    segments: Array<{ startTimeMs: number; endTimeMs: number; notesPerSecond: number; difficultyLevel: string; difficultyScore: number }>
+    warnings: Array<{ code: string; severity: string; startTimeMs: number | null; endTimeMs: number | null; message: string }>
+    targetTier: SongDifficulty
+    targetCount: number
+    instruction?: string
+    snapMode: SnapMode
+  }): { system: string; user: string } {
+    const snapHint =
+      input.snapMode === '0.1s'
+        ? `${SNAP_RESOLUTION}s steps`
+        : input.snapMode === 'beat'
+          ? `quarter notes at ${input.song.bpm} BPM`
+          : `eighth notes at ${input.song.bpm} BPM`
+
+    const system = [
+      'You are a rhythm-game chart arranger for AMA-MIDI.',
+      'Charts use 8 lanes (tracks 1-8), timeline 0-300 seconds.',
+      'Return ONLY valid JSON with keys "notes" and "sections". No markdown.',
+      'The returned chart is a full replacement, not a patch.',
+    ].join(' ')
+
+    const user = [
+      `Song: ${input.song.name}, ${input.song.bpm} BPM, ${input.song.timeSignature}, category ${input.song.category}.`,
+      `Source chart: ${input.chart.name}, computed ${input.chart.computedDifficulty}, average score ${input.chart.averageDifficultyScore.toFixed(1)}, peak score ${input.chart.peakDifficultyScore.toFixed(1)}, speed ${input.chart.speedMultiplier.toFixed(1)}x.`,
+      `Target tier: ${input.targetTier}. Target about ${input.targetCount} notes, never more than ${MAX_GENERATED_NOTES}.`,
+      `Snap all times to ${snapHint}. Avoid duplicate track+time pairs.`,
+      input.instruction ? `User instruction: ${input.instruction}.` : null,
+      `Source notes: ${JSON.stringify(input.notes.map((n) => ({ track: n.track, time: n.time, noteType: n.noteType, duration: n.duration, title: n.title })).slice(0, MAX_GENERATED_NOTES))}.`,
+      `Source sections: ${JSON.stringify(input.sections)}.`,
+      `Analysis segments: ${JSON.stringify(input.segments.map((s) => ({ start: s.startTimeMs / 1000, end: s.endTimeMs / 1000, nps: s.notesPerSecond, level: s.difficultyLevel, score: s.difficultyScore })))}.`,
+      `Current warnings: ${JSON.stringify(input.warnings)}.`,
+      'Preserve recognizable timing motifs and song structure.',
+      'For easier targets: thin density, reduce large lane jumps, reduce simultaneous notes, and simplify holds.',
+      'For harder targets: add notes, controlled doubles, holds, and syncopation while preserving musical feel.',
+      'JSON shape: {"notes":[{"track":1,"time":0.0,"noteType":"TAP","title":"Kick"}],"sections":[{"time":0,"label":"Intro","color":"#10B981"}]}',
     ].filter(Boolean).join(' ')
 
     return { system, user }
