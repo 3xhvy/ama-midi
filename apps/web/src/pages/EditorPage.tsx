@@ -8,6 +8,7 @@ import { Toolbar }            from '../features/editor/components/Toolbar'
 import { TrackHeader }        from '../features/editor/components/TrackHeader'
 import { computeNps }         from '../features/editor/components/LiveContextStrip'
 import { MultiSelectBar }     from '../features/editor/components/MultiSelectBar'
+import { AiAssistantModal }   from '../features/editor/components/ai-assistant/AiAssistantModal'
 import { ChartPreviewBar }    from '../features/editor/components/ChartPreviewBar'
 import { ReadOnlyBanner }     from '../features/editor/components/ReadOnlyBanner'
 import { SavePatternModal }   from '../features/editor/components/SavePatternModal'
@@ -259,7 +260,7 @@ export function EditorPage() {
 
   const selectedNoteObjects = allNotes.filter(n => selectedNoteIds.has(n.id))
 
-  const handleContinuePattern = useCallback(() => {
+  const handleImprovePattern = useCallback(() => {
     if (!canEdit || selectedNoteObjects.length < 2) return
     openAiAssistant({
       open: true,
@@ -513,7 +514,7 @@ export function EditorPage() {
       <MultiSelectBar
         count={selectedNoteIds.size}
         canEdit={canEdit}
-        onContinuePattern={handleContinuePattern}
+        onImprovePattern={handleImprovePattern}
         onRepeat={() => setShowRepeat(true)}
         onSavePattern={() => setShowSavePattern(true)}
         onCopyTo={() => setShowCopyTo(true)}
@@ -572,6 +573,14 @@ export function EditorPage() {
           onClose={() => setShowSavePattern(false)}
         />
       )}
+      <AiAssistantModal
+        songId={songId!}
+        song={song}
+        chartId={chartId ?? null}
+        noteCount={allNotes.length}
+        selectedNotes={selectedNoteObjects}
+        sections={sections}
+      />
       <EditorShell
         topBar={topBar}
         leftPanel={leftPanel}

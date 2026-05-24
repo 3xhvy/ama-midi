@@ -20,7 +20,7 @@ function AiSparkleIcon() {
 interface Props {
   count:              number
   canEdit:            boolean
-  onContinuePattern:  () => void
+  onImprovePattern:   () => void
   onRepeat:           () => void
   onSavePattern:      () => void
   onCopyTo:           () => void
@@ -30,7 +30,7 @@ interface Props {
 }
 
 export function MultiSelectBar({
-  count, canEdit, onContinuePattern, onRepeat, onSavePattern, onCopyTo, onDelete, onDeselect, copyDisabled,
+  count, canEdit, onImprovePattern, onRepeat, onSavePattern, onCopyTo, onDelete, onDeselect, copyDisabled,
 }: Props) {
   if (count < 2) return null
   return (
@@ -41,11 +41,11 @@ export function MultiSelectBar({
           size="sm"
           variant="ghost"
           icon={<AiSparkleIcon />}
-          onClick={onContinuePattern}
+          onClick={onImprovePattern}
           className="px-2 text-primary"
-          data-tour="ai-continue-pattern"
+          data-tour="ai-improve-pattern"
         >
-          Continue pattern
+          Improve pattern
         </Button>
       )}
       {canEdit && (

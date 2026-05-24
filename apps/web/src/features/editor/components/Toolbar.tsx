@@ -11,14 +11,13 @@ import { useEditorStore } from '../../../store/editor.store'
 import { useThemeStore } from '../../../store/theme.store'
 import { Avatar } from '../../../components/ui'
 import type { SongStatus } from '@ama-midi/shared'
-import { useNotes } from '../../notes/useNotes'
 import { useAuthStore } from '../../../store/auth.store'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../../auth/api'
 import { formatTime } from '../../../lib/utils'
 import { EditorBreadcrumb } from '../../navigation/EditorBreadcrumb'
 import { ChartSwitcher } from '../../charts/ChartSwitcher'
-import { AiSuggestMenu } from './AiSuggestMenu'
+import { AiAssistantTrigger } from './ai-assistant/AiAssistantTrigger'
 import { PresenceBar } from '../../collaboration/PresenceBar'
 import type { Song, SongChart } from '@ama-midi/shared'
 
@@ -69,7 +68,7 @@ interface ToolbarProps {
 export function Toolbar({
   projectId, projectName, songId, songName, songStatus,
   charts, activeChartId,
-  canEdit, bpm, song,
+  canEdit, bpm,
   presenceList, isConnected = false,
   onShowShortcuts,
   leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
@@ -80,7 +79,6 @@ export function Toolbar({
   } = useEditorStore()
 
   const { resolved: theme, setMode: setTheme } = useThemeStore()
-  const { data: notes = [] } = useNotes(activeChartId ?? undefined)
   const token = useAuthStore((s) => s.token)
   const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
@@ -182,14 +180,7 @@ export function Toolbar({
 
       {/* RIGHT — ghost actions */}
       <div className="flex shrink-0 items-center gap-0.5">
-        {canEdit && activeChartId && (
-          <AiSuggestMenu
-            disabled={notes.length < 5}
-            songId={songId}
-            song={song}
-            noteCount={notes.length}
-          />
-        )}
+        {canEdit && activeChartId && <AiAssistantTrigger />}
 
         <button
           type="button"
