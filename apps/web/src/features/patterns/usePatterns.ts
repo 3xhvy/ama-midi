@@ -62,7 +62,6 @@ export function useApplyPatternPaste(patternId?: string, chartId?: string) {
     onSuccess: () => {
       if (chartId) {
         qc.invalidateQueries({ queryKey: ['notes', chartId], exact: false })
-        qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
       }
     },
   })

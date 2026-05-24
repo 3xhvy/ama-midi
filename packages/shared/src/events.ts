@@ -7,6 +7,15 @@ export const NOTE_EVENTS = {
   BATCH_APPLIED: 'notes.batch-applied',
 } as const
 
+export const CHART_EVENTS = {
+  ANALYSIS_UPDATED: 'chart.analysis.updated',
+} as const
+
+export interface ChartAnalysisUpdatedEvent {
+  songId: string
+  chartId: string
+}
+
 export const PROJECT_MEMBER_UPDATED = 'project.member.updated'
 export const PROJECT_MEMBER_REMOVED = 'project.member.removed'
 export const PROJECT_SONG_ACCESS_UPDATED = 'project.song.access.updated'
@@ -20,6 +29,8 @@ export interface NoteCreatedEvent {
   replacesNoteId?: string
   realtimeMode?: 'single' | 'batch'
   commandId?: string
+  /** When set, realtime skips a DB lookup for the actor profile. */
+  actor?: ActivityActor
 }
 
 export interface NoteUpdatedEvent {
@@ -29,6 +40,7 @@ export interface NoteUpdatedEvent {
   beforeState: Partial<Note>
   afterState: Note
   commandId?: string
+  actor?: ActivityActor
 }
 
 export interface NoteDeletedEvent {
@@ -40,6 +52,7 @@ export interface NoteDeletedEvent {
   replacedByBatch?: boolean
   realtimeMode?: 'single' | 'batch'
   commandId?: string
+  actor?: ActivityActor
 }
 
 export interface NotesBatchAppliedPayload {

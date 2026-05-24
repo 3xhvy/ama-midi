@@ -20,7 +20,6 @@ function notesKey(chartId: string, timeFrom?: number, timeTo?: number) {
 
 function invalidateNotes(qc: ReturnType<typeof useQueryClient>, chartId: string) {
   qc.invalidateQueries({ queryKey: ['notes', chartId] })
-  qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
 }
 
 /** Predicate matching all active note queries for a chart (full + all viewport buckets). */
@@ -90,7 +89,6 @@ export function useCreateNote(chartId: string | undefined) {
       patchNotesCache(qc, chartId, (old) =>
         old.find((n) => n.id === note.id) ? old : [...old, note],
       )
-      qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     },
     onError: (err: Error & { status?: number; body?: { message?: string; error?: string } }) => {
       if (err.status === 409) {
@@ -112,7 +110,6 @@ export function useDeleteNote(chartId: string | undefined) {
     onSuccess: (_: void, noteId: string) => {
       if (!chartId) return
       patchNotesCache(qc, chartId, (old) => old.filter((n) => n.id !== noteId))
-      qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     },
     onError: (err: Error & { status?: number; body?: { message?: string; error?: string } }) => {
       toast.error(mutationErrorMessage(err, 'Failed to delete note'))
@@ -142,7 +139,6 @@ export function useUpdateNote(chartId: string | undefined) {
     onSuccess: (note: Note) => {
       if (!chartId) return
       patchNotesCache(qc, chartId, (old) => old.map((n) => (n.id === note.id ? note : n)))
-      qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     },
     onError: (err: Error & { status?: number; body?: { message?: string; error?: string } }) => {
       toast.error(mutationErrorMessage(err, 'Failed to update note'))

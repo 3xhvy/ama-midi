@@ -1,16 +1,45 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common'
+import { HttpException, HttpStatus, Injectable, NotFoundException, OnModuleDestroy } from '@nestjs/common'
+import { EventEmitter2 } from '@nestjs/event-emitter'
 import { randomUUID } from 'crypto'
 import { analyzeChart } from '@ama-midi/shared'
+import { CHART_EVENTS } from '@ama-midi/shared'
 import type { ChartAnalysisResult, ChartFactorBreakdown, SongDifficulty } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
 
 const ANALYZE_COOLDOWN_MS = 5000
+const DEFAULT_DEBOUNCE_MS = 2000
 
 @Injectable()
-export class ChartAnalyzeService {
+export class ChartAnalyzeService implements OnModuleDestroy {
   private readonly lastManualAnalyze = new Map<string, number>()
+  private readonly pendingTimers = new Map<string, NodeJS.Timeout>()
+  private readonly inFlight = new Map<string, Promise<ChartAnalysisResult>>()
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  onModuleDestroy(): void {
+    for (const timer of this.pendingTimers.values()) {
+      clearTimeout(timer)
+    }
+    this.pendingTimers.clear()
+  }
+
+  /** Debounced background analysis — safe on the note write hot path. */
+  scheduleRun(chartId: string, debounceMs = DEFAULT_DEBOUNCE_MS): void {
+    const existing = this.pendingTimers.get(chartId)
+    if (existing) clearTimeout(existing)
+
+    this.pendingTimers.set(
+      chartId,
+      setTimeout(() => {
+        this.pendingTimers.delete(chartId)
+        void this.runAndNotify(chartId)
+      }, debounceMs),
+    )
+  }
 
   async run(chartId: string): Promise<ChartAnalysisResult> {
     return this.computeAndPersist(chartId)
@@ -26,7 +55,7 @@ export class ChartAnalyzeService {
       )
     }
     this.lastManualAnalyze.set(chartId, now)
-    return this.computeAndPersist(chartId)
+    return this.runAndNotify(chartId)
   }
 
   async getAnalysis(chartId: string): Promise<ChartAnalysisResult> {
@@ -68,7 +97,24 @@ export class ChartAnalyzeService {
     }
   }
 
-  private async computeAndPersist(chartId: string): Promise<ChartAnalysisResult> {
+  private async runAndNotify(chartId: string): Promise<ChartAnalysisResult> {
+    const existing = this.inFlight.get(chartId)
+    if (existing) return existing
+
+    const promise = this.computeAndPersist(chartId, true)
+      .catch((err) => {
+        console.error('[ChartAnalyzeService] analysis failed', chartId, err)
+        throw err
+      })
+      .finally(() => {
+        this.inFlight.delete(chartId)
+      })
+
+    this.inFlight.set(chartId, promise)
+    return promise
+  }
+
+  private async computeAndPersist(chartId: string, notify = false): Promise<ChartAnalysisResult> {
     const chart = await this.prisma.songChart.findUnique({
       where: { id: chartId },
       include: {
@@ -97,7 +143,14 @@ export class ChartAnalyzeService {
     })
 
     await this.persist(chartId, analysis)
-    return this.toAnalysisResult(chartId, analysis)
+    const result = this.toAnalysisResult(chartId, analysis)
+    if (notify) {
+      this.eventEmitter.emit(CHART_EVENTS.ANALYSIS_UPDATED, {
+        songId: chart.songId,
+        chartId,
+      })
+    }
+    return result
   }
 
   private async persist(chartId: string, analysis: ChartAnalysisResult): Promise<void> {

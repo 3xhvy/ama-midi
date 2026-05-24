@@ -103,12 +103,12 @@ export class SongsService {
     if (dto.startType === 'TEMPLATE') {
       if (!dto.templateId) throw new BadRequestException('templateId is required for TEMPLATE start')
       await this.templates.materialize(dto.templateId, row.id, defaultChart.id, user.id)
-      await this.analyze.run(defaultChart.id)
+      this.analyze.scheduleRun(defaultChart.id)
     }
 
     if (dto.import) {
       await this.copyImportedData(row.id, defaultChart.id, dto.import)
-      await this.analyze.run(defaultChart.id)
+      this.analyze.scheduleRun(defaultChart.id)
     }
 
     const refreshed = await this.prisma.song.findUnique({

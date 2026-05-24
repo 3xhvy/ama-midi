@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter'
 import { EditorCommandService } from '../editor-command.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
 
 describe('EditorCommandService', () => {
   let service: EditorCommandService
@@ -61,6 +62,10 @@ describe('EditorCommandService', () => {
             assertCanViewSong: jest.fn(),
             assertCanEditSongChart: jest.fn(),
           },
+        },
+        {
+          provide: ChartAnalyzeService,
+          useValue: { scheduleRun: jest.fn(), run: jest.fn() },
         },
       ],
     }).compile()

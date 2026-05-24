@@ -92,7 +92,7 @@ describe('NoteCopyService', () => {
   }
   let eventEmitter: { emit: jest.Mock }
   let mockAccess: { assertCanEditSongChart: jest.Mock }
-  let mockAnalyze: { run: jest.Mock }
+  let mockAnalyze: { run: jest.Mock; scheduleRun: jest.Mock }
 
   beforeEach(async () => {
     prisma = {
@@ -109,7 +109,7 @@ describe('NoteCopyService', () => {
     }
     eventEmitter = { emit: jest.fn() }
     mockAccess = { assertCanEditSongChart: jest.fn() }
-    mockAnalyze = { run: jest.fn().mockResolvedValue(undefined) }
+    mockAnalyze = { run: jest.fn().mockResolvedValue(undefined), scheduleRun: jest.fn() }
 
     const module = await Test.createTestingModule({
       providers: [

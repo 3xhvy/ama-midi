@@ -24,10 +24,11 @@ describe('NotesService', () => {
     note: { create: jest.Mock; update: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock }
     noteEvent: { findFirst: jest.Mock; findMany: jest.Mock }
     songChart: { findUnique: jest.Mock }
+    $queryRaw: jest.Mock
   }
   let eventEmitter: { emit: jest.Mock }
   let mockAccess: { assertCanViewSong: jest.Mock; assertCanEditSong: jest.Mock; assertCanEditSongChart: jest.Mock }
-  let mockAnalyze: { run: jest.Mock }
+  let mockAnalyze: { run: jest.Mock; scheduleRun: jest.Mock }
 
   beforeEach(async () => {
     prisma = {
@@ -45,9 +46,10 @@ describe('NotesService', () => {
       songChart: {
         findUnique: jest.fn().mockResolvedValue({ songId: 's1' }),
       },
+      $queryRaw: jest.fn().mockResolvedValue([]),
     }
     eventEmitter = { emit: jest.fn() }
-    mockAnalyze = { run: jest.fn().mockResolvedValue(undefined) }
+    mockAnalyze = { run: jest.fn().mockResolvedValue(undefined), scheduleRun: jest.fn() }
     mockAccess = {
       assertCanViewSong: jest.fn(),
       assertCanEditSong: jest.fn(),
@@ -139,9 +141,7 @@ describe('NotesService', () => {
     })
 
     it('throws 409 when HOLD span overlaps an existing note', async () => {
-      prisma.note.findMany.mockResolvedValue([
-        { time: 5.0, noteType: 'TAP', duration: null },
-      ])
+      prisma.$queryRaw.mockResolvedValue([{ time: 5.0 }])
 
       await expect(service.create('c1', {
         track: 1,

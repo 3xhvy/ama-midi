@@ -55,7 +55,6 @@ export function useUpdateChart(chartId: string, songId: string) {
     onSuccess: (chart) => {
       qc.setQueryData(['chart', chartId], chart)
       qc.invalidateQueries({ queryKey: ['charts', songId] })
-      qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     },
     onError: () => toast.error('Could not update chart settings'),
   })

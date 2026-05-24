@@ -55,6 +55,7 @@ describe('pattern authorization', () => {
       access as unknown as ProjectAccessService,
       { emit: jest.fn() } as any,
       { record: jest.fn() } as any,
+      { scheduleRun: jest.fn() } as any,
     )
 
     await expect(service.previewPaste('pattern-2', {

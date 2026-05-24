@@ -10,10 +10,12 @@ Composers, game developers, and QA open the same song simultaneously, place note
 
 ## Live Demo
 
-| Service | URL |
-|---|---|
-| Web app | https://ama-midi.hvy-dev.uk |
-| API health | https://ama-midi.hvy-dev.uk/api/health |
+
+| Service    | URL                                                                              |
+| ---------- | -------------------------------------------------------------------------------- |
+| Web app    | [https://ama-midi.hvy-dev.uk](https://ama-midi.hvy-dev.uk)                       |
+| API health | [https://ama-midi.hvy-dev.uk/api/health](https://ama-midi.hvy-dev.uk/api/health) |
+
 
 ---
 
@@ -21,18 +23,22 @@ Composers, game developers, and QA open the same song simultaneously, place note
 
 Full project documentation is organized as a narrative — problem first, decisions second, implementation third.
 
-| Doc | What It Covers |
-|---|---|
-| [01 · Problem & Vision](docs/project/01-problem-and-vision.md) | Why this exists. The workflow gap. Why it's technically hard. |
-| [02 · Actors & Use Cases](docs/project/02-actors-and-use-cases.md) | 4 actors, their real needs, the non-obvious UX decisions behind each. |
-| [03 · Feature Hierarchy](docs/project/03-features.md) | P0 → P1 → P2 priority tiers with rationale. What was cut and why. |
-| [04 · Design Thinking](docs/project/04-design-thinking.md) | 6 key architectural decisions. Strongest opposing argument first. |
-| [05 · Architecture & System Design](docs/project/05-architecture.md) | Stack choices, module map, data model, real-time topology. |
-| [06 · Major Feature Workflows](docs/project/06-workflows.md) | Note creation (happy + conflict path), real-time collaboration, AI suggester. |
-| [07 · Key Trade-offs](docs/project/07-trade-offs.md) | Decision table: what was chosen, what was rejected, what was gained and lost. |
-| [08 · Project Structure](docs/project/08-project-structure.md) | Annotated monorepo folder tree. Why each boundary exists. |
-| [09 · Deploy Pipeline](docs/project/09-deploy.md) | VPS topology, Docker Compose services, Nginx config, GitHub Actions CI/CD. |
-| [10 · Retrospective](docs/project/10-retrospective.md) | What I'd do differently. Why this problem is genuinely hard. |
+
+| Doc                                                                  | What It Covers                                                                  |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [01 · Problem & Vision](docs/project/01-problem-and-vision.md)       | Why this exists. The workflow gap. Why it's technically hard.                   |
+| [02 · Actors & Use Cases](docs/project/02-actors-and-use-cases.md)   | 4 actors, their real needs, the non-obvious UX decisions behind each.           |
+| [03 · Feature Hierarchy](docs/project/03-features.md)                | P0 → P1 → P2 priority tiers with rationale. What was cut and why.               |
+| [04 · Design Thinking](docs/project/04-design-thinking.md)           | 6 key architectural decisions. Strongest opposing argument first.               |
+| [05 · Architecture & System Design](docs/project/05-architecture.md) | Stack choices, module map, data model, real-time topology.                      |
+| [06 · Major Feature Workflows](docs/project/06-workflows.md)         | Note creation (happy + conflict path), real-time collaboration, AI suggester.   |
+| [07 · Key Trade-offs](docs/project/07-trade-offs.md)                 | Decision table: what was chosen, what was rejected, what was gained and lost.   |
+| [08 · Project Structure](docs/project/08-project-structure.md)       | Annotated monorepo folder tree. Why each boundary exists.                       |
+| [09 · Deploy Pipeline](docs/project/09-deploy.md)                    | VPS topology, Docker Compose services, Nginx config, GitHub Actions CI/CD.      |
+| [10 · Retrospective](docs/project/10-retrospective.md)               | What I'd do differently. Why this problem is genuinely hard.                    |
+| [Load Testing (k6)](docs/load-testing.md)                            | Seed, curl probe, smoke vs full k6, throttle overrides, results interpretation. |
+| [k6 Test Report](docs/k6-test-report.md)                             | My load-test narrative for the grader — attempt, diagnosis, fix, re-test. |
+
 
 ---
 
@@ -75,16 +81,18 @@ curl http://localhost:3001/health
 
 ## Key Capabilities
 
-| Capability | How It Works |
-|---|---|
-| **Piano Roll Editor** | 8-track × 300s vertical timeline. Notes as colored circles at precise (track, time) positions. |
-| **Fast Mode** | Click grid → note placed instantly (optimistic UI). No form interruption. |
-| **Duplicate Prevention** | `UNIQUE (song_id, track, time) WHERE deleted_at IS NULL` — enforced atomically at DB layer, not application layer. |
-| **Real-time Collaboration** | Socket.io rooms per song. Redis Pub/Sub fans events to all API instances. All collaborators see changes in < 1s. |
-| **Change Ledger** | Every mutation writes an immutable `NoteEvent` with `before_state` / `after_state` JSONB. Undo = compensating event. |
-| **10,000-note Performance** | Two-layer windowing: API returns only the visible time window; client clamps to viewport. ~60–120 active DOM nodes regardless of total count. |
-| **AI Note Suggester** | Sends last 10 notes to a configurable AI provider (Anthropic Claude / OpenAI / DeepSeek) → receives 3–5 pattern-continuation suggestions → renders as ghost overlays (accept/dismiss per note). |
-| **Role-based Access** | Admin / Composer / Developer / Viewer enforced at NestJS route guards and React UI layer. |
+
+| Capability                  | How It Works                                                                                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Piano Roll Editor**       | 8-track × 300s vertical timeline. Notes as colored circles at precise (track, time) positions.                                                                                                  |
+| **Fast Mode**               | Click grid → note placed instantly (optimistic UI). No form interruption.                                                                                                                       |
+| **Duplicate Prevention**    | `UNIQUE (song_id, track, time) WHERE deleted_at IS NULL` — enforced atomically at DB layer, not application layer.                                                                              |
+| **Real-time Collaboration** | Socket.io rooms per song. Redis Pub/Sub fans events to all API instances. All collaborators see changes in < 1s.                                                                                |
+| **Change Ledger**           | Every mutation writes an immutable `NoteEvent` with `before_state` / `after_state` JSONB. Undo = compensating event.                                                                            |
+| **10,000-note Performance** | Two-layer windowing: API returns only the visible time window; client clamps to viewport. ~60–120 active DOM nodes regardless of total count.                                                   |
+| **AI Note Suggester**       | Sends last 10 notes to a configurable AI provider (Anthropic Claude / OpenAI / DeepSeek) → receives 3–5 pattern-continuation suggestions → renders as ghost overlays (accept/dismiss per note). |
+| **Role-based Access**       | Admin / Composer / Developer / Viewer enforced at NestJS route guards and React UI layer.                                                                                                       |
+
 
 ---
 
@@ -105,25 +113,47 @@ curl http://localhost:3001/health
 ## Testing
 
 ```bash
-# Unit tests (NoteService: 6 behavioral contracts)
+# Unit tests (NoteService: behavioral contracts)
 cd apps/api && pnpm test
 
 # Integration tests (real DB — requires ama_midi_test database)
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ama_midi_test pnpm test
-
-# Load test (requires k6 + running API)
-k6 run scripts/load-test.js
 ```
+
+### Load test (k6)
+
+Requires [k6](https://k6.io/), a running API, a JWT, and a chart you can edit. Full guide: **[Load Testing (k6)](docs/load-testing.md)**.
+
+```bash
+# 1. Seed 10k notes on your chart (optional, for UI + dense chart)
+CHART_ID="<chart-id-from-editor>" pnpm seed
+
+# 2. Single request probe (expect 201 or 409)
+curl -s -w "\nHTTP %{http_code}\n" \
+  -X POST "http://localhost:3001/charts/$CHART_ID/notes" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"track":1,"time":200.0,"title":"probe"}'
+
+# 3. Smoke test (under rate limit — should pass all thresholds)
+BASE_URL=http://localhost:3001 CHART_ID="$CHART_ID" TOKEN="$TOKEN" \
+  VUS=1 DURATION=60s SLEEP=2 k6 run scripts/load-test.js
+
+# 4. Full 100 VU test — raise THROTTLE_* in apps/api/.env first (see guide)
+BASE_URL=http://localhost:3001 CHART_ID="$CHART_ID" TOKEN="$TOKEN" \
+  k6 run scripts/load-test.js
+```
+
+Load test write-up (first attempt, what I found, the fix, second attempt): **[k6 Test Report](docs/k6-test-report.md)**.
 
 **Critical test — concurrent conflict:**
 
 ```bash
-# Two simultaneous POSTs to the same (song_id, track, time).
+# Two simultaneous POSTs to the same (track, time).
 # Expected: [201, 409] in some order. DB contains exactly 1 note.
-# Promise.all — not sequential — is what tests the race condition.
 ```
 
-See [Performance & Correctness Testing Plan](docs/performance-testing-plan.md) for full procedures.
+See also [Performance & Correctness Testing Plan](docs/performance-testing-plan.md) (conflicts, boundaries, 10k UI rendering).
 
 ---
 
@@ -131,19 +161,21 @@ See [Performance & Correctness Testing Plan](docs/performance-testing-plan.md) f
 
 See `.env.example`. Required:
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `JWT_SECRET` | Min 32 chars. Generate: `openssl rand -hex 32` |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `GOOGLE_CALLBACK_URL` | OAuth redirect URI |
-| `AI_PROVIDER` | `anthropic` \| `openai` \| `deepseek` — selects AI backend |
-| `ANTHROPIC_API_KEY` | Required when `AI_PROVIDER=anthropic` |
-| `OPENAI_API_KEY` | Required when `AI_PROVIDER=openai` |
-| `DEEPSEEK_API_KEY` | Required when `AI_PROVIDER=deepseek` |
-| `FRONTEND_URL` | Used for CORS and OAuth redirect validation |
+
+| Variable               | Purpose                                                  |
+| ---------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`         | PostgreSQL connection string                             |
+| `REDIS_URL`            | Redis connection string                                  |
+| `JWT_SECRET`           | Min 32 chars. Generate: `openssl rand -hex 32`           |
+| `GOOGLE_CLIENT_ID`     | Google OAuth client ID                                   |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret                               |
+| `GOOGLE_CALLBACK_URL`  | OAuth redirect URI                                       |
+| `AI_PROVIDER`          | `anthropic` | `openai` | `deepseek` — selects AI backend |
+| `ANTHROPIC_API_KEY`    | Required when `AI_PROVIDER=anthropic`                    |
+| `OPENAI_API_KEY`       | Required when `AI_PROVIDER=openai`                       |
+| `DEEPSEEK_API_KEY`     | Required when `AI_PROVIDER=deepseek`                     |
+| `FRONTEND_URL`         | Used for CORS and OAuth redirect validation              |
+
 
 ---
 
@@ -167,3 +199,4 @@ cd apps/api && pnpm test                        # API tests only
 cd apps/api && npx prisma migrate dev           # Run DB migrations
 docker-compose up --build                       # Full Docker stack
 ```
+

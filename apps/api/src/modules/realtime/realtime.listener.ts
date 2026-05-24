@@ -2,13 +2,14 @@ import { Injectable } from '@nestjs/common'
 import { OnEvent } from '@nestjs/event-emitter'
 import { RealtimeGateway } from './realtime.gateway'
 import { PrismaService } from '../prisma/prisma.service'
-import { NOTE_EVENTS } from '@ama-midi/shared'
+import { CHART_EVENTS, NOTE_EVENTS } from '@ama-midi/shared'
 import type {
+  ActivityActor,
+  ChartAnalysisUpdatedEvent,
   NoteCreatedEvent,
   NoteUpdatedEvent,
   NoteDeletedEvent,
   NotesBatchAppliedPayload,
-  ActivityActor,
   RealtimeActivityPayload,
 } from '@ama-midi/shared'
 
@@ -35,19 +36,27 @@ export class RealtimeListener {
     return actor
   }
 
-  private async wrap<T>(userId: string, data: T): Promise<RealtimeActivityPayload<T>> {
-    return { actor: await this.resolveActor(userId), data }
+  private async wrap<T>(
+    userId: string,
+    data: T,
+    actor?: ActivityActor,
+  ): Promise<RealtimeActivityPayload<T>> {
+    return { actor: actor ?? (await this.resolveActor(userId)), data }
   }
 
   @OnEvent(NOTE_EVENTS.CREATED)
   async onNoteCreated(event: NoteCreatedEvent) {
     if (event.realtimeMode === 'batch') return
-    this.gateway.broadcastToSong(event.songId, 'note-created', await this.wrap(event.userId, event.afterState))
+    this.gateway.broadcastToSong(
+      event.songId,
+      'note-created',
+      await this.wrap(event.userId, event.afterState, event.actor),
+    )
   }
 
   @OnEvent(NOTE_EVENTS.UPDATED)
-  async onNoteUpdated({ songId, userId, afterState }: NoteUpdatedEvent) {
-    this.gateway.broadcastToSong(songId, 'note-updated', await this.wrap(userId, afterState))
+  async onNoteUpdated({ songId, userId, afterState, actor }: NoteUpdatedEvent) {
+    this.gateway.broadcastToSong(songId, 'note-updated', await this.wrap(userId, afterState, actor))
   }
 
   @OnEvent(NOTE_EVENTS.DELETED)
@@ -56,13 +65,22 @@ export class RealtimeListener {
     this.gateway.broadcastToSong(
       event.songId,
       'note-deleted',
-      await this.wrap(event.userId, { noteId: event.noteId, beforeState: event.beforeState }),
+      await this.wrap(
+        event.userId,
+        { noteId: event.noteId, beforeState: event.beforeState },
+        event.actor,
+      ),
     )
   }
 
   @OnEvent(NOTE_EVENTS.BATCH_APPLIED)
   async onNotesBatchApplied(payload: NotesBatchAppliedPayload) {
     this.gateway.broadcastToSong(payload.songId, 'notes-batch-applied', await this.wrap(payload.actorId, payload))
+  }
+
+  @OnEvent(CHART_EVENTS.ANALYSIS_UPDATED)
+  onChartAnalysisUpdated({ songId, chartId }: ChartAnalysisUpdatedEvent) {
+    this.gateway.broadcastToSong(songId, 'chart-analysis-updated', { chartId })
   }
 
   @OnEvent('project.member.updated')

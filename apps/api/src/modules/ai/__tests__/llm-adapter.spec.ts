@@ -11,6 +11,7 @@ import { OpenAICompatibleAdapter } from '../adapters/openai-compatible.adapter'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
 import { EditorCommandService } from '../../editor-commands/editor-command.service'
+import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
 
 const fakeLlm: LLMAdapter = {
   complete: jest.fn(),
@@ -41,6 +42,7 @@ describe('AI services LLM adapter injection', () => {
         { provide: ProjectAccessService, useValue: {} },
         { provide: EventEmitter2, useValue: {} },
         { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
+        { provide: ChartAnalyzeService, useValue: { scheduleRun: jest.fn(), run: jest.fn() } },
       ],
     }).compile()
 

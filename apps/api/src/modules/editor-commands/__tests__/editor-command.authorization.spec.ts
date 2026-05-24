@@ -29,7 +29,12 @@ describe('EditorCommandService authorization', () => {
       summary: {},
     }])
     access.assertCanEditSongChart.mockRejectedValue(new ForbiddenException())
-    const service = new EditorCommandService(prisma as unknown as PrismaService, { emit: jest.fn() } as any, access as unknown as ProjectAccessService)
+    const service = new EditorCommandService(
+      prisma as unknown as PrismaService,
+      { emit: jest.fn() } as any,
+      access as unknown as ProjectAccessService,
+      { scheduleRun: jest.fn() } as any,
+    )
 
     await expect(service.previewUndo('chart-1', 'user-1')).rejects.toBeInstanceOf(ForbiddenException)
     expect(access.assertCanEditSongChart).toHaveBeenCalledWith('song-1', expect.objectContaining({ id: 'user-1' }))
@@ -43,7 +48,12 @@ describe('EditorCommandService authorization', () => {
       userId: 'user-1',
       undoneByCommandId: null,
     })
-    const service = new EditorCommandService(prisma as unknown as PrismaService, { emit: jest.fn() } as any, access as unknown as ProjectAccessService)
+    const service = new EditorCommandService(
+      prisma as unknown as PrismaService,
+      { emit: jest.fn() } as any,
+      access as unknown as ProjectAccessService,
+      { scheduleRun: jest.fn() } as any,
+    )
 
     await expect(service.applyUndo('chart-1', 'user-1', 'cmd-1', [])).rejects.toThrow('Command not found')
     expect(access.assertCanEditSongChart).not.toHaveBeenCalled()

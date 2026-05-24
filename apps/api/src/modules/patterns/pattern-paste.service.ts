@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { EditorCommandService } from '../editor-commands/editor-command.service'
+import { ChartAnalyzeService } from '../charts/chart-analyze.service'
 import { classifySlots } from '../notes/note-slot-preview'
 import type { NoteSlot } from '../notes/note-overlap'
 import { NOTE_EVENTS, TIME_MAX, TIME_MIN, TRACK_MAX, TRACK_MIN } from '@ama-midi/shared'
@@ -61,6 +62,7 @@ export class PatternPasteService {
     private readonly access: ProjectAccessService,
     private readonly eventEmitter: EventEmitter2,
     private readonly editorCommands: EditorCommandService,
+    private readonly analyze: ChartAnalyzeService,
   ) {}
 
   async previewPaste(
@@ -213,6 +215,8 @@ export class PatternPasteService {
       deletedIds,
       actorId: user.id,
     } satisfies NotesBatchAppliedPayload)
+
+    this.analyze.scheduleRun(chartId)
 
     return {
       batchId,

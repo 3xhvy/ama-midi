@@ -39,7 +39,6 @@ export function useApplyNoteCopy(chartId: string | undefined) {
     onSuccess: () => {
       if (!chartId) return
       qc.invalidateQueries({ queryKey: ['notes', chartId], exact: false })
-      qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     },
   })
 }

@@ -1,14 +1,14 @@
 import { Injectable, ConflictException, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
+import { Prisma } from '../../../generated/prisma/client'
 import { rethrowPrismaAsHttp } from '../../common/prisma-error.util'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { ChartAnalyzeService } from '../charts/chart-analyze.service'
 import { EditorCommandService } from '../editor-commands/editor-command.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
-import type { AuthUser, Note, NoteCreatedEvent, NoteDeletedEvent, NoteUpdatedEvent } from '@ama-midi/shared'
+import type { ActivityActor, AuthUser, Note, NoteCreatedEvent, NoteDeletedEvent, NoteUpdatedEvent } from '@ama-midi/shared'
 import { UpdateNoteDto } from './dto/update-note.dto'
-import { overlapsAny } from './note-overlap'
 
 function snapTime(time: number): number {
   return Math.round(time * 10) / 10
@@ -55,6 +55,10 @@ function noteCommandSummary(note: Pick<Note, 'track' | 'time' | 'title' | 'noteT
     noteType: note.noteType,
     ...(note.duration != null ? { duration: note.duration } : {}),
   }
+}
+
+function toActor(user: AuthUser): ActivityActor {
+  return { id: user.id, name: user.name, avatarUrl: user.avatarUrl ?? null }
 }
 
 @Injectable()
@@ -113,9 +117,10 @@ export class NotesService {
         userId: user.id,
         afterState: note,
         commandId: cmd.id,
+        actor: toActor(user),
       } satisfies NoteCreatedEvent)
 
-      await this.analyze.run(chartId)
+      this.analyze.scheduleRun(chartId)
       return note
     } catch (e: unknown) {
       rethrowPrismaAsHttp(e)
@@ -150,9 +155,10 @@ export class NotesService {
       userId: user.id,
       beforeState: toNote(note),
       commandId: cmd.id,
+      actor: toActor(user),
     } satisfies NoteDeletedEvent)
 
-    await this.analyze.run(chartId)
+    this.analyze.scheduleRun(chartId)
   }
 
   async update(chartId: string, noteId: string, dto: UpdateNoteDto, user: AuthUser): Promise<Note> {
@@ -199,9 +205,10 @@ export class NotesService {
       beforeState: toNote(existing),
       afterState: note,
       commandId: cmd.id,
+      actor: toActor(user),
     } satisfies NoteUpdatedEvent)
 
-    await this.analyze.run(existing.chartId)
+    this.analyze.scheduleRun(existing.chartId)
     return note
   }
 
@@ -246,18 +253,33 @@ export class NotesService {
     duration: number | null,
     excludeNoteId?: string,
   ): Promise<void> {
-    const end = noteType === 'HOLD' && duration != null && duration > 0 ? time + duration : time
-    const others = await this.prisma.note.findMany({
-      where: {
-        chartId,
-        track,
-        deletedAt: null,
-        time: { lt: end },
-        ...(excludeNoteId ? { id: { not: excludeNoteId } } : {}),
-      },
-      select: { time: true, noteType: true, duration: true },
-    })
-    if (overlapsAny({ time, noteType, duration }, others)) {
+    const candidateStart = time
+    const candidateEnd =
+      noteType === 'HOLD' && duration != null && duration > 0 ? time + duration : time + 0.0001
+
+    const overlapFilter = excludeNoteId
+      ? Prisma.sql`AND id != ${excludeNoteId}`
+      : Prisma.empty
+
+    const rows = await this.prisma.$queryRaw<Array<{ time: number }>>`
+      SELECT time
+      FROM notes
+      WHERE "chartId" = ${chartId}
+        AND track = ${track}
+        AND "deletedAt" IS NULL
+        ${overlapFilter}
+        AND time < ${candidateEnd}
+        AND (
+          CASE
+            WHEN "noteType" = 'HOLD' AND duration IS NOT NULL AND duration > 0
+            THEN time + duration
+            ELSE time + 0.0001
+          END
+        ) > ${candidateStart}
+      LIMIT 1
+    `
+
+    if (rows.length > 0) {
       throw new ConflictException({ error: 'POSITION_TAKEN' })
     }
   }

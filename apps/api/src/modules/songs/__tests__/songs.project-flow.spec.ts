@@ -23,7 +23,7 @@ const access = {
 
 const templates = { materialize: jest.fn() }
 const charts = { createDefaultChart: jest.fn() }
-const analyze = { run: jest.fn() }
+const analyze = { run: jest.fn(), scheduleRun: jest.fn() }
 
 const user: AuthUser = {
   id: 'u1',
@@ -122,7 +122,7 @@ describe('SongsService project flow', () => {
     }, user)
 
     expect(templates.materialize).toHaveBeenCalledWith('tap-starter', 'song1', 'chart1', 'u1')
-	    expect(analyze.run).toHaveBeenCalledWith('chart1')
+	    expect(analyze.scheduleRun).toHaveBeenCalledWith('chart1')
 	  })
 
 	  it('scopes legacy song list to projects and selected songs the user can access', async () => {

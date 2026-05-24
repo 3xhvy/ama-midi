@@ -296,6 +296,12 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
       })
     })
 
+    socket.on('chart-analysis-updated', ({ chartId: updatedChartId }: { chartId: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['chart-analysis', updatedChartId] })
+      queryClient.invalidateQueries({ queryKey: ['chart', updatedChartId] })
+      queryClient.invalidateQueries({ queryKey: ['charts'] })
+    })
+
     if (projectId) {
       socket.on('project.member.updated', () => {
         queryClient.invalidateQueries({ queryKey: ['project-members', projectId] })

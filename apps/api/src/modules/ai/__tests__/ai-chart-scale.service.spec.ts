@@ -8,6 +8,9 @@ import { LLM_ADAPTER, type LLMAdapter } from '../adapters/llm-adapter.interface'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
 import { EditorCommandService } from '../../editor-commands/editor-command.service'
+import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
+
+const mockAnalyze = { scheduleRun: jest.fn(), run: jest.fn() }
 import type { AuthUser } from '@ama-midi/shared'
 
 const songId = 'song-1'
@@ -126,6 +129,7 @@ describe('AiChartService.scaleChart', () => {
         { provide: ProjectAccessService, useValue: { assertCanEditSongChart: jest.fn() } },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
+        { provide: ChartAnalyzeService, useValue: mockAnalyze },
       ],
     }).compile()
 

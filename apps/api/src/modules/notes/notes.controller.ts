@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Req, HttpCode } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { Throttle } from '@nestjs/throttler'
+import { noteWriteThrottlerOptions } from '../../config/throttler.config'
 import { NotesService } from './notes.service'
 import { NoteQueryService } from './note-query.service'
 import { NoteCopyService } from './note-copy.service'
@@ -42,7 +43,7 @@ export class NotesController {
   }
 
   @Post('notes/copy-apply')
-  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Throttle(noteWriteThrottlerOptions)
   applyCopy(
     @Param('chartId') chartId: string,
     @Body() body: NoteCopyApplyDto,
@@ -52,7 +53,7 @@ export class NotesController {
   }
 
   @Post('notes')
-  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Throttle(noteWriteThrottlerOptions)
   create(
     @Param('chartId') chartId: string,
     @Body() body: CreateNoteDto,

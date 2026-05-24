@@ -257,7 +257,7 @@ export class NoteCopyService {
       actorId: user.id,
     } satisfies NotesBatchAppliedPayload)
 
-    await this.analyze.run(chartId)
+    this.analyze.scheduleRun(chartId)
 
     return {
       batchId,

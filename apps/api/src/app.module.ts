@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { APP_GUARD } from '@nestjs/core'
 import { EventEmitterModule } from '@nestjs/event-emitter'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
+import { globalThrottlerOptions } from './config/throttler.config'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { PrismaModule } from './modules/prisma/prisma.module'
@@ -26,7 +27,7 @@ import { EditorCommandModule } from './modules/editor-commands/editor-command.mo
 @Module({
   imports: [
     EventEmitterModule.forRoot({ wildcard: false, delimiter: '.', global: true }),
-    ThrottlerModule.forRoot([{ name: 'global', ttl: 60000, limit: 100 }]),
+    ThrottlerModule.forRoot([globalThrottlerOptions]),
     PrismaModule,
     ProjectAccessModule,
     AuthModule,

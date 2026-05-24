@@ -57,7 +57,6 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
     clearChartPreview()
     resetConflictState()
     await qc.invalidateQueries({ queryKey: ['notes', chartId] })
-    await qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     await qc.invalidateQueries({ queryKey: ['sections', songId] })
     const skipped = result.skippedCount > 0 ? ` (${result.skippedCount} skipped)` : ''
     const replaced = result.replacedCount > 0 ? `, replaced ${result.replacedCount}` : ''

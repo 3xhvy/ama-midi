@@ -1,12 +1,20 @@
 import http from 'k6/http'
 import { check, sleep } from 'k6'
 
+// API limits: global THROTTLE_GLOBAL_LIMIT/min; POST notes uses THROTTLE_NOTE_WRITE_LIMIT/min.
+// Local load test: set both to 10000 in apps/api/.env, restart API, then run default profile.
+const vus = __ENV.VUS ? parseInt(__ENV.VUS, 10) : 100
+const duration = __ENV.DURATION || '30s'
+const sleepSeconds = __ENV.SLEEP ? parseFloat(__ENV.SLEEP) : 0.1
+
 export const options = {
-  vus: 100,
-  duration: '30s',
+  vus,
+  duration,
   thresholds: {
     http_req_duration: ['p(95)<200'],
+    // 409 = duplicate position (valid). 429 = rate limited (expected at high VU).
     http_req_failed: ['rate<0.05'],
+    'checks{check:accepted}': ['rate>0.95'],
   },
 }
 
@@ -29,13 +37,16 @@ export default function () {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${TOKEN}`,
       },
+      // k6 treats 4xx as failed by default; 409 is a valid outcome here.
+      responseCallback: http.expectedStatuses(201, 409),
     },
   )
 
   check(res, {
-    'status is 201 or 409': (r) => r.status === 201 || r.status === 409,
+    accepted: (r) => r.status === 201 || r.status === 409,
     'not a 500': (r) => r.status !== 500,
+    'not rate limited': (r) => r.status !== 429,
   })
 
-  sleep(0.1)
+  sleep(sleepSeconds)
 }

@@ -7,6 +7,7 @@ import { AiChartService } from '../ai-chart.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
 import { EditorCommandService } from '../../editor-commands/editor-command.service'
+import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
 import { LLM_ADAPTER } from '../adapters/llm-adapter.interface'
 import type { AuthUser } from '@ama-midi/shared'
 
@@ -176,6 +177,7 @@ describe('AiChartService applyChart merge resolutions', () => {
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: LLM_ADAPTER, useValue: { complete: jest.fn() } },
         { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
+        { provide: ChartAnalyzeService, useValue: { scheduleRun: jest.fn(), run: jest.fn() } },
       ],
     }).compile()
 

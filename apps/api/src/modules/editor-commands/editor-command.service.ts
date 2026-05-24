@@ -2,11 +2,11 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { Prisma } from '../../../generated/prisma/client'
 import { NOTE_EVENTS } from '@ama-midi/shared'
-import type { CommandType, Note, NoteCreatedEvent, NoteDeletedEvent, UndoConflict, UndoPreview } from '@ama-midi/shared'
+import type { ActivityActor, AuthUser, CommandType, Note, NoteCreatedEvent, NoteDeletedEvent, UndoConflict, UndoPreview } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import type { RecordCommandInput, UndoResolution } from './editor-command.types'
 import { ProjectAccessService } from '../project-access/project-access.service'
-import type { AuthUser } from '@ama-midi/shared'
+import { ChartAnalyzeService } from '../charts/chart-analyze.service'
 
 @Injectable()
 export class EditorCommandService {
@@ -14,6 +14,7 @@ export class EditorCommandService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly access: ProjectAccessService,
+    private readonly analyze: ChartAnalyzeService,
   ) {}
 
   record(input: RecordCommandInput) {
@@ -267,6 +268,10 @@ export class EditorCommandService {
       where: { id: command.id },
       data: { undoneByCommandId: compensationCommand.id },
     })
+
+    if (command.chartId) {
+      this.analyze.scheduleRun(command.chartId)
+    }
 
     return compensationCommand
   }

@@ -38,6 +38,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { mapPrismaToHttpException } from '../../common/prisma-error.util'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { EditorCommandService } from '../editor-commands/editor-command.service'
+import { ChartAnalyzeService } from '../charts/chart-analyze.service'
 import { AI_STREAM_STEPS, type AiProgressEmitter, runStep, emitDetail } from './ai-progress.util'
 import { ChartContextService } from './chart-context.service'
 import { ChartApplyPreviewService } from './chart-apply-preview.service'
@@ -67,6 +68,7 @@ export class AiChartService {
     private readonly chartContext: ChartContextService,
     private readonly chartApplyPreview: ChartApplyPreviewService,
     private readonly editorCommands: EditorCommandService,
+    private readonly analyze: ChartAnalyzeService,
   ) {}
 
   async generateChart(
@@ -196,15 +198,17 @@ export class AiChartService {
       throw new BadRequestException(`Cannot apply more than ${MAX_GENERATED_NOTES} notes at once`)
     }
 
+    let result: ApplyChartResponse
     if (body.replaceExisting) {
-      return this.applyChartReplace(songId, user, chartId, body)
+      result = await this.applyChartReplace(songId, user, chartId, body)
+    } else if (body.resolutions?.length || body.previewVersion) {
+      result = await this.applyChartMergeWithResolutions(songId, user, chartId, body)
+    } else {
+      result = await this.applyChartMergeSimple(songId, user, chartId, body)
     }
 
-    if (body.resolutions?.length || body.previewVersion) {
-      return this.applyChartMergeWithResolutions(songId, user, chartId, body)
-    }
-
-    return this.applyChartMergeSimple(songId, user, chartId, body)
+    this.analyze.scheduleRun(chartId)
+    return result
   }
 
   private async applyChartReplace(

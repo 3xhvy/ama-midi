@@ -9,6 +9,7 @@ import { LLM_ADAPTER } from '../adapters/llm-adapter.interface'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
 import { EditorCommandService } from '../../editor-commands/editor-command.service'
+import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
 import type { AuthUser } from '@ama-midi/shared'
 
 const user: AuthUser = {
@@ -70,6 +71,7 @@ describe('AI authorization', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectAccessService, useValue: access },
         { provide: EditorCommandService, useValue: { record: jest.fn() } },
+        { provide: ChartAnalyzeService, useValue: { scheduleRun: jest.fn(), run: jest.fn() } },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile()

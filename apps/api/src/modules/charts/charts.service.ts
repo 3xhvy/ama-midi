@@ -72,7 +72,7 @@ export class ChartsService {
         speedMultiplier: dto.speedMultiplier ?? 1.0,
       },
     })
-    await this.analyze.run(chart.id)
+    this.analyze.scheduleRun(chart.id)
     return this.toChart(chart)
   }
 
@@ -102,7 +102,7 @@ export class ChartsService {
     })
 
     if (dto.speedMultiplier !== undefined) {
-      await this.analyze.run(chartId)
+      this.analyze.scheduleRun(chartId)
     }
 
     return this.toChart(chart)
@@ -168,7 +168,7 @@ export class ChartsService {
       }
     }
 
-    await this.analyze.run(copy.id)
+    this.analyze.scheduleRun(copy.id)
     return this.toChart(copy)
   }
 
