@@ -2,9 +2,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CHART_READ_ONLY_MESSAGES } from '@ama-midi/shared'
 import { useAuthStore } from '../../store/auth.store'
-import { apiClient } from '../auth/api'
+import { apiClient, extractApiErrorMessage } from '../auth/api'
 import type { Note, UndoPreview } from '@ama-midi/shared'
 import type { UndoResolution } from '../undo/undo.types'
+
+function undoErrorMessage(err: unknown): string {
+  if (typeof err === 'object' && err !== null && 'status' in err) {
+    const status = (err as { status: number }).status
+    if (status === 404) return 'Nothing to undo'
+  }
+  return extractApiErrorMessage(err, 'Undo failed')
+}
 
 function notesKey(chartId: string, timeFrom?: number, timeTo?: number) {
   return ['notes', chartId, timeFrom, timeTo] as const
@@ -155,7 +163,7 @@ export function useUndo(chartId: string | undefined) {
     onSuccess: () => {
       if (chartId) invalidateNotes(qc, chartId)
     },
-    onError: () => toast.error('Nothing to undo'),
+    onError: (err) => toast.error(undoErrorMessage(err)),
   })
 }
 

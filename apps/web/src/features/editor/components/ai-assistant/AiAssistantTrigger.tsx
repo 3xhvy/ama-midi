@@ -10,8 +10,9 @@ export function AiAssistantTrigger() {
       onClick={() =>
         openAiAssistant({ open: true, feature: null, phase: 'picker', entry: 'toolbar' })
       }
-      className="editor-toolbar-suggest flex items-center gap-1 mr-1"
+      className="editor-toolbar-suggest flex items-center gap-1.5 mr-1"
     >
+      <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--ai-accent-bright,#b4afff)] shadow-[0_0_6px_rgba(180,175,255,0.8)]" aria-hidden />
       AI
     </button>
   )

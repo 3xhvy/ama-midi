@@ -92,6 +92,7 @@ describe('AiChartService.scaleChart', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectAccessService, useValue: {} },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
       ],
     }).compile()
 

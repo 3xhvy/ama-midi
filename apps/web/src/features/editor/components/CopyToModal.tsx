@@ -8,6 +8,7 @@ import type {
 } from '@ama-midi/shared'
 import { trackColor } from '@ama-midi/shared'
 import { Button, Modal, ToggleGroup } from '../../../components/ui'
+import { EditorModalContent } from './EditorModal'
 import { toast } from 'sonner'
 import { usePreviewNoteCopy } from '../hooks/useNoteCopy'
 import {
@@ -105,7 +106,7 @@ export function CopyToModal({ chartId, selectedNotes, onCancel, onPreviewReady }
 
   return (
     <Modal.Root open onOpenChange={(open) => !open && onCancel()}>
-      <Modal.Content className="max-w-[420px]">
+      <EditorModalContent className="max-w-[420px]">
         <Modal.Header onClose={onCancel}>Copy / Move Notes</Modal.Header>
         <Modal.Body>
           <div className="space-y-4">
@@ -306,7 +307,7 @@ export function CopyToModal({ chartId, selectedNotes, onCancel, onPreviewReady }
             Validate
           </Button>
         </Modal.Footer>
-      </Modal.Content>
+      </EditorModalContent>
     </Modal.Root>
   )
 }

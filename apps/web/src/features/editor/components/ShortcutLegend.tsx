@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { EditorModalCompact, EditorModalOverlay } from './EditorModal'
 
 interface Props {
   onClose: () => void
@@ -26,31 +27,41 @@ export function ShortcutLegend({ onClose }: Props) {
   }, [onClose])
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface rounded-xl shadow-lg p-6 w-80 max-w-full"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-text-primary">Keyboard Shortcuts</h3>
-          <button onClick={onClose} className="text-text-secondary hover:text-text-primary text-xl leading-none">
+    <EditorModalOverlay onClick={onClose}>
+      <EditorModalCompact onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--modal-text)' }}>
+            Keyboard Shortcuts
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xl leading-none transition-opacity hover:opacity-70"
+            style={{ color: 'var(--modal-muted)' }}
+          >
             ×
           </button>
         </div>
         <div className="space-y-2">
           {SHORTCUTS.map((s) => (
-            <div key={s.key} className="flex items-center justify-between">
-              <code className="text-xs bg-bg border border-border rounded px-2 py-0.5 text-text-primary font-mono shrink-0">
+            <div key={s.key} className="flex items-center justify-between gap-3">
+              <code
+                className="shrink-0 rounded border px-2 py-0.5 font-mono text-xs"
+                style={{
+                  backgroundColor: 'var(--modal-input-bg)',
+                  borderColor: 'var(--modal-input-border)',
+                  color: 'var(--modal-text)',
+                }}
+              >
                 {s.key}
               </code>
-              <span className="text-xs text-text-secondary ml-3 text-right">{s.action}</span>
+              <span className="ml-3 text-right text-xs" style={{ color: 'var(--modal-muted)' }}>
+                {s.action}
+              </span>
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </EditorModalCompact>
+    </EditorModalOverlay>
   )
 }

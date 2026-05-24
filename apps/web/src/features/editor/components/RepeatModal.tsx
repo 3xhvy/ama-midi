@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Note, NoteCopyPreview, NoteCopyPreviewRequest } from '@ama-midi/shared'
 import { measureDuration } from '@ama-midi/shared'
 import { Button, Modal } from '../../../components/ui'
+import { EditorModalContent } from './EditorModal'
 import { toast } from 'sonner'
 import { usePreviewNoteCopy } from '../hooks/useNoteCopy'
 import {
@@ -87,7 +88,7 @@ export function RepeatModal({
 
   return (
     <Modal.Root open onOpenChange={(open) => !open && onCancel()}>
-      <Modal.Content className="max-w-[420px]">
+      <EditorModalContent className="max-w-[420px]">
         <Modal.Header onClose={onCancel}>Repeat Notes</Modal.Header>
         <Modal.Body>
           <div className="space-y-4">
@@ -139,13 +140,13 @@ export function RepeatModal({
                 <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>s</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <button type="button" onClick={setOneBeat} className="rounded border border-shell-border px-2 py-1 text-xs text-shell-muted hover:text-shell-text">
+                <button type="button" onClick={setOneBeat} className="editor-modal-chip rounded px-2 py-1 text-xs">
                   1 beat
                 </button>
-                <button type="button" onClick={setOneMeasure} className="rounded border border-shell-border px-2 py-1 text-xs text-shell-muted hover:text-shell-text">
+                <button type="button" onClick={setOneMeasure} className="editor-modal-chip rounded px-2 py-1 text-xs">
                   1 measure
                 </button>
-                <button type="button" onClick={setSelectionLength} className="rounded border border-shell-border px-2 py-1 text-xs text-shell-muted hover:text-shell-text">
+                <button type="button" onClick={setSelectionLength} className="editor-modal-chip rounded px-2 py-1 text-xs">
                   Selection length
                 </button>
               </div>
@@ -168,7 +169,7 @@ export function RepeatModal({
             Validate
           </Button>
         </Modal.Footer>
-      </Modal.Content>
+      </EditorModalContent>
     </Modal.Root>
   )
 }

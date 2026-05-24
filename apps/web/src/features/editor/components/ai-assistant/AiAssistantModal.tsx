@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { ChevronLeftIcon } from '@radix-ui/react-icons'
 import type { Note, SectionMarker, Song } from '@ama-midi/shared'
-import { Button, Modal } from '../../../../components/ui'
+import { Modal } from '../../../../components/ui'
+import { EditorModalContent } from '../EditorModal'
 import { useAuthStore } from '../../../../store/auth.store'
 import {
   useEditorStore,
@@ -16,6 +17,7 @@ import { FillTrackFlow } from './flows/FillTrackFlow'
 import { GenerateChartFlow } from './flows/GenerateChartFlow'
 import { ImprovePatternFlow } from './flows/ImprovePatternFlow'
 import { ScaleDifficultyFlow } from './flows/ScaleDifficultyFlow'
+import { AiFlowGhostButton, AiFlowPrimaryButton } from './AiFlowChrome'
 
 interface Props {
   songId: string
@@ -102,22 +104,28 @@ export function AiAssistantModal({
 
   return (
     <Modal.Root open={open} onOpenChange={handleOpenChange}>
-      <Modal.Content className="max-w-lg">
-        <Modal.Header>
-          <div className="flex items-center gap-2">
-            {showBack && (
-              <button
-                type="button"
-                onClick={handleBack}
-                className="rounded p-0.5 text-shell-muted hover:text-shell-text"
-                aria-label="Back"
-              >
-                <ChevronLeftIcon className="h-4 w-4" />
-              </button>
+      <EditorModalContent className="max-w-lg">
+        <div className="ai-assistant-header flex items-center gap-2 border-b px-6 py-4">
+          {showBack && (
+            <button
+              type="button"
+              onClick={handleBack}
+              className="rounded p-0.5 text-shell-muted transition-colors hover:text-[var(--ai-accent-bright,var(--shell-text))]"
+              aria-label="Back"
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+            </button>
+          )}
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            {phase === 'picker' && (
+              <span className="ai-assistant-badge w-fit">
+                <span className="ai-assistant-badge-dot" aria-hidden />
+                AI
+              </span>
             )}
-            <h2 className="text-sm font-semibold text-shell-text">{title}</h2>
+            <h2 className="ai-assistant-title text-sm">{title}</h2>
           </div>
-        </Modal.Header>
+        </div>
 
         <Modal.Body className="space-y-3">
           {phase === 'picker' && (
@@ -145,7 +153,7 @@ export function AiAssistantModal({
             <div className="space-y-4">
               <AiProgressTree action={streamAction} steps={streamRun.steps} />
               {streamRun.error && (
-                <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                <p className="rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-xs font-medium text-red-200">
                   {streamRun.error}
                 </p>
               )}
@@ -165,22 +173,21 @@ export function AiAssistantModal({
         </Modal.Body>
 
         {phase !== 'configure' && (
-        <Modal.Footer>
+        <div className="ai-assistant-footer flex items-center justify-end gap-2 border-t px-6 py-4">
           {phase === 'picker' && (
-            <Button variant="ghost" size="sm" onClick={() => handleOpenChange(false)}>
+            <AiFlowGhostButton size="sm" onClick={() => handleOpenChange(false)}>
               Cancel
-            </Button>
+            </AiFlowGhostButton>
           )}
 
           {phase === 'processing' && (
             <>
               {streamRun.error && (
-                <Button variant="ghost" size="sm" onClick={() => setPhase('configure')}>
+                <AiFlowGhostButton size="sm" onClick={() => setPhase('configure')}>
                   Try again
-                </Button>
+                </AiFlowGhostButton>
               )}
-              <Button
-                variant="ghost"
+              <AiFlowGhostButton
                 size="sm"
                 onClick={() => {
                   streamRun.cancel()
@@ -188,18 +195,18 @@ export function AiAssistantModal({
                 }}
               >
                 Cancel
-              </Button>
+              </AiFlowGhostButton>
             </>
           )}
 
           {phase === 'result' && (
-            <Button variant="primary" size="sm" onClick={() => handleOpenChange(false)}>
+            <AiFlowPrimaryButton size="sm" onClick={() => handleOpenChange(false)}>
               Done
-            </Button>
+            </AiFlowPrimaryButton>
           )}
-        </Modal.Footer>
+        </div>
         )}
-      </Modal.Content>
+      </EditorModalContent>
     </Modal.Root>
   )
 }

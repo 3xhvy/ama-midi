@@ -5,9 +5,19 @@ import {
   SongDifficultyEnum,
   type SongDifficulty,
 } from '@ama-midi/shared'
-import { Button, Textarea } from '../../../../../components/ui'
 import { useEditorStore } from '../../../../../store/editor.store'
 import type { AiFlowBaseProps } from '../ai-assistant.types'
+import {
+  AiFlowCallout,
+  AiFlowFooter,
+  AiFlowGhostButton,
+  AiFlowHighlight,
+  AiFlowIntro,
+  AiFlowLabel,
+  AiFlowPrimaryButton,
+  AiFlowSelect,
+  AiFlowTextarea,
+} from '../AiFlowChrome'
 
 export function ScaleDifficultyFlow({
   song,
@@ -62,23 +72,20 @@ export function ScaleDifficultyFlow({
     }
   }
 
-  const selectClassName =
-    'w-full rounded-lg border border-shell-border bg-shell-surface px-3 py-2 text-sm text-shell-text'
-
   return (
     <>
-      <div className="space-y-3">
-        <p className="text-xs text-shell-muted">
+      <div className="space-y-4">
+        <AiFlowIntro>
           Generate a full replacement preview for{' '}
-          <span className="text-shell-text">{song?.name ?? 'this song'}</span>. The current chart
-          is replaced only if you accept the preview.
-        </p>
+          <AiFlowHighlight>{song?.name ?? 'this song'}</AiFlowHighlight>. The current chart is
+          replaced only if you accept the preview.
+        </AiFlowIntro>
+
         <div>
-          <label className="mb-1 block text-xs text-shell-muted">Target tier</label>
-          <select
+          <AiFlowLabel>Target tier</AiFlowLabel>
+          <AiFlowSelect
             value={targetTier}
             onChange={(e) => setTargetTier(e.target.value as SongDifficulty | '')}
-            className={selectClassName}
             disabled={processing}
           >
             <option value="">Choose target tier</option>
@@ -87,9 +94,10 @@ export function ScaleDifficultyFlow({
                 {SongDifficultyEnum.label(key)}
               </option>
             ))}
-          </select>
+          </AiFlowSelect>
         </div>
-        <Textarea
+
+        <AiFlowTextarea
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           placeholder="Optional: keep chorus energetic, reduce doubles, add more holds"
@@ -97,24 +105,24 @@ export function ScaleDifficultyFlow({
           maxLength={2000}
           disabled={processing}
         />
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-shell-text">
+
+        <AiFlowCallout variant="amber">
           Preview uses replace mode. Accepting it will replace the current chart notes and section
           markers.
-        </p>
+        </AiFlowCallout>
       </div>
-      <div className="mt-4 flex justify-end gap-2 border-t border-shell-border pt-4">
-        <Button variant="ghost" size="sm" onClick={onCancel} disabled={processing}>
+
+      <AiFlowFooter>
+        <AiFlowGhostButton onClick={onCancel} disabled={processing}>
           Cancel
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
+        </AiFlowGhostButton>
+        <AiFlowPrimaryButton
           onClick={() => void handleSubmit()}
           disabled={processing || !targetTier || !chartId || noteCount === 0}
         >
           Generate preview
-        </Button>
-      </div>
+        </AiFlowPrimaryButton>
+      </AiFlowFooter>
     </>
   )
 }

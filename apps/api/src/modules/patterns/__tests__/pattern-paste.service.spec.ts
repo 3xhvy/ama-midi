@@ -8,6 +8,7 @@ import {
 import { PatternPasteService } from '../pattern-paste.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { EditorCommandService } from '../../editor-commands/editor-command.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { AuthUser } from '@ama-midi/shared'
 
@@ -72,6 +73,7 @@ describe('PatternPasteService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: ProjectAccessService, useValue: mockAccess },
+        { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
       ],
     }).compile()
 

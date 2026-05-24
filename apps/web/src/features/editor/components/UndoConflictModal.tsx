@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import type { UndoConflict, UndoPreview } from '@ama-midi/shared'
 import { trackColor } from '@ama-midi/shared'
 import { formatTime } from './conflict-formatters'
+import { EditorModalOverlay, EditorModalPanel } from './EditorModal'
 import { conflictChipStyle, typePillStyle } from './conflict-theme'
 import type { UndoResolution } from '../../undo/undo.types'
 
@@ -152,20 +153,8 @@ export function UndoConflictModal({ preview, resolutions, onResolve, onApply, on
   }, [handleKeyDown])
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: 'var(--modal-overlay)' }}
-      onClick={onCancel}
-    >
-      <div
-        className="flex flex-col rounded-2xl overflow-hidden"
-        style={{
-          width: '80vw', maxWidth: 860, height: 520,
-          backgroundColor: 'var(--modal-bg)',
-          boxShadow: '0 24px 60px rgba(0,0,0,0.30), 0 0 0 1px rgba(108,99,255,0.14)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <EditorModalOverlay onClick={onCancel}>
+      <EditorModalPanel size="undo-wide" onClick={(e) => e.stopPropagation()}>
         <div className="flex-shrink-0 px-6 py-4 border-b" style={{ borderColor: 'var(--modal-border)' }}>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -282,7 +271,7 @@ export function UndoConflictModal({ preview, resolutions, onResolve, onApply, on
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </EditorModalPanel>
+    </EditorModalOverlay>
   )
 }

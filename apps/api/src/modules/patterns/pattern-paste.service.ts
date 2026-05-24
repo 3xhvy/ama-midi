@@ -9,6 +9,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter'
 import { randomUUID } from 'crypto'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
+import { EditorCommandService } from '../editor-commands/editor-command.service'
 import { classifySlots } from '../notes/note-slot-preview'
 import type { NoteSlot } from '../notes/note-overlap'
 import { NOTE_EVENTS, TIME_MAX, TIME_MIN, TRACK_MAX, TRACK_MIN } from '@ama-midi/shared'
@@ -59,6 +60,7 @@ export class PatternPasteService {
     private readonly prisma: PrismaService,
     private readonly access: ProjectAccessService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly editorCommands: EditorCommandService,
   ) {}
 
   async previewPaste(
@@ -162,6 +164,19 @@ export class PatternPasteService {
       }
     })
 
+    const cmd = await this.editorCommands.record({
+      songId: request.songId,
+      chartId,
+      commandType: 'PATTERN_PASTED',
+      userId: user.id,
+      summary: {
+        noteCount: createdEntries.length,
+        patternId,
+        patternName: pattern.name,
+        batchId,
+      },
+    })
+
     for (const { noteId, beforeState } of deletedBeforeStates) {
       this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
         songId: request.songId,
@@ -171,6 +186,7 @@ export class PatternPasteService {
         batchId,
         replacedByBatch: true,
         realtimeMode: 'batch',
+        commandId: cmd.id,
       } satisfies NoteDeletedEvent)
     }
 
@@ -183,6 +199,7 @@ export class PatternPasteService {
         batchId,
         replacesNoteId,
         realtimeMode: 'batch',
+        commandId: cmd.id,
       } satisfies NoteCreatedEvent)
     }
 

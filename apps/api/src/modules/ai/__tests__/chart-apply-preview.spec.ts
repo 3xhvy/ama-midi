@@ -174,6 +174,7 @@ describe('AiChartService applyChart merge resolutions', () => {
         { provide: ProjectAccessService, useValue: mockAccess },
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: LLM_ADAPTER, useValue: { complete: jest.fn() } },
+        { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
       ],
     }).compile()
 

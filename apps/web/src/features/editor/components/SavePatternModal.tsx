@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button, Input } from '../../../components/ui'
+import { EditorModalCompact, EditorModalOverlay } from './EditorModal'
 import { useCreatePattern } from '../../patterns/usePatterns'
 import { toast } from 'sonner'
 import type { Note, PatternNote } from '@ama-midi/shared'
@@ -34,16 +35,11 @@ export function SavePatternModal({ songId, selectedNotes, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'var(--modal-overlay)' }} onClick={onClose}>
-      <div
-        className="rounded-xl p-6 w-80 modal-body"
-        style={{
-          backgroundColor: 'var(--modal-bg)',
-          boxShadow: 'var(--modal-shadow)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--modal-text)' }}>Save selection as pattern</h2>
+    <EditorModalOverlay onClick={onClose}>
+      <EditorModalCompact onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-4 text-sm font-semibold" style={{ color: 'var(--modal-text)' }}>
+          Save selection as pattern
+        </h2>
         <label className="block text-xs mb-1" style={{ color: 'var(--modal-muted)' }}>Name</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Verse Fill" autoFocus />
         <div className="flex flex-col gap-1 mt-4">
@@ -63,7 +59,7 @@ export function SavePatternModal({ songId, selectedNotes, onClose }: Props) {
             Save
           </Button>
         </div>
-      </div>
-    </div>
+      </EditorModalCompact>
+    </EditorModalOverlay>
   )
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { MinusIcon, PlusIcon } from '@radix-ui/react-icons'
 import { useCreateNote, useDeleteNote, useUpdateNote } from '../../notes/useNotes'
 import { Modal, Button, Input } from '../../../components/ui'
+import { EditorModalContent } from './EditorModal'
 import type { Note, NoteType } from '@ama-midi/shared'
 import {
   HOLD_DURATION_MAX,
@@ -94,17 +95,17 @@ export function NotePopup({
 
   return (
     <Modal.Root open onOpenChange={(open) => !open && onClose()}>
-      <Modal.Content>
+      <EditorModalContent>
         <Modal.Header onClose={onClose}>{mode === 'create' ? 'Place Note' : 'Edit Note'}</Modal.Header>
         <Modal.Body>
           <form id="note-popup-form" onSubmit={handleSubmit} className="space-y-3">
-            <div className="flex gap-2 text-xs text-shell-muted bg-shell-bg rounded-lg px-3 py-2">
+            <div className="editor-modal-meta flex gap-2 text-xs">
               <span>
-                Track <strong className="text-shell-text">{track}</strong>
+                Track <strong>{track}</strong>
               </span>
-              <span className="text-shell-border">·</span>
+              <span className="opacity-40">·</span>
               <span>
-                Time <strong className="text-shell-text">{startAt}s</strong>
+                Time <strong>{startAt}s</strong>
               </span>
             </div>
 
@@ -137,10 +138,8 @@ export function NotePopup({
                     type="button"
                     onClick={() => setNoteType(t)}
                     className={
-                      'px-2 py-1 text-xs rounded border ' +
-                      (noteType === t
-                        ? 'bg-primary text-white border-primary'
-                        : 'border-shell-border text-shell-muted hover:text-shell-text')
+                      'editor-modal-segment px-2 py-1 text-xs rounded ' +
+                      (noteType === t ? 'editor-modal-segment--active' : '')
                     }
                   >
                     {t}
@@ -224,7 +223,7 @@ export function NotePopup({
             Cancel
           </Button>
         </Modal.Footer>
-      </Modal.Content>
+      </EditorModalContent>
     </Modal.Root>
   )
 }

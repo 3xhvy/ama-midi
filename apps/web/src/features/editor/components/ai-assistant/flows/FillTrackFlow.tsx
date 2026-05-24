@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { trackColor } from '@ama-midi/shared'
-import { Button, Textarea } from '../../../../../components/ui'
 import { useEditorStore } from '../../../../../store/editor.store'
 import type { AiFlowBaseProps } from '../ai-assistant.types'
+import {
+  AiFlowFooter,
+  AiFlowGhostButton,
+  AiFlowIntro,
+  AiFlowPrimaryButton,
+  AiFlowTextarea,
+} from '../AiFlowChrome'
 
 export function FillTrackFlow({
   chartId,
@@ -62,12 +68,13 @@ export function FillTrackFlow({
 
   return (
     <>
-      <div className="space-y-3">
-        <p className="text-xs text-shell-muted">
+      <div className="space-y-4">
+        <AiFlowIntro>
           Pick a lane and optional guidance. Uses playhead position and full chart structure.
-        </p>
+        </AiFlowIntro>
+
         <div>
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-shell-muted">
+          <p className="ai-flow-section-label mb-2 text-[10px] uppercase tracking-wide">
             Pick track to fill
           </p>
           <div className="grid grid-cols-4 gap-1.5">
@@ -81,11 +88,12 @@ export function FillTrackFlow({
                   title={`Track ${track}`}
                   onClick={() => setTargetTrack(track)}
                   disabled={processing}
-                  className="flex h-8 items-center justify-center rounded-md border text-xs font-medium text-shell-text hover:opacity-90 disabled:opacity-40"
+                  className="ai-flow-track-btn flex h-9 items-center justify-center rounded-lg border text-xs font-semibold disabled:opacity-40"
                   style={{
-                    borderColor: color,
-                    backgroundColor: selected ? `${color}44` : `${color}22`,
-                    outline: selected ? `2px solid ${color}` : undefined,
+                    borderColor: selected ? color : `${color}88`,
+                    backgroundColor: selected ? `${color}55` : `${color}22`,
+                    color: selected ? '#fff' : undefined,
+                    boxShadow: selected ? `0 0 16px ${color}44` : undefined,
                   }}
                 >
                   {track}
@@ -94,7 +102,8 @@ export function FillTrackFlow({
             })}
           </div>
         </div>
-        <Textarea
+
+        <AiFlowTextarea
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           placeholder="Optional: match hi-hat groove in chorus"
@@ -103,19 +112,18 @@ export function FillTrackFlow({
           disabled={processing}
         />
       </div>
-      <div className="mt-4 flex justify-end gap-2 border-t border-shell-border pt-4">
-        <Button variant="ghost" size="sm" onClick={onCancel} disabled={processing}>
+
+      <AiFlowFooter>
+        <AiFlowGhostButton onClick={onCancel} disabled={processing}>
           Cancel
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
+        </AiFlowGhostButton>
+        <AiFlowPrimaryButton
           onClick={() => void handleSubmit()}
           disabled={processing || targetTrack == null || !chartId}
         >
           Get suggestions
-        </Button>
-      </div>
+        </AiFlowPrimaryButton>
+      </AiFlowFooter>
     </>
   )
 }

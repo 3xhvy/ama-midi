@@ -35,6 +35,7 @@ import {
 } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
+import { EditorCommandService } from '../editor-commands/editor-command.service'
 import { AI_STREAM_STEPS, type AiProgressEmitter, runStep } from './ai-progress.util'
 import { ChartContextService } from './chart-context.service'
 import { ChartApplyPreviewService } from './chart-apply-preview.service'
@@ -61,6 +62,7 @@ export class AiChartService {
     private readonly eventEmitter: EventEmitter2,
     private readonly chartContext: ChartContextService,
     private readonly chartApplyPreview: ChartApplyPreviewService,
+    private readonly editorCommands: EditorCommandService,
   ) {}
 
   async generateChart(
@@ -196,13 +198,16 @@ export class AiChartService {
   ): Promise<ApplyChartResponse> {
     const batchId = randomUUID()
     const deletedIds: string[] = []
+    const deletedBeforeStates: Array<{ noteId: string; beforeState: Note }> = []
     const createdEntries: Note[] = []
 
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.note.findMany({
         where: { chartId, deletedAt: null },
+        include: { creator: { select: { name: true, avatarUrl: true } } },
       })
       for (const note of existing) {
+        deletedBeforeStates.push({ noteId: note.id, beforeState: this.toNote(note) })
         await tx.note.update({
           where: { id: note.id },
           data: { deletedAt: new Date() },
@@ -229,7 +234,15 @@ export class AiChartService {
       }
     })
 
-    this.emitBatchEvents(songId, user.id, batchId, createdEntries, deletedIds)
+    const cmd = await this.editorCommands.record({
+      songId,
+      chartId,
+      commandType: 'AI_NOTES_APPLIED',
+      userId: user.id,
+      summary: { noteCount: createdEntries.length, replacedCount: deletedIds.length, batchId, mode: 'replace' },
+    })
+
+    this.emitBatchEvents(songId, user.id, batchId, createdEntries, deletedBeforeStates, cmd.id)
 
     return {
       batchId,
@@ -297,7 +310,15 @@ export class AiChartService {
       }
     })
 
-    this.emitBatchEvents(songId, user.id, batchId, createdEntries, [])
+    const cmd = await this.editorCommands.record({
+      songId,
+      chartId,
+      commandType: 'AI_NOTES_APPLIED',
+      userId: user.id,
+      summary: { noteCount: createdEntries.length, batchId, mode: 'merge' },
+    })
+
+    this.emitBatchEvents(songId, user.id, batchId, createdEntries, [], cmd.id)
 
     return {
       batchId,
@@ -408,6 +429,16 @@ export class AiChartService {
       }
     })
 
+    const createdNotes = createdEntries.map((entry) => entry.note)
+
+    const cmd = await this.editorCommands.record({
+      songId,
+      chartId,
+      commandType: 'AI_NOTES_APPLIED',
+      userId: user.id,
+      summary: { noteCount: createdNotes.length, replacedCount: deletedIds.length, batchId, mode: 'merge-resolutions' },
+    })
+
     for (const { noteId, beforeState } of deletedBeforeStates) {
       this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
         songId,
@@ -417,10 +448,9 @@ export class AiChartService {
         batchId,
         replacedByBatch: true,
         realtimeMode: 'batch',
+        commandId: cmd.id,
       } satisfies NoteDeletedEvent)
     }
-
-    const createdNotes = createdEntries.map((entry) => entry.note)
 
     for (const { note, replacesNoteId } of createdEntries) {
       this.eventEmitter.emit(NOTE_EVENTS.CREATED, {
@@ -431,6 +461,7 @@ export class AiChartService {
         batchId,
         replacesNoteId,
         realtimeMode: 'batch',
+        commandId: cmd.id,
       } satisfies NoteCreatedEvent)
     }
 
@@ -492,17 +523,21 @@ export class AiChartService {
     userId: string,
     batchId: string,
     createdEntries: Note[],
-    deletedIds: string[],
+    deletedBeforeStates: Array<{ noteId: string; beforeState: Note }>,
+    commandId: string,
   ): void {
-    for (const noteId of deletedIds) {
+    const deletedIds = deletedBeforeStates.map((entry) => entry.noteId)
+
+    for (const { noteId, beforeState } of deletedBeforeStates) {
       this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
         songId,
         noteId,
         userId,
-        beforeState: { id: noteId },
+        beforeState,
         batchId,
         replacedByBatch: true,
         realtimeMode: 'batch',
+        commandId,
       } satisfies NoteDeletedEvent)
     }
 
@@ -514,6 +549,7 @@ export class AiChartService {
         afterState: note,
         batchId,
         realtimeMode: 'batch',
+        commandId,
       } satisfies NoteCreatedEvent)
     }
 

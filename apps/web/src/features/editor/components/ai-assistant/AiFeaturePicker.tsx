@@ -4,15 +4,17 @@ import {
   Pencil2Icon,
   RowsIcon,
 } from '@radix-ui/react-icons'
-import { cn } from '../../../../lib/utils'
 import { Tooltip } from '../../../../components/ui'
 import type { AiAssistantFeature } from './ai-assistant.types'
+
+type FeatureAccent = 'violet' | 'cyan' | 'emerald' | 'amber'
 
 const FEATURES: {
   value: AiAssistantFeature
   title: string
   description: string
   Icon: typeof Pencil2Icon
+  accent: FeatureAccent
   disabledReason?: (ctx: { noteCount: number; selectedCount: number }) => string | null
 }[] = [
   {
@@ -20,6 +22,7 @@ const FEATURES: {
     title: 'Generate chart',
     description: 'Build a full chart from a description',
     Icon: Pencil2Icon,
+    accent: 'violet',
     disabledReason: () => null,
   },
   {
@@ -27,6 +30,7 @@ const FEATURES: {
     title: 'Scale difficulty',
     description: 'Preview an easier or harder replacement chart',
     Icon: BarChartIcon,
+    accent: 'cyan',
     disabledReason: ({ noteCount }) =>
       noteCount < 1 ? 'Add notes to the chart first' : null,
   },
@@ -35,6 +39,7 @@ const FEATURES: {
     title: 'Fill track',
     description: 'Add notes on one lane near the playhead',
     Icon: RowsIcon,
+    accent: 'emerald',
     disabledReason: ({ noteCount }) =>
       noteCount < 5 ? 'Need at least 5 notes on the chart' : null,
   },
@@ -43,6 +48,7 @@ const FEATURES: {
     title: 'Improve pattern',
     description: 'Extend or refine a selected note pattern',
     Icon: LoopIcon,
+    accent: 'amber',
     disabledReason: ({ selectedCount }) =>
       selectedCount < 2 ? 'Select at least 2 notes on the chart' : null,
   },
@@ -57,41 +63,41 @@ interface Props {
 export function AiFeaturePicker({ noteCount, selectedCount, onSelect }: Props) {
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-shell-text">What would you like AI to do?</h3>
+      <p className="ai-assistant-prompt text-sm">
+        What would you like AI to do?
+      </p>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="ai-feature-grid grid grid-cols-2 gap-2.5">
         {FEATURES.map((feat) => {
           const disabledReason = feat.disabledReason?.({ noteCount, selectedCount })
           const disabled = disabledReason != null
 
-          const card = (
+          const cardButton = (
             <button
-              key={feat.value}
               type="button"
               disabled={disabled}
               onClick={() => onSelect(feat.value)}
-              className={cn(
-                'flex flex-col items-center gap-2 rounded-lg border p-3 pt-4 text-center transition-colors',
-                disabled
-                  ? 'cursor-not-allowed border-shell-border opacity-40'
-                  : 'border-shell-border hover:border-shell-muted',
-              )}
+              className={`ai-feature-card w-full ai-feature-card--${feat.accent}${disabled ? ' ai-feature-card--disabled' : ''}`}
             >
-              <feat.Icon className="h-5 w-5 text-shell-muted" />
-              <span className="text-xs font-medium leading-tight text-shell-text">{feat.title}</span>
-              <span className="text-[10px] leading-snug text-shell-muted">{feat.description}</span>
+              <span className="ai-feature-icon">
+                <feat.Icon className="h-5 w-5" aria-hidden />
+              </span>
+              <span className="ai-feature-title">{feat.title}</span>
+              <span className="ai-feature-desc">{feat.description}</span>
             </button>
           )
 
-          if (disabled && disabledReason) {
-            return (
-              <Tooltip key={feat.value} content={disabledReason} side="top">
-                <span className="block">{card}</span>
-              </Tooltip>
-            )
-          }
-
-          return card
+          return (
+            <div key={feat.value} className="min-w-0 w-full">
+              {disabled && disabledReason ? (
+                <Tooltip content={disabledReason} side="top">
+                  <span className="block w-full">{cardButton}</span>
+                </Tooltip>
+              ) : (
+                cardButton
+              )}
+            </div>
+          )
         })}
       </div>
     </div>

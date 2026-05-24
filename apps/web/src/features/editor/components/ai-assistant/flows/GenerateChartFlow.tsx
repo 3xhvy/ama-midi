@@ -6,11 +6,21 @@ import {
   type ChartApplyPreview,
   type SongDifficulty,
 } from '@ama-midi/shared'
-import { Button, Textarea } from '../../../../../components/ui'
 import { apiClient } from '../../../../auth/api'
 import { useAuthStore } from '../../../../../store/auth.store'
 import { useEditorStore } from '../../../../../store/editor.store'
 import type { AiFlowBaseProps } from '../ai-assistant.types'
+import {
+  AiFlowCheckbox,
+  AiFlowFooter,
+  AiFlowGhostButton,
+  AiFlowHighlight,
+  AiFlowIntro,
+  AiFlowLabel,
+  AiFlowPrimaryButton,
+  AiFlowSelect,
+  AiFlowTextarea,
+} from '../AiFlowChrome'
 
 export function GenerateChartFlow({
   songId,
@@ -75,25 +85,20 @@ export function GenerateChartFlow({
     }
   }
 
-  const selectClassName =
-    'w-full rounded-lg border border-shell-border bg-shell-surface px-3 py-2 text-sm text-shell-text'
-
   return (
     <>
-      <div className="space-y-3">
-        <p className="text-xs text-shell-muted">
+      <div className="space-y-4">
+        <AiFlowIntro>
           Describe mood, genre, structure, and density. AI builds a full starter chart for{' '}
-          <span className="text-shell-text">{song?.name ?? 'this song'}</span>
+          <AiFlowHighlight>{song?.name ?? 'this song'}</AiFlowHighlight>
           {song ? ` (${song.bpm} BPM)` : ''}.
-        </p>
+        </AiFlowIntro>
+
         <div>
-          <label className="mb-1 block text-xs text-shell-muted">
-            Target tier hint <span className="text-shell-muted/70">(optional, not saved)</span>
-          </label>
-          <select
+          <AiFlowLabel hint="(optional, not saved)">Target tier hint</AiFlowLabel>
+          <AiFlowSelect
             value={targetTier}
             onChange={(e) => setTargetTier(e.target.value as SongDifficulty | '')}
-            className={selectClassName}
             disabled={processing}
           >
             <option value="">No preference</option>
@@ -102,9 +107,10 @@ export function GenerateChartFlow({
                 {SongDifficultyEnum.label(key)}
               </option>
             ))}
-          </select>
+          </AiFlowSelect>
         </div>
-        <Textarea
+
+        <AiFlowTextarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="e.g. Upbeat EDM drop at 128 BPM feel — sparse intro 0–30s, building hi-hats on tracks 2–3, dense doubles in chorus 60–90s, calm outro"
@@ -112,37 +118,29 @@ export function GenerateChartFlow({
           maxLength={2000}
           disabled={processing}
         />
+
         {noteCount > 0 && (
-          <label className="flex items-start gap-2 text-xs text-shell-text">
-            <input
-              type="checkbox"
-              checked={replaceExisting}
-              onChange={(e) => setReplaceExisting(e.target.checked)}
-              className="mt-0.5"
-              disabled={processing}
-            />
-            <span>
-              Replace existing chart ({noteCount} notes)
-              <span className="mt-0.5 block text-[10px] text-shell-muted">
-                Removes current notes and section markers before applying the preview.
-              </span>
-            </span>
-          </label>
+          <AiFlowCheckbox
+            checked={replaceExisting}
+            onChange={setReplaceExisting}
+            disabled={processing}
+            title={`Replace existing chart (${noteCount} notes)`}
+            description="Removes current notes and section markers before applying the preview."
+          />
         )}
       </div>
-      <div className="mt-4 flex justify-end gap-2 border-t border-shell-border pt-4">
-        <Button variant="ghost" size="sm" onClick={onCancel} disabled={processing}>
+
+      <AiFlowFooter>
+        <AiFlowGhostButton onClick={onCancel} disabled={processing}>
           Cancel
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
+        </AiFlowGhostButton>
+        <AiFlowPrimaryButton
           onClick={() => void handleSubmit()}
           disabled={processing || !description.trim()}
         >
           Generate preview
-        </Button>
-      </div>
+        </AiFlowPrimaryButton>
+      </AiFlowFooter>
     </>
   )
 }

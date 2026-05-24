@@ -1,10 +1,16 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { CounterClockwiseClockIcon, PlusIcon } from '@radix-ui/react-icons'
-import { cn } from '../../../../../lib/utils'
-import { Button, Textarea } from '../../../../../components/ui'
 import { useEditorStore } from '../../../../../store/editor.store'
 import type { AiFlowBaseProps } from '../ai-assistant.types'
+import {
+  AiFlowFooter,
+  AiFlowGhostButton,
+  AiFlowHighlight,
+  AiFlowIntro,
+  AiFlowPrimaryButton,
+  AiFlowTextarea,
+} from '../AiFlowChrome'
 
 type ImproveSubMode = 'extend' | 'refine'
 
@@ -13,18 +19,21 @@ const SUB_MODES: {
   title: string
   description: string
   Icon: typeof PlusIcon
+  accent: 'violet' | 'cyan'
 }[] = [
   {
     value: 'extend',
     title: 'Extend forward',
     description: 'Add ~4 notes continuing the rhythm after the selection',
     Icon: PlusIcon,
+    accent: 'violet',
   },
   {
     value: 'refine',
     title: 'Refine selection',
     description: 'Rewrite the selected notes — fix spacing, density, or lane choices',
     Icon: CounterClockwiseClockIcon,
+    accent: 'cyan',
   },
 ]
 
@@ -95,56 +104,63 @@ export function ImprovePatternFlow({
     }
   }
 
+  const selectionSummary = (
+    <AiFlowIntro>
+      <AiFlowHighlight>{selectedNotes.length} notes</AiFlowHighlight> selected · time range{' '}
+      {minTime.toFixed(1)}–{maxTime.toFixed(1)} s
+      {currentSection ? (
+        <>
+          {' '}
+          · section: <AiFlowHighlight>{currentSection.label}</AiFlowHighlight>
+        </>
+      ) : null}
+    </AiFlowIntro>
+  )
+
   if (!subMode) {
     return (
-      <>
-        <div className="space-y-3">
-          <p className="text-xs text-shell-muted">
-            {selectedNotes.length} notes selected · time range {minTime.toFixed(1)}–{maxTime.toFixed(1)} s
-            {currentSection ? ` · section: ${currentSection.label}` : ''}
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {SUB_MODES.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setSubMode(opt.value)}
-                className={cn(
-                  'flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-colors',
-                  'border-shell-border hover:border-shell-muted',
-                )}
-              >
-                <opt.Icon className="h-5 w-5 text-shell-muted" />
-                <span className="text-xs font-medium text-shell-text">{opt.title}</span>
-                <span className="text-[10px] leading-snug text-shell-muted">{opt.description}</span>
-              </button>
-            ))}
-          </div>
+      <div className="space-y-4">
+        {selectionSummary}
+        <div className="ai-flow-submode-grid">
+          {SUB_MODES.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setSubMode(opt.value)}
+              className={`ai-feature-card ai-feature-card--${opt.accent} w-full`}
+            >
+              <span className="ai-feature-icon">
+                <opt.Icon className="h-5 w-5" aria-hidden />
+              </span>
+              <span className="ai-feature-title">{opt.title}</span>
+              <span className="ai-feature-desc">{opt.description}</span>
+            </button>
+          ))}
         </div>
-      </>
+      </div>
     )
   }
 
   return (
     <>
-      <div className="space-y-3">
-        <p className="text-xs text-shell-muted">
-          {selectedNotes.length} notes selected · time range {minTime.toFixed(1)}–{maxTime.toFixed(1)} s
-          {currentSection ? ` · section: ${currentSection.label}` : ''}
-        </p>
-        <p className="text-xs text-shell-text">
-          Mode: <span className="font-medium">{subMode === 'extend' ? 'Extend forward' : 'Refine selection'}</span>
+      <div className="space-y-4">
+        {selectionSummary}
+        <p className="ai-flow-mode-text text-xs">
+          Mode:{' '}
+          <span className="ai-flow-mode-name">
+            {subMode === 'extend' ? 'Extend forward' : 'Refine selection'}
+          </span>
           {' · '}
           <button
             type="button"
-            className="text-primary hover:underline"
+            className="ai-flow-mode-link"
             onClick={() => setSubMode(null)}
             disabled={processing}
           >
             Change
           </button>
         </p>
-        <Textarea
+        <AiFlowTextarea
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           placeholder="Optional: add doubles, simplify, keep same lanes"
@@ -153,19 +169,18 @@ export function ImprovePatternFlow({
           disabled={processing}
         />
       </div>
-      <div className="mt-4 flex justify-end gap-2 border-t border-shell-border pt-4">
-        <Button variant="ghost" size="sm" onClick={onCancel} disabled={processing}>
+
+      <AiFlowFooter>
+        <AiFlowGhostButton onClick={onCancel} disabled={processing}>
           Cancel
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
+        </AiFlowGhostButton>
+        <AiFlowPrimaryButton
           onClick={() => void handleSubmit()}
           disabled={processing || !chartId || selectedNotes.length < 2}
         >
           Get suggestions
-        </Button>
-      </div>
+        </AiFlowPrimaryButton>
+      </AiFlowFooter>
     </>
   )
 }

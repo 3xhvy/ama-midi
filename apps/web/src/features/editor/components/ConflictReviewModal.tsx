@@ -5,6 +5,7 @@ import { trackColor } from '@ama-midi/shared'
 import { ConflictListItem } from './ConflictListItem'
 import { ConflictDiffCards } from './ConflictDiffCards'
 import { ConflictContextStrip } from './ConflictContextStrip'
+import { EditorModalOverlay, EditorModalPanel } from './EditorModal'
 import { formatTime } from './conflict-formatters'
 import { conflictChipStyle } from './conflict-theme'
 
@@ -96,22 +97,8 @@ export function ConflictReviewModal({
   const replaceButtonLabel = `Replace With ${incomingLabel}`
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: 'var(--modal-overlay)' }}
-      onClick={onCancel}
-    >
-      <div
-        className="flex flex-col rounded-2xl overflow-hidden"
-        style={{
-          width: '80vw',
-          maxWidth: 860,
-          height: 560,
-          backgroundColor: 'var(--modal-bg)',
-          boxShadow: '0 24px 60px rgba(0,0,0,0.30), 0 0 0 1px rgba(108,99,255,0.14)',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
+    <EditorModalOverlay onClick={onCancel}>
+      <EditorModalPanel size="wide" onClick={(e) => e.stopPropagation()}>
         <div className="flex-shrink-0 px-6 py-4 border-b" style={{ borderColor: 'var(--modal-border)' }}>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -329,7 +316,7 @@ export function ConflictReviewModal({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </EditorModalPanel>
+    </EditorModalOverlay>
   )
 }

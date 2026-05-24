@@ -38,6 +38,7 @@ describe('AI services LLM adapter injection', () => {
         { provide: PrismaService, useValue: {} },
         { provide: ProjectAccessService, useValue: {} },
         { provide: EventEmitter2, useValue: {} },
+        { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
       ],
     }).compile()
 

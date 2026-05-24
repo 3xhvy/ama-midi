@@ -7,6 +7,7 @@ import {
 } from '../../patterns/usePatterns'
 import { useEditorStore } from '../../../store/editor.store'
 import { Button, Modal } from '../../../components/ui'
+import { EditorModalContent } from './EditorModal'
 import { toast } from 'sonner'
 import type { ConflictAction, NotePattern, PatternPastePreview } from '@ama-midi/shared'
 import {
@@ -179,7 +180,7 @@ export function PatternPanel({ songId, chartId }: Props) {
 
           {pasteTarget && (step === 'INPUT' || step === 'VALIDATING') && (
             <Modal.Root open onOpenChange={(open) => !open && resetPasteState()}>
-              <Modal.Content className="max-w-[420px]">
+              <EditorModalContent className="max-w-[420px]">
                 <Modal.Header onClose={resetPasteState}>Paste Pattern</Modal.Header>
                 <Modal.Body>
                   <div className="space-y-3">
@@ -263,7 +264,7 @@ export function PatternPanel({ songId, chartId }: Props) {
                     Validate
                   </Button>
                 </Modal.Footer>
-              </Modal.Content>
+              </EditorModalContent>
             </Modal.Root>
           )}
 

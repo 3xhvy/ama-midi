@@ -25,6 +25,7 @@ import { BottomBarStats }     from '../features/editor/components/BottomBarStats
 import { useCharts } from '../features/charts/useCharts'
 import { useNotes }           from '../features/notes/useNotes'
 import { useDeleteNote, useUpdateNote, useUndoPreview, useApplyUndo } from '../features/notes/useNotes'
+import { extractApiErrorMessage } from '../features/auth/api'
 import { useSections }        from '../features/sections/useSections'
 import { usePlayback }        from '../features/editor/hooks/usePlayback'
 import { Button, Tabs, ToggleGroup } from '../components/ui'
@@ -199,7 +200,7 @@ export function EditorPage() {
             { commandId: preview.commandId, resolutions: [] },
             {
               onSuccess: () => toast.success('Undo successful'),
-              onError: () => toast.error('Nothing to undo'),
+              onError: (err) => toast.error(extractApiErrorMessage(err, 'Undo failed')),
             },
           )
         } else {
@@ -208,7 +209,7 @@ export function EditorPage() {
           setUndoShowModal(true)
         }
       },
-      onError: () => toast.error('Nothing to undo'),
+      onError: (err) => toast.error(extractApiErrorMessage(err, 'Nothing to undo')),
     })
   }
 
