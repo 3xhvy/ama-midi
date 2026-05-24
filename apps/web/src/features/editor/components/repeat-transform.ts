@@ -43,7 +43,7 @@ export function getSelectionLengthInterval(notes: Pick<Note, 'time'>[]): number 
 }
 
 export function getRepeatDefaults(
-  notes: Pick<Note, 'time'>[],
+  _notes: Pick<Note, 'time'>[],
   bpm: number,
   timeSignature: string,
 ): { repeatCountDraft: string; repeatIntervalDraft: string } {

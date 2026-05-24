@@ -11,6 +11,7 @@ import { MultiSelectBar }     from '../features/editor/components/MultiSelectBar
 import { ChartPreviewBar }    from '../features/editor/components/ChartPreviewBar'
 import { SavePatternModal }   from '../features/editor/components/SavePatternModal'
 import { CopyToModal }        from '../features/editor/components/CopyToModal'
+import { RepeatModal }       from '../features/editor/components/RepeatModal'
 import { ConflictReviewModal } from '../features/editor/components/ConflictReviewModal'
 import { mergeResolutions, noteCopyPreviewToPlacement } from '../features/editor/components/placement-preview'
 import { useApplyNoteCopy }   from '../features/editor/hooks/useNoteCopy'
@@ -141,6 +142,7 @@ export function EditorPage() {
   const [showShortcuts,       setShowShortcuts]       = useState(false)
   const [showSavePattern,     setShowSavePattern]     = useState(false)
   const [showCopyTo,          setShowCopyTo]          = useState(false)
+  const [showRepeat,          setShowRepeat]          = useState(false)
   const [copyPreview,         setCopyPreview]         = useState<NoteCopyPreview | null>(null)
   const [copyRequest,         setCopyRequest]         = useState<NoteCopyPreviewRequest | null>(null)
   const [copyResolutions,     setCopyResolutions]     = useState<Record<string, ConflictAction>>({})
@@ -237,6 +239,7 @@ export function EditorPage() {
 
   function resetCopyState() {
     setShowCopyTo(false)
+    setShowRepeat(false)
     setCopyPreview(null)
     setCopyRequest(null)
     setCopyResolutions({})
@@ -251,6 +254,7 @@ export function EditorPage() {
     setCopyConflictChanged(false)
     setCopyStep('REVIEW')
     setShowCopyTo(false)
+    setShowRepeat(false)
   }
 
   function handleCopyResolve(conflictId: string, action: ConflictAction) {
@@ -275,7 +279,11 @@ export function EditorPage() {
       },
       {
         onSuccess: (result) => {
-          const verb = copyPreview.operation === 'MOVE' ? 'Moved' : 'Copied'
+          const verb = copyPreview.mode === 'REPEAT_INTERVAL'
+            ? 'Repeated'
+            : copyPreview.operation === 'MOVE'
+              ? 'Moved'
+              : 'Copied'
           toast.success(
             `${verb} ${result.createdCount} notes, replaced ${result.replacedCount}, skipped ${skippedCount}`,
           )
@@ -298,7 +306,11 @@ export function EditorPage() {
     )
   }
 
-  const copyReviewTitle = copyPreview?.operation === 'MOVE' ? 'Move Notes' : 'Copy Notes'
+  const copyReviewTitle = copyPreview?.mode === 'REPEAT_INTERVAL'
+    ? 'Repeat Notes'
+    : copyPreview?.operation === 'MOVE'
+      ? 'Move Notes'
+      : 'Copy Notes'
 
   const leftPanel = (
     <>
@@ -444,6 +456,7 @@ export function EditorPage() {
         count={selectedNoteIds.size}
         canEdit={canEdit}
         onContinuePattern={() => void handleContinuePattern()}
+        onRepeat={() => setShowRepeat(true)}
         onSavePattern={() => setShowSavePattern(true)}
         onCopyTo={() => setShowCopyTo(true)}
         copyDisabled={!canEdit}
@@ -461,12 +474,22 @@ export function EditorPage() {
           onPreviewReady={handleCopyPreviewReady}
         />
       )}
+      {showRepeat && canEdit && chartId && (
+        <RepeatModal
+          chartId={chartId}
+          selectedNotes={selectedNoteObjects}
+          bpm={song?.bpm ?? 120}
+          timeSignature={song?.timeSignature ?? '4/4'}
+          onCancel={resetCopyState}
+          onPreviewReady={handleCopyPreviewReady}
+        />
+      )}
       {copyStep === 'REVIEW' && copyPreview && (
         <ConflictReviewModal
           preview={noteCopyPreviewToPlacement(copyPreview)}
           title={copyReviewTitle}
           incomingLabel="Incoming"
-          applyLabel={copyPreview.operation === 'MOVE' ? 'Move' : 'Copy'}
+          applyLabel={copyPreview.mode === 'REPEAT_INTERVAL' ? 'Repeat' : copyPreview.operation === 'MOVE' ? 'Move' : 'Copy'}
           resolutions={copyResolutions}
           onResolve={handleCopyResolve}
           onApply={handleApplyCopy}

@@ -21,6 +21,7 @@ interface Props {
   count:              number
   canEdit:            boolean
   onContinuePattern:  () => void
+  onRepeat:           () => void
   onSavePattern:      () => void
   onCopyTo:           () => void
   onDelete:           () => void
@@ -29,7 +30,7 @@ interface Props {
 }
 
 export function MultiSelectBar({
-  count, canEdit, onContinuePattern, onSavePattern, onCopyTo, onDelete, onDeselect, copyDisabled,
+  count, canEdit, onContinuePattern, onRepeat, onSavePattern, onCopyTo, onDelete, onDeselect, copyDisabled,
 }: Props) {
   if (count < 2) return null
   return (
@@ -45,6 +46,17 @@ export function MultiSelectBar({
           data-tour="ai-continue-pattern"
         >
           Continue pattern
+        </Button>
+      )}
+      {canEdit && (
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<CopyIcon />}
+          onClick={onRepeat}
+          className="px-2"
+        >
+          Repeat
         </Button>
       )}
       <Button
