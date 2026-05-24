@@ -99,8 +99,9 @@ model User {
   songs          Song[]
   notes          Note[]
   noteEvents     NoteEvent[]
-  editorEvents   EditorEvent[]
-  editorSessions EditorSession[]
+  editorEvents    EditorEvent[]
+  editorCommands  EditorCommand[]
+  editorSessions  EditorSession[]
   sectionMarkers SectionMarker[]
   patterns       NotePattern[]
   ownedProjects  Project[]       @relation("ProjectOwner")
@@ -189,6 +190,7 @@ model Song {
   notes            Note[]
   noteEvents       NoteEvent[]
   editorEvents     EditorEvent[]
+  editorCommands   EditorCommand[]
   versions         SongVersion[]
   sessions         EditorSession[]
   outboxEvents     OutboxEvent[]
@@ -391,6 +393,8 @@ model EditorEvent {
   replacesEventId String?  @db.Uuid
   undoneByEventId String?  @db.Uuid
   undoable        Boolean  @default(false)
+  commandId       String?
+  command         EditorCommand? @relation(fields: [commandId], references: [id])
   createdAt       DateTime @default(now())
 
   song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
@@ -401,4 +405,27 @@ model EditorEvent {
   @@index([batchId])
   @@index([userId, createdAt])
   @@map("editor_events")
+}
+
+model EditorCommand {
+  id                  String    @id @default(uuid())
+  songId              String
+  chartId             String?
+  commandType         String
+  userId              String
+  summary             Json      @default("{}")
+  undoable            Boolean   @default(true)
+  undoneByCommandId   String?
+  isCompensation      Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+
+  song              Song            @relation(fields: [songId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id])
+  undoneByCommand   EditorCommand?  @relation("UndoChain", fields: [undoneByCommandId], references: [id])
+  undoesCommands    EditorCommand[] @relation("UndoChain")
+  mutations         EditorEvent[]
+
+  @@index([chartId, userId, createdAt])
+  @@index([chartId, createdAt])
+  @@map("editor_commands")
 }
