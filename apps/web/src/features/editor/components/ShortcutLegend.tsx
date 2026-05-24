@@ -6,6 +6,10 @@ interface Props {
 }
 
 const SHORTCUTS = [
+  { key: 'Space', action: 'Play / pause' },
+  { key: 'Click timeline', action: 'Move playhead to that time' },
+  { key: 'Drag timeline', action: 'Scrub playhead' },
+  { key: 'Alt + click timeline', action: 'Add section marker' },
   { key: 'Click', action: 'Create note (Fast Mode)' },
   { key: 'Shift + drag', action: 'Box select notes' },
   { key: 'E', action: 'Edit selected note' },

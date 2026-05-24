@@ -22,7 +22,7 @@ export function SectionJumpList({ songId, sections }: Props) {
     <div className="px-3 py-2 border-t border-shell-border">
       <PanelSectionHeader title="Sections" help={sectionsPanelHelp} className="mb-2" />
       {sections.length === 0 ? (
-        <p className="text-[10px] text-shell-muted">No sections yet. Click the time axis to add one.</p>
+        <p className="text-[10px] text-shell-muted">No sections yet. Alt+click the timeline to add one.</p>
       ) : (
         <ul className="space-y-0.5">
           {sections.map((s, i) => (

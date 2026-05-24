@@ -6,11 +6,12 @@ import { SongsController } from './songs.controller'
 import { ProjectSongsController } from './project-songs.controller'
 import { SongTemplateService } from './song-template.service'
 import { SongsService } from './songs.service'
+import { BackingTrackService } from './backing-track.service'
 
 @Module({
   imports: [PrismaModule, ProjectAccessModule, ChartsModule],
   controllers: [SongsController, ProjectSongsController],
-  providers: [SongsService, SongTemplateService],
+  providers: [SongsService, SongTemplateService, BackingTrackService],
   exports: [SongsService],
 })
 export class SongsModule {}

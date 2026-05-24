@@ -113,6 +113,10 @@ export interface Song {
   updatedAt:        string
   bpm:              number
   timeSignature:    string
+  /** External URL for reference audio playback */
+  backingTrackUrl?: string | null
+  /** Original filename when audio was uploaded to the server */
+  backingTrackFileName?: string | null
 }
 
 export interface SongChart {

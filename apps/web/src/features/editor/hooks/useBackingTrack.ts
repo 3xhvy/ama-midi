@@ -1,0 +1,134 @@
+import { useEffect, useRef, useState } from 'react'
+import type { Song } from '@ama-midi/shared'
+import { useEditorStore } from '../../../store/editor.store'
+import { useAuthStore } from '../../../store/auth.store'
+
+const API_BASE = import.meta.env.VITE_API_URL ?? ''
+
+/** Max playhead delta per frame from usePlayback — larger jumps are user seeks. */
+const SEEK_JUMP_THRESHOLD = 0.2
+
+function hasBackingTrack(song: Song | undefined): boolean {
+  if (!song) return false
+  return Boolean(song.backingTrackFileName || song.backingTrackUrl)
+}
+
+export function useBackingTrack(
+  songId: string | undefined,
+  song: Song | undefined,
+  volume = 0.75,
+) {
+  const isPlaying = useEditorStore((s) => s.isPlaying)
+  const playheadTime = useEditorStore((s) => s.playheadTime)
+  const token = useAuthStore((s) => s.token)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
+  const prevPlayheadRef = useRef(playheadTime)
+  const [muted, setMuted] = useState(false)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    setReady(false)
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current)
+      blobUrlRef.current = null
+    }
+
+    if (!songId || !hasBackingTrack(song)) return
+
+    const audio = new Audio()
+    audio.preload = 'auto'
+    audioRef.current = audio
+
+    let cancelled = false
+
+    async function loadSource() {
+      try {
+        if (song!.backingTrackFileName) {
+          const res = await fetch(`${API_BASE}/songs/${songId}/backing-track`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          })
+          if (!res.ok) throw new Error('Failed to load backing track')
+          const blob = await res.blob()
+          if (cancelled) return
+          const url = URL.createObjectURL(blob)
+          blobUrlRef.current = url
+          audio.src = url
+        } else if (song!.backingTrackUrl) {
+          audio.crossOrigin = 'anonymous'
+          audio.src = song!.backingTrackUrl
+        }
+        await audio.load()
+        if (!cancelled) {
+          audio.currentTime = useEditorStore.getState().playheadTime
+          prevPlayheadRef.current = useEditorStore.getState().playheadTime
+          setReady(true)
+        }
+      } catch {
+        if (!cancelled) setReady(false)
+      }
+    }
+
+    void loadSource()
+
+    return () => {
+      cancelled = true
+      audio.pause()
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+        blobUrlRef.current = null
+      }
+      audioRef.current = null
+    }
+  }, [songId, song?.backingTrackUrl, song?.backingTrackFileName, token])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !ready) return
+    audio.volume = muted ? 0 : volume
+  }, [ready, muted, volume])
+
+  // Play / pause when transport or load state changes — never call play() every frame.
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !ready || muted) return
+
+    if (isPlaying) {
+      const t = useEditorStore.getState().playheadTime
+      audio.currentTime = t
+      prevPlayheadRef.current = t
+      void audio.play().catch(() => {})
+    } else {
+      audio.pause()
+    }
+  }, [isPlaying, ready, muted])
+
+  // Sync position on seek/scrub only — not on every playback tick.
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !ready) return
+
+    const prev = prevPlayheadRef.current
+    prevPlayheadRef.current = playheadTime
+
+    if (!isPlaying) {
+      audio.currentTime = playheadTime
+      return
+    }
+
+    if (Math.abs(playheadTime - prev) > SEEK_JUMP_THRESHOLD) {
+      audio.currentTime = playheadTime
+    }
+  }, [playheadTime, isPlaying, ready])
+
+  return {
+    hasBackingTrack: hasBackingTrack(song),
+    ready,
+    muted,
+    setMuted,
+  }
+}

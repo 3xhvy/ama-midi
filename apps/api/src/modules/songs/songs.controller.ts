@@ -1,15 +1,22 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req } from '@nestjs/common'
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req, UploadedFile, UseInterceptors, Res } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
+import { FileInterceptor } from '@nestjs/platform-express'
+import type { Response } from 'express'
 import { SongsService } from './songs.service'
+import { BackingTrackService } from './backing-track.service'
 import { UpdateSongDto } from './dto/update-song.dto'
 import { UpdateSongStatusDto } from './dto/update-song-status.dto'
+import { SetBackingTrackUrlDto } from './dto/set-backing-track-url.dto'
 import type { Request } from 'express'
 import type { AuthUser } from '@ama-midi/shared'
 
 @Controller('songs')
 @UseGuards(AuthGuard('jwt'))
 export class SongsController {
-  constructor(private readonly songs: SongsService) {}
+  constructor(
+    private readonly songs: SongsService,
+    private readonly backingTrack: BackingTrackService,
+  ) {}
 
   @Get()
   findAll(@Req() req: Request) {
@@ -39,6 +46,41 @@ export class SongsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateSongDto, @Req() req: Request) {
     return this.songs.update(id, dto, req.user as AuthUser)
+  }
+
+  @Post(':id/backing-track/upload')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
+  uploadBackingTrack(
+    @Param('id') id: string,
+    @UploadedFile() file: { buffer: Buffer; mimetype: string; size: number; originalname: string },
+    @Req() req: Request,
+  ) {
+    return this.backingTrack.upload(id, file, req.user as AuthUser)
+  }
+
+  @Patch(':id/backing-track/url')
+  setBackingTrackUrl(
+    @Param('id') id: string,
+    @Body() dto: SetBackingTrackUrlDto,
+    @Req() req: Request,
+  ) {
+    return this.backingTrack.setExternalUrl(id, dto.url ?? null, req.user as AuthUser)
+  }
+
+  @Get(':id/backing-track')
+  async streamBackingTrack(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.backingTrack.stream(id, req.user as AuthUser)
+    res.setHeader('Cache-Control', 'private, max-age=3600')
+    return file
+  }
+
+  @Delete(':id/backing-track')
+  removeBackingTrack(@Param('id') id: string, @Req() req: Request) {
+    return this.backingTrack.remove(id, req.user as AuthUser)
   }
 
   @Delete(':id')

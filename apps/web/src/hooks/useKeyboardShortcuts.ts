@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useEditorStore } from '../store/editor.store'
+import { unlockChartAudio } from '../features/editor/audio/chart-audio'
 
 interface Options {
   canEdit:              boolean
@@ -12,15 +13,31 @@ interface Options {
   onToggleRightPanel?:  () => void
 }
 
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
+}
+
 export function useKeyboardShortcuts({
   canEdit, onUndo, onDeleteNote, onEditNote, onJumpToStart, onToggleShortcuts,
   onToggleLeftPanel, onToggleRightPanel,
 }: Options) {
-  const { viewMode, selectedNoteId, setZoom } = useEditorStore()
+  const { viewMode, selectedNoteId, setZoom, setPlaying } = useEditorStore()
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (isTypingTarget(e.target)) return
+
+      if (e.code === 'Space' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault()
+        const playing = useEditorStore.getState().isPlaying
+        if (!playing) unlockChartAudio()
+        setPlaying(!playing)
+        return
+      }
 
       if ((e.key === 'e' || e.key === 'E') && selectedNoteId && canEdit) {
         e.preventDefault(); onEditNote()
@@ -46,5 +63,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [canEdit, viewMode, selectedNoteId, setZoom, onUndo, onDeleteNote, onEditNote, onJumpToStart, onToggleShortcuts, onToggleLeftPanel, onToggleRightPanel])
+  }, [canEdit, viewMode, selectedNoteId, setZoom, setPlaying, onUndo, onDeleteNote, onEditNote, onJumpToStart, onToggleShortcuts, onToggleLeftPanel, onToggleRightPanel])
 }

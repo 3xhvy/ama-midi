@@ -80,7 +80,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const justPlacedRef = useRef(false)
 
   const { pxPerSecond, viewMode, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
-          selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack } = useEditorStore()
+          selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack, setPlayheadTime } = useEditorStore()
   pxPerSecondRef.current = pxPerSecond
 
   // Ctrl/Cmd + scroll wheel to zoom
@@ -442,8 +442,10 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
         <TimeAxis
           pxPerSecond={pxPerSecond}
           scrollTop={scrollTop}
+          playheadTime={playheadTime}
+          snapMode={snapMode}
           bpm={bpm}
-          timeSignature={timeSignature}
+          onSeek={setPlayheadTime}
           onAddSection={(time, e) => setSectionPopover({ time, pos: { x: e.clientX, y: e.clientY } })}
         />
 

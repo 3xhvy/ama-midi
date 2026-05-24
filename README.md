@@ -55,6 +55,11 @@ cd apps/api && npx prisma migrate dev
 # Seed 10,000 notes for local performance testing (optional)
 pnpm seed
 
+# Seed notes on your own chart (for k6 — use a chart your login can edit)
+CHART_ID="<chart-id-from-editor-url>" pnpm seed
+# or
+SONG_ID="<song-id-from-editor-url>" pnpm seed
+
 # Start both apps (web :3000 / api :3001)
 cd ../.. && pnpm dev
 ```

@@ -11,14 +11,41 @@ import { useEditorStore } from '../../../store/editor.store'
 import { useAuthStore } from '../../../store/auth.store'
 import { formatTime } from '../../../lib/utils'
 import { apiClient } from '../../auth/api'
+import { BackingTrackMenu } from './BackingTrackMenu'
+import { VolumeHoverControl } from './VolumeHoverControl'
+import { unlockChartAudio } from '../audio/chart-audio'
 
 interface TransportBarProps {
   songId: string
+  song?: Song
   bpm: number
   canEdit: boolean
+  chartSoundMuted: boolean
+  chartSoundVolume: number
+  onChartSoundMutedChange: (muted: boolean) => void
+  onChartSoundVolumeChange: (volume: number) => void
+  backingMuted: boolean
+  backingVolume: number
+  onBackingMutedChange: (muted: boolean) => void
+  onBackingVolumeChange: (volume: number) => void
+  hasBackingTrack: boolean
 }
 
-export function TransportBar({ songId, bpm, canEdit }: TransportBarProps) {
+export function TransportBar({
+  songId,
+  song,
+  bpm,
+  canEdit,
+  chartSoundMuted,
+  chartSoundVolume,
+  onChartSoundMutedChange,
+  onChartSoundVolumeChange,
+  backingMuted,
+  backingVolume,
+  onBackingMutedChange,
+  onBackingVolumeChange,
+  hasBackingTrack,
+}: TransportBarProps) {
   const { isPlaying, setPlaying, playheadTime, setPlayheadTime } = useEditorStore()
   const token = useAuthStore((s) => s.token)
   const queryClient = useQueryClient()
@@ -51,7 +78,10 @@ export function TransportBar({ songId, bpm, canEdit }: TransportBarProps) {
 
       <button
         type="button"
-        onClick={() => setPlaying(!isPlaying)}
+        onClick={() => {
+          if (!isPlaying) unlockChartAudio()
+          setPlaying(!isPlaying)
+        }}
         title={isPlaying ? 'Pause' : 'Play'}
         aria-label={isPlaying ? 'Pause' : 'Play'}
         className="editor-toolbar-play"
@@ -101,6 +131,26 @@ export function TransportBar({ songId, bpm, canEdit }: TransportBarProps) {
           {bpm}
         </button>
       )}
+
+      <VolumeHoverControl
+        muted={chartSoundMuted}
+        volume={chartSoundVolume}
+        onMutedChange={onChartSoundMutedChange}
+        onVolumeChange={onChartSoundVolumeChange}
+        title="Chart sounds"
+        className="ml-1"
+      />
+
+      <BackingTrackMenu
+        songId={songId}
+        song={song}
+        canEdit={canEdit}
+        backingMuted={backingMuted}
+        backingVolume={backingVolume}
+        onBackingMutedChange={onBackingMutedChange}
+        onBackingVolumeChange={onBackingVolumeChange}
+        hasBackingTrack={hasBackingTrack}
+      />
     </div>
   )
 }

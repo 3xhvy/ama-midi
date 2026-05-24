@@ -29,6 +29,14 @@ import { useDeleteNote, useUpdateNote, useUndoPreview, useApplyUndo } from '../f
 import { extractApiErrorMessage } from '../features/auth/api'
 import { useSections }        from '../features/sections/useSections'
 import { usePlayback }        from '../features/editor/hooks/usePlayback'
+import { usePlaybackAudio }   from '../features/editor/hooks/usePlaybackAudio'
+import { useBackingTrack }    from '../features/editor/hooks/useBackingTrack'
+import {
+  getBackingTrackVolume,
+  getChartSoundVolume,
+  setBackingTrackVolume,
+  setChartSoundVolume,
+} from '../features/editor/audio/playback-volumes'
 import { Button, Tabs, ToggleGroup } from '../components/ui'
 import { PianoRoll } from '../features/editor/components/PianoRoll'
 import { HistoryPanel } from '../features/editor/components/HistoryPanel'
@@ -154,6 +162,29 @@ export function EditorPage() {
   }, [activeChart?.name, chartId])
 
   const [mutedTracks,         setMutedTracks]         = useState<Set<number>>(new Set())
+  const [chartSoundMuted,     setChartSoundMuted]     = useState(false)
+  const [chartSoundVolume,    setChartSoundVolumeState] = useState(getChartSoundVolume)
+  const [backingVolume,       setBackingVolumeState]  = useState(getBackingTrackVolume)
+
+  function handleChartSoundVolumeChange(value: number) {
+    setChartSoundVolumeState(value)
+    setChartSoundVolume(value)
+  }
+
+  function handleBackingVolumeChange(value: number) {
+    setBackingVolumeState(value)
+    setBackingTrackVolume(value)
+  }
+
+  usePlaybackAudio({
+    notes: allNotes,
+    mutedTracks,
+    enabled: !chartSoundMuted,
+    volume: chartSoundVolume,
+  })
+
+  const backingTrack = useBackingTrack(songId, song, backingVolume)
+
   const [showShortcuts,       setShowShortcuts]       = useState(false)
   const [showSavePattern,     setShowSavePattern]     = useState(false)
   const [showCopyTo,          setShowCopyTo]          = useState(false)
@@ -509,8 +540,18 @@ export function EditorPage() {
 
       <TransportBar
         songId={songId!}
+        song={song}
         bpm={song?.bpm ?? 120}
         canEdit={canEdit}
+        chartSoundMuted={chartSoundMuted}
+        chartSoundVolume={chartSoundVolume}
+        onChartSoundMutedChange={setChartSoundMuted}
+        onChartSoundVolumeChange={handleChartSoundVolumeChange}
+        backingMuted={backingTrack.muted}
+        backingVolume={backingVolume}
+        onBackingMutedChange={backingTrack.setMuted}
+        onBackingVolumeChange={handleBackingVolumeChange}
+        hasBackingTrack={backingTrack.hasBackingTrack}
       />
 
       <div className="flex w-28 shrink-0 items-center justify-end justify-self-end text-xs">

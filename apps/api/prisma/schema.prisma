@@ -175,9 +175,11 @@ model Song {
   importOptions      Json?
   archivedAt         DateTime?
   createdBy          String
-  bpm                Int            @default(120)
-  timeSignature      String         @default("4/4")
-  createdAt          DateTime       @default(now())
+  bpm                   Int            @default(120)
+  timeSignature         String         @default("4/4")
+  backingTrackUrl       String?        @map("backing_track_url")
+  backingTrackFileName  String?        @map("backing_track_file_name")
+  createdAt             DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
   project          Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)

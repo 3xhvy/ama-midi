@@ -326,6 +326,8 @@ export class SongsService {
     createdBy: string
     bpm: number
     timeSignature: string
+    backingTrackUrl: string | null
+    backingTrackFileName: string | null
     createdAt: Date
     updatedAt: Date
     creator: { name: string; avatarUrl: string | null }
@@ -382,6 +384,8 @@ export class SongsService {
       updatedAt: s.updatedAt.toISOString(),
       bpm: s.bpm,
       timeSignature: s.timeSignature,
+      backingTrackUrl: s.backingTrackUrl,
+      backingTrackFileName: s.backingTrackFileName,
     }
   }
 }
