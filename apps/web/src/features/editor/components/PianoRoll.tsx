@@ -8,7 +8,7 @@ import { useAuthStore } from '../../../store/auth.store'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../../auth/api'
 import { xToTrack, yToTime, timeToY, trackToX, trackWidth, getVisibleTimeGridLines, resolveLayoutGridWidth, MIN_GRID_WIDTH } from '../engine'
-import { getTotalHeight, getPrefetchTimeRange } from '../engine'
+import { getTotalHeight, getPrefetchTimeRange, getVisibleTimeRange } from '../engine'
 import { NoteCircle  } from './NoteCircle'
 import { GhostCircle } from './GhostCircle'
 import { GridLines   } from './GridLines'
@@ -374,7 +374,14 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
     return () => window.removeEventListener('keydown', handler)
   }, [selectedNoteIds, effectiveCanEdit, deleteNote, popup, onNoteSelected, notes, clearSelection])
 
-  const visibleNotes = notes.filter((n) => !mutedTracks.has(n.track))
+  const NOTE_RADIUS_PX = 10 // half-height of a note circle, prevents edge-clipping
+  const visibleRange = getVisibleTimeRange(scrollTop, viewportHeight, pxPerSecond)
+  const visibleNotes = notes.filter(
+    (n) =>
+      !mutedTracks.has(n.track) &&
+      n.time >= visibleRange.timeFrom - NOTE_RADIUS_PX / pxPerSecond &&
+      n.time <= visibleRange.timeTo + NOTE_RADIUS_PX / pxPerSecond,
+  )
 
   if (isLoading) {
     return (
