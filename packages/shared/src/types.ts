@@ -214,12 +214,14 @@ export interface NoteEvent {
 
 import type { SnapMode } from './snap'
 
+export type { SnapMode }
+
 export interface NoteSuggestion {
   track: number
   time: number
 }
 
-export type SuggestNotesMode = 'continue_pattern' | 'fill_track'
+export type SuggestNotesMode = 'continue_pattern' | 'fill_track' | 'refine_pattern'
 
 export interface SuggestNotesRequest {
   chartId: string
@@ -229,6 +231,7 @@ export interface SuggestNotesRequest {
   targetTrack?: number
   /** Selected notes to continue — required for continue_pattern from multi-select */
   selectedNotes?: Array<{ track: number; time: number }>
+  instruction?: string
 }
 
 export interface SuggestNotesResponse {
