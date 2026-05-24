@@ -30,6 +30,7 @@ import { HistoryPanel } from '../features/editor/components/HistoryPanel'
 import { ValidationPanel } from '../features/editor/components/ValidationPanel'
 import { ShortcutLegend } from '../features/editor/components/ShortcutLegend'
 import { useSocket } from '../features/collaboration/useSocket'
+import { useActivityNotices } from '../features/collaboration/useActivityNotices'
 import { useEditorStore } from '../store/editor.store'
 import { useUndo } from '../features/notes/useNotes'
 import { useSongChartAccess } from '../hooks/useSongChartAccess'
@@ -113,7 +114,9 @@ export function EditorPage() {
   const updateNote = useUpdateNote(chartId)
   const { data: allNotes = [] } = useNotes(chartId)
   const { data: sections = [] } = useSections(songId!)
-  const { presenceList, isConnected, cursors, emitCursorMove, emitCursorHide } = useSocket(songId!, chartId, projectId)
+  const currentUser = useAuthStore(s => s.user)
+  const activity = useActivityNotices(currentUser?.id)
+  const { presenceList, isConnected, cursors, emitCursorMove, emitCursorHide, emitChartSwitch } = useSocket(songId!, chartId, projectId, { onActivity: activity.onActivity })
   const token = useAuthStore((s) => s.token)
 
   const { data: song } = useQuery<Song>({
@@ -137,6 +140,12 @@ export function EditorPage() {
       navigate(`/projects/${song.projectId}/songs/${song.id}`, { replace: true })
     }
   }, [projectId, song, songId, navigate])
+
+  useEffect(() => {
+    const activeChartName = activeChart?.name
+    if (activeChartName) emitChartSwitch(activeChartName)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChart?.name, chartId])
 
   const [mutedTracks,         setMutedTracks]         = useState<Set<number>>(new Set())
   const [showShortcuts,       setShowShortcuts]       = useState(false)
@@ -673,7 +682,7 @@ function ToolsTab({
         {canEdit && (
           <>
             <p className="text-xs leading-relaxed text-shell-muted">
-              Place notes: click for tap · drag down for hold
+              Place notes: click for tap · hold 0.1s or drag for hold
             </p>
 
             <ToolRow label="Create mode">

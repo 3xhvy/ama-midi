@@ -455,3 +455,7 @@ body {
   color: var(--toolbar-text);
   background: rgba(255, 255, 255, 0.06);
 }
+
+.ama-toast--activity {
+  border-left: 3px solid #6C63FF;
+}
