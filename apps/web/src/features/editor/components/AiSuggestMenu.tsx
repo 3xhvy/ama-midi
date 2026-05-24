@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { trackColor, type Song, type SuggestNotesRequest } from '@ama-midi/shared'
 import { useEditorStore } from '../../../store/editor.store'
 import { AiGenerateChartModal } from './AiGenerateChartModal'
+import { AiScaleChartModal } from './AiScaleChartModal'
 
 interface Props {
   disabled: boolean
@@ -15,6 +16,7 @@ export function AiSuggestMenu({ disabled, songId, song, noteCount }: Props) {
   const [open, setOpen] = useState(false)
   const [fillOpen, setFillOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
+  const [scaleOpen, setScaleOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const { playheadTime, snapMode, triggerAiSuggest, activeChartId } = useEditorStore()
@@ -93,6 +95,18 @@ export function AiSuggestMenu({ disabled, songId, song, noteCount }: Props) {
               role="menuitem"
               disabled={disabled}
               className="block w-full px-3 py-2 text-left text-xs text-shell-text hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => { setScaleOpen(true); setOpen(false) }}
+            >
+              Scale difficulty…
+              <span className="mt-0.5 block text-[10px] text-shell-muted">
+                Make the current chart easier or harder
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={disabled}
+              className="block w-full px-3 py-2 text-left text-xs text-shell-text hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => { setFillOpen(true); setOpen(false) }}
             >
               Fill track…
@@ -142,6 +156,14 @@ export function AiSuggestMenu({ disabled, songId, song, noteCount }: Props) {
         noteCount={noteCount}
         open={generateOpen}
         onOpenChange={setGenerateOpen}
+      />
+      <AiScaleChartModal
+        songId={songId}
+        song={song}
+        chartId={activeChartId}
+        noteCount={noteCount}
+        open={scaleOpen}
+        onOpenChange={setScaleOpen}
       />
     </>
   )
