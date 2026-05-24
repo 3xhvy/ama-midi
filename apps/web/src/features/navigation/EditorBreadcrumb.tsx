@@ -28,7 +28,7 @@ export function EditorBreadcrumb({
         onClick={() => navigate(projectPath(projectId))}
         title={`Back to ${projectName}`}
         aria-label={`Back to ${projectName}`}
-        className="inline-flex shrink-0 items-center rounded px-1 py-0.5 text-[var(--toolbar-muted)] transition-colors hover:text-[var(--toolbar-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+        className="editor-toolbar-icon shrink-0"
       >
         <ChevronLeftIcon className="h-3.5 w-3.5" />
       </button>

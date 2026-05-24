@@ -1,9 +1,10 @@
+import { Pencil1Icon, EnterIcon } from '@radix-ui/react-icons'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SongStatusEnum } from '@ama-midi/shared'
 import type { Song, SongStatus } from '@ama-midi/shared'
 import { timeAgo } from '../../lib/utils'
-import { Button, Input } from '../../components/ui'
+import { Button, IconButton, Input } from '../../components/ui'
 import { SongStatusMenu } from './SongStatusMenu'
 import { EditSongModal } from './EditSongModal'
 import { SongPersonCell } from './SongPersonCell'
@@ -102,17 +103,25 @@ export function SongTable({ projectId, songs }: { projectId: string; songs: Song
                     <td className="px-3 py-2 text-shell-muted">{timeAgo(song.updatedAt)}</td>
                     <td className="px-3 py-2 text-shell-muted">{validationHint(song.status as SongStatus)}</td>
                     <td className="px-3 py-2 text-right">
-                      <div className="flex justify-end gap-1.5">
-                        <Button size="sm" variant="secondary" onClick={() => setEditingSong(song)}>
-                          Edit
-                        </Button>
-                        <Button
+                      <div className="flex justify-end gap-1">
+                        <IconButton
                           size="sm"
-                          variant="secondary"
+                          variant="outlined"
+                          tooltip="Edit song"
+                          aria-label="Edit song"
+                          onClick={() => setEditingSong(song)}
+                        >
+                          <Pencil1Icon className="h-3.5 w-3.5" />
+                        </IconButton>
+                        <IconButton
+                          size="sm"
+                          variant="outlined"
+                          tooltip="Open editor"
+                          aria-label="Open editor"
                           onClick={() => navigate(songEditorPath(projectId, song.id))}
                         >
-                          Open Editor
-                        </Button>
+                          <EnterIcon className="h-3.5 w-3.5" />
+                        </IconButton>
                       </div>
                     </td>
                   </tr>

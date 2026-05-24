@@ -1,5 +1,6 @@
+import { LightningBoltIcon } from '@radix-ui/react-icons'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '../../components/ui'
+import { Button, type ButtonProps } from '../../components/ui'
 import { useAuthStore } from '../../store/auth.store'
 import { useCreateProjectSong } from './useSongs'
 
@@ -7,10 +8,16 @@ export function QuickCreateSongButton({
   projectId,
   loading: loadingProp,
   disabled,
+  variant = 'secondary',
+  size = 'sm',
+  rounded = true,
 }: {
   projectId: string
   loading?: boolean
   disabled?: boolean
+  variant?: ButtonProps['variant']
+  size?: ButtonProps['size']
+  rounded?: boolean
 }) {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
@@ -38,8 +45,10 @@ export function QuickCreateSongButton({
   return (
     <Button
       id="quick-create-trigger"
-      size="sm"
-      rounded
+      size={size}
+      variant={variant}
+      rounded={rounded}
+      icon={<LightningBoltIcon className="h-3.5 w-3.5" />}
       onClick={quickCreate}
       disabled={disabled}
       loading={loading}

@@ -5,6 +5,7 @@ import { TourOverlay }  from '../features/onboarding/TourOverlay'
 import { useQuery } from '@tanstack/react-query'
 import { EditorShell } from '../components/layout'
 import { Toolbar }            from '../features/editor/components/Toolbar'
+import { TransportBar }       from '../features/editor/components/TransportBar'
 import { TrackHeader }        from '../features/editor/components/TrackHeader'
 import { computeNps }         from '../features/editor/components/LiveContextStrip'
 import { MultiSelectBar }     from '../features/editor/components/MultiSelectBar'
@@ -282,8 +283,6 @@ export function EditorPage() {
         charts={charts}
         activeChartId={activeChartId}
         canEdit={canEdit}
-        bpm={song?.bpm ?? 120}
-        song={song}
         presenceList={presenceList}
         isConnected={isConnected}
         onShowShortcuts={() => setShowShortcuts(true)}
@@ -482,22 +481,33 @@ export function EditorPage() {
   const npsColor = liveNps < 3 ? '#10B981' : liveNps < 6 ? '#F59E0B' : '#EF4444'
 
   const bottomBar = (
-    <>
-      <span className="text-xs font-mono" style={{ color: npsColor }}>
-        {liveNps} NPS
-      </span>
-      <div className="w-24 h-1 rounded-full bg-shell-border mx-2">
-        <div
-          className="h-full rounded-full transition-all duration-100"
-          style={{ width: `${Math.min(100, (liveNps / 10) * 100)}%`, backgroundColor: npsColor }}
+    <div className="flex w-full items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-xs font-mono" style={{ color: npsColor }}>
+          {liveNps} NPS
+        </span>
+        <div className="w-24 h-1 rounded-full bg-shell-border">
+          <div
+            className="h-full rounded-full transition-all duration-100"
+            style={{ width: `${Math.min(100, (liveNps / 10) * 100)}%`, backgroundColor: npsColor }}
+          />
+        </div>
+        {selectedNoteIds.size > 0 && (
+          <span className="text-xs text-shell-muted">
+            <span className="text-shell-text font-medium">{selectedNoteIds.size}</span> selected
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-1 justify-center">
+        <TransportBar
+          songId={songId!}
+          bpm={song?.bpm ?? 120}
+          canEdit={canEdit}
         />
       </div>
-      {selectedNoteIds.size > 0 && (
-        <span className="text-xs text-shell-muted">
-          <span className="text-shell-text font-medium">{selectedNoteIds.size}</span> selected
-        </span>
-      )}
-      <div className="ml-auto">
+
+      <div className="ml-auto shrink-0">
         {!validationData ? null : errCount === 0 && warnCount === 0 ? (
           <span className="text-xs text-green-500">✓ Valid</span>
         ) : (
@@ -507,7 +517,7 @@ export function EditorPage() {
           </span>
         )}
       </div>
-    </>
+    </div>
   )
 
   return (

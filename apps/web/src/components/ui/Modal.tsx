@@ -18,14 +18,9 @@ function Content({ children, className, ...props }: Dialog.DialogContentProps) {
       />
       <Dialog.Content
         className={cn(
-          'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-[400px] rounded-xl border p-0 focus:outline-none',
+          'app-modal fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-[400px] rounded-2xl p-0 focus:outline-none',
           className,
         )}
-        style={{
-          backgroundColor: 'var(--modal-bg)',
-          borderColor: 'var(--modal-border)',
-          boxShadow: 'var(--modal-shadow)',
-        }}
         {...props}
       >
         {children}

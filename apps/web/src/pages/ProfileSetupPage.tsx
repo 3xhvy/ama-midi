@@ -44,7 +44,7 @@ export function ProfileSetupPage() {
 
   return (
     <div className="min-h-screen bg-shell-bg flex items-center justify-center p-4">
-      <div className="bg-shell-surface rounded-2xl shadow-lg p-8 w-full max-w-md border border-shell-border">
+      <div className="app-modal w-full max-w-md overflow-hidden rounded-2xl p-8">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -56,7 +56,7 @@ export function ProfileSetupPage() {
         </div>
 
         {/* Google avatar preview */}
-        <div className="flex items-center gap-3 mb-6 p-3 rounded-lg bg-shell-bg border border-shell-border">
+        <div className="modal-body flex items-center gap-3 mb-6 p-3 rounded-lg border" style={{ borderColor: 'var(--modal-border)', background: 'var(--modal-input-bg)' }}>
           <Avatar name={user?.name ?? 'U'} src={user?.avatarUrl} size="md" />
           <div>
             <p className="text-sm font-medium text-shell-text">{user?.email}</p>
@@ -64,9 +64,9 @@ export function ProfileSetupPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="modal-body flex flex-col gap-4">
           <div>
-            <label className="block text-xs text-shell-muted mb-1">Display Name</label>
+            <label className="mb-1 block text-xs">Display Name</label>
             <Input
               value={name}
               onChange={e => setName(e.target.value)}
@@ -75,7 +75,7 @@ export function ProfileSetupPage() {
           </div>
 
           <div>
-            <label className="block text-xs text-shell-muted mb-1">
+            <label className="mb-1 block text-xs">
               Title <span className="text-error">*</span>
             </label>
             <Input
@@ -86,13 +86,13 @@ export function ProfileSetupPage() {
           </div>
 
           <div>
-            <label className="block text-xs text-shell-muted mb-1">
+            <label className="mb-1 block text-xs">
               Department <span className="text-error">*</span>
             </label>
             <select
               value={department}
               onChange={e => setDepartment(e.target.value)}
-              className="w-full px-3 py-2 text-sm border rounded-lg bg-shell-surface text-shell-text border-shell-border focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               <option value="">Select department…</option>
               {DEPARTMENTS.map(d => (

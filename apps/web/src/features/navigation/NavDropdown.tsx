@@ -92,14 +92,6 @@ export function NavDropdown({
   const isBreadcrumb = variant === 'breadcrumb'
   const isToolbar = variant === 'toolbar'
 
-  const accentTriggerClass = isToolbar
-    ? accent === 'song' ? 'text-[var(--toolbar-text)]' : 'text-[var(--toolbar-muted)]'
-    : isBreadcrumb
-      ? accent === 'song'
-        ? 'text-primary'
-        : 'text-shell-text'
-      : ''
-
   return (
     <>
       <button
@@ -112,15 +104,17 @@ export function NavDropdown({
           'group flex items-center gap-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
           isToolbar
             ? cn(
-                'min-h-[24px] rounded px-1 py-0.5 hover:text-[var(--toolbar-text)]',
-                open && 'text-[var(--toolbar-text)]',
-                accentTriggerClass,
+                'editor-toolbar-nav-link',
+                accent === 'song' && 'editor-toolbar-nav-link--song',
+                open && 'text-[var(--toolbar-text)] bg-white/[0.06]',
               )
             : isBreadcrumb
               ? cn(
                   'min-h-[28px] gap-1 rounded-md px-2.5 py-1 hover:bg-primary/10',
                   open && 'bg-primary/12 ring-1 ring-primary/25 shadow-sm',
-                  accentTriggerClass,
+                  accent === 'song'
+                    ? 'text-primary'
+                    : 'text-shell-text',
                 )
               : 'text-sm font-medium text-shell-text hover:text-primary gap-1',
           triggerClassName,
@@ -160,7 +154,7 @@ export function NavDropdown({
           style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, zIndex: 9999 }}
           className={cn(
             maxWidthClassName,
-            'overflow-hidden rounded-xl border border-shell-border bg-shell-surface shadow-lg ring-1 ring-black/5 dark:ring-white/5',
+            'editor-toolbar-dropdown',
           )}
         >
           <div className="border-b border-shell-border bg-shell-bg/50 p-2">

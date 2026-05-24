@@ -3,16 +3,17 @@ import { cn } from '../../lib/utils'
 
 const variants = {
   default: 'bg-shell-bg text-shell-text border border-shell-border',
-  success: 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
-  warning: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  error:   'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-  info:    'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300',
-  muted:   'bg-shell-bg text-shell-muted',
+  success: 'bg-green-50 text-green-700 dark:bg-green-500/20 dark:text-green-300',
+  warning: 'bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+  error:   'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-300',
+  info:    'bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200',
+  muted:   'bg-shell-bg text-shell-muted dark:bg-shell-border/40 dark:text-shell-text',
 } as const
 
 const sizes = {
   sm: 'px-1.5 py-0.5 text-[10px]',
   md: 'px-2 py-0.5 text-xs',
+  lg: 'px-3 py-1 text-sm font-semibold',
 } as const
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {

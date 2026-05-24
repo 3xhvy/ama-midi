@@ -176,17 +176,17 @@
   --chrome-text: #f4f2ff;
   --chrome-muted: rgba(244, 242, 255, 0.55);
 
-  /* Modal tokens (dark) */
-  --modal-bg:                  #252040;
-  --modal-border:              rgba(255, 255, 255, 0.08);
+  /* Modal tokens (dark) — aligned with editor popup chrome */
+  --modal-bg:                  #12101c;
+  --modal-border:              rgba(180, 175, 255, 0.14);
   --modal-shadow:              0 20px 48px rgba(0, 0, 0, 0.64), 0 0 0 1px rgba(180, 175, 255, 0.08);
   --modal-overlay:             rgba(10, 9, 22, 0.72);
-  --modal-text:                rgba(255, 255, 255, 0.90);
-  --modal-muted:               rgba(255, 255, 255, 0.55);
-  --modal-input-bg:            rgba(255, 255, 255, 0.07);
-  --modal-input-border:        rgba(255, 255, 255, 0.12);
-  --modal-input-text:          rgba(255, 255, 255, 0.90);
-  --modal-input-placeholder:   rgba(255, 255, 255, 0.35);
+  --modal-text:                #f4f2ff;
+  --modal-muted:               rgba(244, 242, 255, 0.55);
+  --modal-input-bg:            #16132a;
+  --modal-input-border:        rgba(180, 175, 255, 0.22);
+  --modal-input-text:          #f4f2ff;
+  --modal-input-placeholder:   rgba(244, 242, 255, 0.32);
 
   /* Conflict review modal */
   --conflict-card-bg:          rgba(255, 255, 255, 0.05);
@@ -453,23 +453,160 @@ body {
 .editor-toolbar-sep {
   color: var(--toolbar-faint);
   user-select: none;
-  padding: 0 2px;
+  padding: 0 4px;
+  opacity: 0.5;
+}
+
+/* ── Toolbar layout zones ── */
+
+.editor-toolbar-nav {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.editor-toolbar-nav-inner {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.editor-toolbar-vsep {
+  width: 1px;
+  height: 16px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 8px;
+}
+
+.editor-toolbar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.editor-toolbar-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-toolbar-account {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 2px;
+}
+
+/* ── Shared control primitives ── */
+
+.editor-toolbar-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 140px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--toolbar-muted);
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.editor-toolbar-nav-link:hover,
+.editor-toolbar-nav-link[aria-expanded='true'] {
+  color: var(--toolbar-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.editor-toolbar-nav-link--song {
+  max-width: 160px;
+  font-weight: 600;
+  color: var(--toolbar-text);
+}
+
+.editor-toolbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--toolbar-text);
+  background: transparent;
+  border: none;
+  transition: background-color 150ms ease;
+}
+
+.editor-toolbar-chip:hover,
+.editor-toolbar-chip[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.editor-toolbar-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.35);
+}
+
+.editor-toolbar-chip--compact {
+  height: 28px;
+  padding: 0 6px 0 4px;
+  gap: 4px;
+}
+
+.editor-toolbar-dropdown {
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--shell-border);
+  background: var(--shell-surface);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.editor-toolbar-connection {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.editor-toolbar-connection--live {
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+}
+
+.editor-toolbar-connection--reconnecting {
+  background: #fbbf24;
+  animation: pulse 2s ease-in-out infinite;
 }
 
 .editor-toolbar-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   color: var(--toolbar-muted);
-  transition: color 150ms ease, background-color 150ms ease;
+  opacity: 0.75;
+  transition: color 150ms ease, background-color 150ms ease, opacity 150ms ease;
 }
 
 .editor-toolbar-icon:hover {
   color: var(--toolbar-text);
   background: rgba(255, 255, 255, 0.06);
+  opacity: 1;
 }
 
 .editor-toolbar-icon:focus-visible {
@@ -490,6 +627,47 @@ body {
   color: var(--toolbar-muted);
   background: transparent;
   transition: color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.editor-toolbar-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(180, 175, 255, 0.5);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, #6c63ff 0%, #8b5cf6 100%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(108, 99, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+
+.editor-toolbar-ai:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 4px 14px rgba(108, 99, 255, 0.4),
+    0 0 0 1px rgba(180, 175, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.editor-toolbar-ai:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.editor-toolbar-ai:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(108, 99, 255, 0.55),
+    0 4px 14px rgba(108, 99, 255, 0.4);
 }
 
 .editor-toolbar-suggest:hover:not(:disabled) {
@@ -579,8 +757,16 @@ body {
   50% { box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.06); }
 }
 
-.dark .editor-modal {
+/* App + editor popup modals */
+.app-modal {
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  box-shadow: var(--modal-shadow);
+}
+
+.dark :is(.app-modal, .editor-modal) {
   background: var(--chrome-surface-bg) !important;
+  color: var(--modal-text);
   border: 1px solid var(--ai-border, rgba(180, 175, 255, 0.22));
   box-shadow:
     0 0 0 1px rgba(180, 175, 255, 0.08),
@@ -592,6 +778,55 @@ body {
   --modal-input-border: rgba(180, 175, 255, 0.22);
   --modal-input-text: #f4f2ff;
   --modal-input-placeholder: rgba(244, 242, 255, 0.32);
+}
+
+.dark :is(.app-modal, .editor-modal) > div[class*='border-b']:first-child {
+  border-color: rgba(180, 175, 255, 0.14) !important;
+}
+
+.dark :is(.app-modal, .editor-modal) > div[class*='border-t']:last-child {
+  border-color: rgba(180, 175, 255, 0.14) !important;
+}
+
+.dark :is(.app-modal, .editor-modal) button.bg-primary:not(:disabled) {
+  box-shadow: none;
+}
+
+.dark :is(.app-modal, .editor-modal) button.text-shell-muted:hover:not(:disabled),
+.dark :is(.app-modal, .editor-modal) button[class*='ghost']:hover:not(:disabled) {
+  color: var(--ai-text, #f4f2ff);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark :is(.app-modal, .editor-modal) .modal-body input:not([type='checkbox']):not([type='radio']),
+.dark :is(.app-modal, .editor-modal) .modal-body select,
+.dark :is(.app-modal, .editor-modal) .modal-body textarea {
+  background: var(--ai-surface-raised, #16132a) !important;
+  border-color: rgba(180, 175, 255, 0.22) !important;
+  color: var(--ai-text, #f4f2ff) !important;
+}
+
+.dark :is(.app-modal, .editor-modal) .modal-body input::placeholder,
+.dark :is(.app-modal, .editor-modal) .modal-body textarea::placeholder {
+  color: rgba(244, 242, 255, 0.32) !important;
+}
+
+.dark :is(.app-modal, .editor-modal) .modal-body input:focus,
+.dark :is(.app-modal, .editor-modal) .modal-body select:focus,
+.dark :is(.app-modal, .editor-modal) .modal-body textarea:focus {
+  outline: none;
+  border-color: rgba(180, 175, 255, 0.45) !important;
+  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+}
+
+.dark :is(.app-modal, .editor-modal) .modal-body label {
+  color: var(--ai-text-muted, rgba(244, 242, 255, 0.55));
+  font-weight: 600;
+}
+
+.dark :is(.app-modal, .editor-modal) .modal-body h2,
+.dark :is(.app-modal, .editor-modal) .modal-body h3 {
+  color: var(--ai-text, #f4f2ff);
 }
 
 .dark .editor-modal--wide {
@@ -607,23 +842,8 @@ body {
 }
 
 .dark .editor-modal .ai-assistant-header,
-.dark .editor-modal > div[class*='border-b']:first-child {
+.dark .editor-modal .ai-assistant-footer {
   border-color: rgba(180, 175, 255, 0.14) !important;
-}
-
-.dark .editor-modal .ai-assistant-footer,
-.dark .editor-modal > div[class*='border-t']:last-child {
-  border-color: rgba(180, 175, 255, 0.14) !important;
-}
-
-.dark .editor-modal button.bg-primary:not(:disabled) {
-  box-shadow: none;
-}
-
-.dark .editor-modal button.text-shell-muted:hover:not(:disabled),
-.dark .editor-modal button[class*='ghost']:hover:not(:disabled) {
-  color: var(--ai-text, #f4f2ff);
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .dark .editor-modal .editor-modal-meta {
@@ -663,37 +883,6 @@ body {
   border-color: rgba(180, 175, 255, 0.45);
   color: var(--ai-text, #f4f2ff);
   background: rgba(108, 99, 255, 0.1);
-}
-
-.dark .editor-modal .modal-body input:not([type='checkbox']):not([type='radio']),
-.dark .editor-modal .modal-body select,
-.dark .editor-modal .modal-body textarea {
-  background: var(--ai-surface-raised, #16132a) !important;
-  border-color: rgba(180, 175, 255, 0.22) !important;
-  color: var(--ai-text, #f4f2ff) !important;
-}
-
-.dark .editor-modal .modal-body input::placeholder,
-.dark .editor-modal .modal-body textarea::placeholder {
-  color: rgba(244, 242, 255, 0.32) !important;
-}
-
-.dark .editor-modal .modal-body input:focus,
-.dark .editor-modal .modal-body select:focus,
-.dark .editor-modal .modal-body textarea:focus {
-  outline: none;
-  border-color: rgba(180, 175, 255, 0.45) !important;
-  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
-}
-
-.dark .editor-modal .modal-body label {
-  color: var(--ai-text-muted, rgba(244, 242, 255, 0.55));
-  font-weight: 600;
-}
-
-.dark .editor-modal .modal-body h2,
-.dark .editor-modal .modal-body h3 {
-  color: var(--ai-text, #f4f2ff);
 }
 
 .ai-assistant-badge {

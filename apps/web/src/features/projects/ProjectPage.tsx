@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pencil1Icon } from '@radix-ui/react-icons'
+import { Pencil1Icon, PlusIcon } from '@radix-ui/react-icons'
 import { useParams } from 'react-router-dom'
 import { ProjectStatusEnum } from '@ama-midi/shared'
 import { AppShell } from '../../components/layout'
@@ -45,10 +45,14 @@ export function ProjectPage() {
       <div className="mb-5 flex flex-col gap-4 border-b border-shell-border pb-4 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
           <BackNavLink to="/projects" label="Projects" className="mb-2" />
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="truncate text-2xl font-semibold text-shell-text">{project?.name ?? 'Project'}</h1>
             {project && (
-              <Badge variant={ProjectStatusEnum.variant(project.status)} size="sm">
+              <Badge
+                variant={ProjectStatusEnum.variant(project.status)}
+                size="lg"
+                className="ring-1 ring-inset ring-current/15"
+              >
                 {ProjectStatusEnum.label(project.status)}
               </Badge>
             )}
@@ -72,8 +76,14 @@ export function ProjectPage() {
             </Button>
           )}
           <QuickCreateSongButton projectId={projectId} disabled={wizardOpen} />
-          <Button size="sm" variant="secondary" rounded onClick={() => setWizardOpen(true)}>
-            + New Song
+          <Button
+            size="sm"
+            variant="primary"
+            rounded
+            icon={<PlusIcon className="h-3.5 w-3.5" />}
+            onClick={() => setWizardOpen(true)}
+          >
+            New Song
           </Button>
         </div>
       </div>

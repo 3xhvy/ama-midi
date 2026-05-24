@@ -194,22 +194,26 @@ export function AppShell({
       )}
 
       {user && profileOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="presentation">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ backgroundColor: 'var(--modal-overlay)' }}
+          role="presentation"
+        >
           <form
             onSubmit={handleProfileSubmit}
             role="dialog"
             aria-modal="true"
             aria-labelledby="profile-popup-title"
-            className="w-full max-w-sm rounded-lg border border-shell-border bg-shell-surface p-5 shadow-lg"
+            className="app-modal w-full max-w-sm overflow-hidden rounded-2xl"
           >
-            <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-3 border-b px-5 py-4" style={{ borderColor: 'var(--modal-border)' }}>
               <div className="flex items-center gap-3">
                 <Avatar src={user.avatarUrl} name={user.name} size="lg" />
                 <div className="min-w-0">
-                  <h2 id="profile-popup-title" className="truncate text-base font-semibold text-shell-text">
+                  <h2 id="profile-popup-title" className="truncate text-base font-semibold" style={{ color: 'var(--modal-text)' }}>
                     {user.name}
                   </h2>
-                  <p className="truncate text-sm text-shell-muted">{user.email}</p>
+                  <p className="truncate text-sm" style={{ color: 'var(--modal-muted)' }}>{user.email}</p>
                 </div>
               </div>
               <IconButton type="button" size="sm" tooltip="Close profile" onClick={() => setProfileOpen(false)}>
@@ -217,14 +221,15 @@ export function AppShell({
               </IconButton>
             </div>
 
-            <div className="mb-4 rounded-lg border border-shell-border bg-shell-bg p-3">
-              <p className="text-xs font-medium text-shell-text">Google account</p>
-              <p className="mt-0.5 text-xs text-shell-muted">Avatar and email are synced from Google.</p>
+            <div className="modal-body space-y-4 p-5">
+            <div className="rounded-lg border p-3" style={{ borderColor: 'var(--modal-border)', background: 'var(--modal-input-bg)' }}>
+              <p className="text-xs font-medium" style={{ color: 'var(--modal-text)' }}>Google account</p>
+              <p className="mt-0.5 text-xs" style={{ color: 'var(--modal-muted)' }}>Avatar and email are synced from Google.</p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs text-shell-muted">Display Name</label>
+                <label className="mb-1 block text-xs" style={{ color: 'var(--modal-muted)' }}>Display Name</label>
                 <Input
                   value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
@@ -233,7 +238,7 @@ export function AppShell({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-shell-muted">
+                <label className="mb-1 block text-xs" style={{ color: 'var(--modal-muted)' }}>
                   Title <span className="text-error">*</span>
                 </label>
                 <Input
@@ -244,13 +249,13 @@ export function AppShell({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-shell-muted">
+                <label className="mb-1 block text-xs" style={{ color: 'var(--modal-muted)' }}>
                   Department <span className="text-error">*</span>
                 </label>
                 <select
                   value={profileDepartment}
                   onChange={(e) => setProfileDepartment(e.target.value)}
-                  className="w-full rounded-lg border border-shell-border bg-shell-surface px-3 py-2 text-sm text-shell-text focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
                   <option value="">Select department...</option>
                   {DEPARTMENTS.map((department) => (
@@ -261,8 +266,9 @@ export function AppShell({
 
               {profileError && <p className="text-xs text-error">{profileError}</p>}
             </div>
+            </div>
 
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="flex justify-end gap-2 border-t px-5 py-4" style={{ borderColor: 'var(--modal-border)' }}>
               <Button type="button" variant="secondary" size="sm" onClick={() => setProfileOpen(false)}>
                 Cancel
               </Button>
