@@ -50,9 +50,10 @@ interface Props {
   onNoteSelected?:  (note: Note | null) => void
   cursors?:         Map<string, CursorData>
   onCursorMove?:    (track: number, time: number) => void
+  onCursorHide?:    () => void
 }
 
-export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove }: Props) {
+export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove, onCursorHide }: Props) {
   const containerRef          = useRef<HTMLDivElement>(null)
   const trackAreaRef          = useRef<HTMLDivElement>(null)
   const headerTracksScrollRef = useRef<HTMLDivElement>(null)
@@ -109,6 +110,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const throttledCursorEmit = useThrottle(
     useCallback((track: number, time: number) => { onCursorMove?.(track, time) }, [onCursorMove]),
     66,
+    true,
   )
 
   const viewportHeight = containerRef.current?.clientHeight ?? 600
@@ -185,14 +187,14 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return
-    if (selectionDrag) return
-    const rect  = containerRef.current.getBoundingClientRect()
+    const rect       = containerRef.current.getBoundingClientRect()
     const scrollLeft = containerRef.current.scrollLeft
-    const x     = e.clientX - rect.left + scrollLeft
-    const y     = e.clientY - rect.top + scrollTop
-    const track = xToTrack(x, layoutGridWidth)
-    const time  = yToTime(y, pxPerSecond, snapMode, bpm)
+    const x          = e.clientX - rect.left + scrollLeft
+    const y          = e.clientY - rect.top + scrollTop
+    const track      = xToTrack(x, layoutGridWidth)
+    const time       = yToTime(y, pxPerSecond, snapMode, bpm)
     throttledCursorEmit(track, time)
+    if (selectionDrag) return
     setActiveTrack(track)
     if (!effectiveCanEdit) return
     setGhost({ track, time })
@@ -434,6 +436,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
             onMouseLeave={() => {
               if (effectiveCanEdit) setGhost(null)
               setActiveTrack(null)
+              onCursorHide?.()
             }}
           >
             <div className="relative" style={{ height: totalHeight, width: layoutGridWidth }}>
