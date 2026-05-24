@@ -114,6 +114,7 @@ export class AiController {
           songId,
           user.role,
           envelope.payload as SuggestNotesDto,
+          emitStep,
         )
         writeSse(res, { type: 'result', runId, action: 'suggest-notes', payload })
       }

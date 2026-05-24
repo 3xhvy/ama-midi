@@ -7,17 +7,20 @@ import {
 } from '@nestjs/common'
 import { LLM_ADAPTER, type LLMAdapter } from './adapters/llm-adapter.interface'
 import {
+  AI_STREAM_STEPS,
   SNAP_RESOLUTION,
   TIME_MAX,
   TIME_MIN,
   TRACK_MAX,
   TRACK_MIN,
+  analyzeChart,
   measureDuration,
   snapTime,
   type SnapMode,
   type SuggestNotesMode,
 } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
+import { type AiProgressEmitter, runStep } from './ai-progress.util'
 
 interface RawSuggestion {
   track: number
@@ -36,6 +39,15 @@ interface ChartContext {
   contextNotes: Array<{ track: number; time: number; noteType: string }>
   targetTrackNotes: Array<{ track: number; time: number }>
   occupied: Array<{ track: number; time: number }>
+  sections: Array<{ time: number; label: string }>
+  segments: Array<{
+    startTimeMs: number
+    endTimeMs: number
+    notesPerSecond: number
+    difficultyLevel: string
+    difficultyScore: number
+  }>
+  chartNoteCount: number
 }
 
 @Injectable()
@@ -55,7 +67,9 @@ export class AiService {
       snapMode: SnapMode
       targetTrack?: number
       selectedNotes?: Array<{ track: number; time: number }>
+      instruction?: string
     },
+    onProgress?: AiProgressEmitter,
   ): Promise<{ suggestions: RawSuggestion[] }> {
     if (userRole === 'VIEWER') throw new ForbiddenException('VIEWER cannot use AI suggestions')
     if (body.mode === 'fill_track' && body.targetTrack == null) {
@@ -66,27 +80,108 @@ export class AiService {
         throw new BadRequestException('Select at least 2 notes to continue a pattern')
       }
     }
+    if (body.mode === 'refine_pattern') {
+      if (!body.selectedNotes?.length || body.selectedNotes.length < 2) {
+        throw new BadRequestException('Select at least 2 notes to refine a pattern')
+      }
+    }
 
-    const chart = await this.prisma.songChart.findFirst({
-      where: { id: body.chartId, songId },
-      include: { song: true },
+    const steps = AI_STREAM_STEPS['suggest-notes']
+
+    const loaded = await runStep(steps, 'load_context', onProgress, async () => {
+      const chart = await this.prisma.songChart.findFirst({
+        where: { id: body.chartId, songId },
+        include: { song: true },
+      })
+      if (!chart) throw new NotFoundException('Chart not found')
+
+      const [allNotes, sections, persistedSegments] = await Promise.all([
+        this.prisma.note.findMany({
+          where: { chartId: chart.id, deletedAt: null },
+          orderBy: { time: 'asc' },
+          select: { track: true, time: true, noteType: true, duration: true },
+        }),
+        this.prisma.sectionMarker.findMany({
+          where: { songId },
+          orderBy: { time: 'asc' },
+          select: { time: true, label: true },
+        }),
+        this.prisma.chartDifficultySegment.findMany({
+          where: { chartId: chart.id },
+          orderBy: { startTimeMs: 'asc' },
+          select: {
+            startTimeMs: true,
+            endTimeMs: true,
+            notesPerSecond: true,
+            difficultyLevel: true,
+            difficultyScore: true,
+          },
+        }),
+      ])
+
+      return { chart, allNotes, sections, persistedSegments }
     })
-    if (!chart) throw new NotFoundException('Chart not found')
 
-    const allNotes = await this.prisma.note.findMany({
-      where: { chartId: chart.id, deletedAt: null },
-      orderBy: { time: 'asc' },
-      select: { track: true, time: true, noteType: true },
-    })
-
-    if (body.mode === 'fill_track' && allNotes.length < 5) {
+    if (body.mode === 'fill_track' && loaded.allNotes.length < 5) {
+      const readyDef = steps.find((s) => s.stepId === 'ready')!
+      onProgress?.({ type: 'step', stepId: 'ready', label: readyDef.label, status: 'done' })
       return { suggestions: [] }
     }
 
-    const context = this.buildContext(chart.song, chart.computedDifficulty, allNotes, body)
-    const prompt = this.buildPrompt(body.mode, body.targetTrack, context)
-    const raw = await this.callClaude(prompt)
-    const suggestions = this.postProcess(raw, context, body.mode, body.targetTrack)
+    const segments = await runStep(steps, 'analyze', onProgress, async () => {
+      const localAnalysis =
+        loaded.persistedSegments.length === 0
+          ? analyzeChart({
+              chartId: loaded.chart.id,
+              notes: loaded.allNotes.map((n) => ({
+                track: n.track,
+                time: n.time,
+                noteType: n.noteType as 'TAP' | 'HOLD' | 'SWIPE',
+                duration: n.duration,
+              })),
+              bpm: loaded.chart.song.bpm,
+              timeSignature: loaded.chart.song.timeSignature,
+              speedMultiplier: loaded.chart.speedMultiplier,
+            })
+          : null
+
+      return loaded.persistedSegments.length > 0
+        ? loaded.persistedSegments
+        : localAnalysis!.segments.map((s) => ({
+            startTimeMs: s.startTimeMs,
+            endTimeMs: s.endTimeMs,
+            notesPerSecond: s.notesPerSecond,
+            difficultyLevel: s.difficultyLevel,
+            difficultyScore: s.difficultyScore,
+          }))
+    })
+
+    const context = this.buildContext(
+      loaded.chart.song,
+      loaded.chart.computedDifficulty,
+      loaded.allNotes,
+      body,
+      loaded.sections,
+      segments,
+    )
+
+    const raw = await runStep(steps, 'generate', onProgress, async () => {
+      const prompt = this.buildPrompt(
+        body.mode,
+        body.targetTrack,
+        context,
+        body.instruction,
+        body.selectedNotes,
+      )
+      return this.callClaude(prompt)
+    })
+
+    const suggestions = await runStep(steps, 'validate', onProgress, async () =>
+      this.postProcess(raw, context, body.mode, body.targetTrack, body.selectedNotes),
+    )
+
+    const readyDef = steps.find((s) => s.stepId === 'ready')!
+    onProgress?.({ type: 'step', stepId: 'ready', label: readyDef.label, status: 'done' })
 
     return { suggestions }
   }
@@ -100,11 +195,24 @@ export class AiService {
       snapMode: SnapMode
       targetTrack?: number
       selectedNotes?: Array<{ track: number; time: number }>
+      mode?: SuggestNotesMode
     },
+    sections: Array<{ time: number; label: string }>,
+    segments: Array<{
+      startTimeMs: number
+      endTimeMs: number
+      notesPerSecond: number
+      difficultyLevel: string
+      difficultyScore: number
+    }>,
   ): ChartContext {
     const measure = measureDuration(song.bpm, song.timeSignature)
+    const chartNoteCount = allNotes.length
 
-    if (body.selectedNotes?.length) {
+    if (
+      body.selectedNotes?.length &&
+      (body.mode === 'continue_pattern' || body.mode === 'refine_pattern')
+    ) {
       const sorted = [...body.selectedNotes].sort((a, b) => a.time - b.time || a.track - b.track)
       const continueFromTime = sorted[sorted.length - 1]!.time
       const minTime = sorted[0]!.time
@@ -128,6 +236,9 @@ export class AiService {
         }),
         targetTrackNotes: [],
         occupied: allNotes.map((n) => ({ track: n.track, time: n.time })),
+        sections,
+        segments,
+        chartNoteCount,
       }
     }
 
@@ -156,6 +267,9 @@ export class AiService {
       })),
       targetTrackNotes: targetTrackNotes.map((n) => ({ track: n.track, time: n.time })),
       occupied: allNotes.map((n) => ({ track: n.track, time: n.time })),
+      sections,
+      segments,
+      chartNoteCount,
     }
   }
 
@@ -163,6 +277,8 @@ export class AiService {
     mode: SuggestNotesMode,
     targetTrack: number | undefined,
     ctx: ChartContext,
+    instruction?: string,
+    selectedNotes?: Array<{ track: number; time: number }>,
   ): { system: string; user: string } {
     const system = [
       'You are a rhythm-game chart assistant for AMA-MIDI.',
@@ -178,12 +294,40 @@ export class AiService {
           ? `quarter-note beats at ${ctx.bpm} BPM (${(60 / ctx.bpm).toFixed(3)}s per beat)`
           : `eighth-note subdivisions at ${ctx.bpm} BPM (${(60 / ctx.bpm / 2).toFixed(3)}s per step)`
 
+    const anchorTime = selectedNotes?.length
+      ? Math.min(...selectedNotes.map((n) => n.time))
+      : ctx.playheadTime
+    const currentSection = [...ctx.sections].reverse().find((s) => s.time <= anchorTime)
+
     const base = [
       `Song: ${ctx.bpm} BPM, ${ctx.timeSignature}, difficulty ${ctx.difficulty}, category ${ctx.category}.`,
       `Snap grid: ${ctx.snapMode} — align all times to ${snapHint}.`,
       `Context window: ${ctx.windowStart.toFixed(1)}s–${ctx.windowEnd.toFixed(1)}s.`,
+      currentSection
+        ? `Current section: "${currentSection.label}" at ${currentSection.time}s.`
+        : null,
+      `All sections: ${JSON.stringify(ctx.sections)}.`,
+      `Density profile: ${JSON.stringify(
+        ctx.segments.map((s) => ({
+          start: s.startTimeMs / 1000,
+          end: s.endTimeMs / 1000,
+          nps: s.notesPerSecond,
+          level: s.difficultyLevel,
+        })),
+      )}.`,
+      `Analysis segments: ${JSON.stringify(
+        ctx.segments.map((s) => ({
+          start: s.startTimeMs / 1000,
+          end: s.endTimeMs / 1000,
+          nps: s.notesPerSecond,
+          level: s.difficultyLevel,
+          score: s.difficultyScore,
+        })),
+      )}.`,
+      `Chart totals: ${ctx.chartNoteCount} notes.`,
+      instruction ? `User instruction: ${instruction}.` : null,
       `Occupied positions (never duplicate these track+time pairs): ${JSON.stringify(ctx.occupied)}.`,
-    ]
+    ].filter(Boolean)
 
     if (mode === 'continue_pattern') {
       return {
@@ -194,6 +338,20 @@ export class AiService {
           `Task: CONTINUE PATTERN — suggest exactly 4 notes that extend this selected pattern forward after ${ctx.playheadTime.toFixed(1)}s.`,
           'Preserve the interval spacing, lane choices, and rhythmic feel of the selection.',
           `Every suggested time must be > ${ctx.playheadTime.toFixed(1)} and <= ${TIME_MAX}.`,
+        ].join(' '),
+      }
+    }
+
+    if (mode === 'refine_pattern') {
+      const n = ctx.contextNotes.length
+      return {
+        system,
+        user: [
+          ...base,
+          `Selected pattern to refine: ${JSON.stringify(ctx.contextNotes)}.`,
+          `Task: REFINE PATTERN — return exactly ${n} suggestions that improve this pattern.`,
+          'Adjust timing and lanes within the selection window; preserve musical intent.',
+          'Return improved track+time pairs; do not collide with occupied positions outside the selection.',
         ].join(' '),
       }
     }
@@ -242,9 +400,21 @@ export class AiService {
     ctx: ChartContext,
     mode: SuggestNotesMode,
     targetTrack: number | undefined,
+    selectedNotes?: Array<{ track: number; time: number }>,
   ): RawSuggestion[] {
+    const selectedKeys =
+      mode === 'refine_pattern'
+        ? new Set(
+            (selectedNotes ?? []).map(
+              (n) => `${n.track}:${snapTime(n.time, ctx.snapMode, ctx.bpm).toFixed(1)}`,
+            ),
+          )
+        : new Set<string>()
+
     const occupiedKeys = new Set(
-      ctx.occupied.map((n) => `${n.track}:${n.time.toFixed(1)}`),
+      ctx.occupied
+        .map((n) => `${n.track}:${n.time.toFixed(1)}`)
+        .filter((key) => !selectedKeys.has(key)),
     )
     const seen = new Set<string>()
     const out: RawSuggestion[] = []
@@ -264,7 +434,7 @@ export class AiService {
 
       seen.add(key)
       out.push({ track, time })
-      if (out.length >= 4) break
+      if (out.length >= 4 && mode !== 'refine_pattern') break
     }
 
     return out
