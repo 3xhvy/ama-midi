@@ -55,7 +55,11 @@ export function ScaleDifficultyFlow({
         snapMode,
         ...(instruction.trim() ? { instruction: instruction.trim() } : {}),
       })
-      if (result.type !== 'result' || result.action !== 'scale-chart') return
+      if (result.type !== 'result' || result.action !== 'scale-chart') {
+        toast.error('Unexpected AI response — try again')
+        onPhaseChange('configure')
+        return
+      }
 
       const { notes, sections } = result.payload
       if (notes.length === 0) {
@@ -65,9 +69,12 @@ export function ScaleDifficultyFlow({
       }
 
       setChartPreview({ notes, sections, replaceExisting: true, placement: null })
+      toast.success('Chart preview ready — review and apply in the bar above')
       closeAiAssistant()
       setInstruction('')
-    } catch {
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return
+      toast.error(e instanceof Error ? e.message : 'Failed to scale chart')
       onPhaseChange('configure')
     }
   }
@@ -80,6 +87,11 @@ export function ScaleDifficultyFlow({
           <AiFlowHighlight>{song?.name ?? 'this song'}</AiFlowHighlight>. The current chart is
           replaced only if you accept the preview.
         </AiFlowIntro>
+
+        <AiFlowCallout variant="amber">
+          Scale always generates a full replacement. Accepting the preview will replace all current
+          notes and section markers.
+        </AiFlowCallout>
 
         <div>
           <AiFlowLabel>Target tier</AiFlowLabel>
@@ -105,11 +117,6 @@ export function ScaleDifficultyFlow({
           maxLength={2000}
           disabled={processing}
         />
-
-        <AiFlowCallout variant="amber">
-          Preview uses replace mode. Accepting it will replace the current chart notes and section
-          markers.
-        </AiFlowCallout>
       </div>
 
       <AiFlowFooter>

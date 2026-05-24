@@ -3,6 +3,8 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common'
 import { LLM_ADAPTER, type LLMAdapter } from './adapters/llm-adapter.interface'
 import {
@@ -19,7 +21,7 @@ import {
   type SnapMode,
   type SuggestNotesMode,
 } from '@ama-midi/shared'
-import { type AiProgressEmitter, runStep } from './ai-progress.util'
+import { type AiProgressEmitter, runStep, emitDetail } from './ai-progress.util'
 import { ChartContextService } from './chart-context.service'
 
 interface RawSuggestion {
@@ -52,6 +54,8 @@ interface ChartContext {
 
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name)
+
   constructor(
     @Inject(LLM_ADAPTER) private readonly llm: LLMAdapter,
     private readonly chartContext: ChartContextService,
@@ -111,6 +115,7 @@ export class AiService {
     const context = this.buildContext(ctx, body, segments)
 
     const raw = await runStep(steps, 'generate', onProgress, async () => {
+      emitDetail(steps, 'generate', `Calling AI (${body.mode})…`, onProgress)
       const prompt = this.buildPrompt(
         body.mode,
         body.targetTrack,
@@ -118,12 +123,16 @@ export class AiService {
         body.instruction,
         body.selectedNotes,
       )
-      return this.callClaude(prompt)
+      const result = await this.callClaude(prompt)
+      emitDetail(steps, 'generate', `Received ${result.length} raw suggestion${result.length !== 1 ? 's' : ''}`, onProgress)
+      return result
     })
 
-    const suggestions = await runStep(steps, 'validate', onProgress, async () =>
-      this.postProcess(raw, context, body.mode, body.targetTrack, body.selectedNotes),
-    )
+    const suggestions = await runStep(steps, 'validate', onProgress, async () => {
+      const validated = this.postProcess(raw, context, body.mode, body.targetTrack, body.selectedNotes)
+      emitDetail(steps, 'validate', `${validated.length} valid placement${validated.length !== 1 ? 's' : ''}`, onProgress)
+      return validated
+    })
 
     const readyDef = steps.find((s) => s.stepId === 'ready')!
     onProgress?.({ type: 'step', stepId: 'ready', label: readyDef.label, status: 'done' })
@@ -244,14 +253,6 @@ export class AiService {
         ? `Current section: "${currentSection.label}" at ${currentSection.time}s.`
         : null,
       `All sections: ${JSON.stringify(ctx.sections)}.`,
-      `Density profile: ${JSON.stringify(
-        ctx.segments.map((s) => ({
-          start: s.startTimeMs / 1000,
-          end: s.endTimeMs / 1000,
-          nps: s.notesPerSecond,
-          level: s.difficultyLevel,
-        })),
-      )}.`,
       `Analysis segments: ${JSON.stringify(
         ctx.segments.map((s) => ({
           start: s.startTimeMs / 1000,
@@ -308,11 +309,18 @@ export class AiService {
   }
 
   private async callClaude(prompt: { system: string; user: string }): Promise<RawSuggestion[]> {
-    const text = await this.llm.complete({
-      system: prompt.system,
-      messages: [{ role: 'user', content: prompt.user }],
-      maxTokens: 600,
-    })
+    let text: string
+    try {
+      text = await this.llm.complete({
+        system: prompt.system,
+        messages: [{ role: 'user', content: prompt.user }],
+        maxTokens: 600,
+      })
+    } catch (err) {
+      this.logger.error('LLM call failed for suggestNotes', err instanceof Error ? err.stack : String(err))
+      throw new ServiceUnavailableException('AI suggestion failed — try again in a moment.')
+    }
+
     const jsonText = (text || '[]').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 
     try {
@@ -327,7 +335,8 @@ export class AiService {
             typeof s.time === 'number',
         )
         .map((s) => ({ track: s.track as number, time: s.time as number }))
-    } catch {
+    } catch (err) {
+      this.logger.warn('Failed to parse LLM suggestNotes response', { preview: jsonText.slice(0, 200) })
       return []
     }
   }

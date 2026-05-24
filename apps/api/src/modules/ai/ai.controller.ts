@@ -1,4 +1,5 @@
 import { Body, Controller, Headers, Param, Post, Req, Res, UseGuards } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import { AuthGuard } from '@nestjs/passport'
 import { randomUUID } from 'crypto'
 import type { Request, Response } from 'express'
@@ -18,6 +19,7 @@ import type {
 
 @Controller('songs/:songId')
 @UseGuards(AuthGuard('jwt'))
+@Throttle({ default: { limit: 10, ttl: 60000 } })
 export class AiController {
   constructor(
     private readonly ai: AiService,

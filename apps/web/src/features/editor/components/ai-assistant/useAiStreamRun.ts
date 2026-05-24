@@ -6,6 +6,8 @@ type StepState = AiStreamStepStatus | 'pending'
 
 export function useAiStreamRun(songId: string, token: string | null) {
   const [steps, setSteps] = useState<Record<string, StepState>>({})
+  const [details, setDetails] = useState<Record<string, string>>({})
+  const [stepStartTimes, setStepStartTimes] = useState<Record<string, number>>({})
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -15,6 +17,8 @@ export function useAiStreamRun(songId: string, token: string | null) {
     const initial: Record<string, StepState> = {}
     for (const s of AI_STREAM_STEPS[action]) initial[s.stepId] = 'pending'
     setSteps(initial)
+    setDetails({})
+    setStepStartTimes({})
   }, [])
 
   const start = useCallback(async (body: AiStreamRequest) => {
@@ -36,6 +40,15 @@ export function useAiStreamRun(songId: string, token: string | null) {
           if (event.type === 'step') {
             if (runIdRef.current && event.runId !== runIdRef.current) return
             setSteps((prev) => ({ ...prev, [event.stepId]: event.status }))
+            if (event.detail) {
+              setDetails((prev) => ({ ...prev, [event.stepId]: event.detail! }))
+            }
+            if (event.status === 'active') {
+              setStepStartTimes((prev) => ({
+                ...prev,
+                [event.stepId]: prev[event.stepId] ?? Date.now(),
+              }))
+            }
             return
           }
         },
@@ -56,5 +69,5 @@ export function useAiStreamRun(songId: string, token: string | null) {
     setProcessing(false)
   }, [])
 
-  return { steps, processing, error, start, cancel }
+  return { steps, details, stepStartTimes, processing, error, start, cancel }
 }

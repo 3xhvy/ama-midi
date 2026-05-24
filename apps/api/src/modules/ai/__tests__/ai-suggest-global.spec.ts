@@ -99,7 +99,7 @@ describe('AiService.suggestNotes global context', () => {
 
     const userPrompt = (llm.complete as jest.Mock).mock.calls[0][0].messages[0].content
     expect(userPrompt).toContain('Analysis segments')
-    expect(userPrompt).toContain('Density profile')
+    expect(userPrompt).not.toContain('Density profile')
   })
 
   it('includes section info when section markers exist', async () => {
@@ -129,8 +129,22 @@ describe('AiService.suggestNotes global context', () => {
     })
 
     const userPrompt = (llm.complete as jest.Mock).mock.calls[0][0].messages[0].content
-    expect(userPrompt).toContain('Density profile')
+    expect(userPrompt).toContain('Analysis segments')
     expect(userPrompt).toContain('"start":0')
+  })
+
+  it('throws ServiceUnavailableException when LLM.complete rejects', async () => {
+    ;(llm.complete as jest.Mock).mockRejectedValueOnce(new Error('network error'))
+
+    await expect(
+      service.suggestNotes(songId, 'COMPOSER', {
+        chartId,
+        mode: 'fill_track',
+        targetTrack: 1,
+        playheadTime: 2,
+        snapMode: '0.1s',
+      }),
+    ).rejects.toThrow('AI suggestion failed')
   })
 
   it('rejects refine_pattern with fewer than 2 selected notes', async () => {

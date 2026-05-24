@@ -36,10 +36,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { EditorCommandService } from '../editor-commands/editor-command.service'
-import { AI_STREAM_STEPS, type AiProgressEmitter, runStep } from './ai-progress.util'
+import { AI_STREAM_STEPS, type AiProgressEmitter, runStep, emitDetail } from './ai-progress.util'
 import { ChartContextService } from './chart-context.service'
 import { ChartApplyPreviewService } from './chart-apply-preview.service'
-import { buildGeneratePrompt, serializeChartContextForPrompt } from './chart-context.prompt'
+import { buildGeneratePrompt, serializeChartContextForPrompt, CHART_NOTE_TYPE_INSTRUCTIONS, CHART_JSON_EXAMPLE } from './chart-context.prompt'
 import type { ApplyChartDto, GenerateChartDto, PreviewChartDto } from './dto/chart.dto'
 
 const MAX_GENERATED_NOTES = 150
@@ -79,11 +79,11 @@ export class AiChartService {
       this.chartContext.loadChartContext(songId, body.chartId),
     )
 
+    const targetCount = body.targetTier ? TARGET_NOTE_COUNT[body.targetTier] ?? 90 : 90
+
     const prompt = await runStep(steps, 'build_prompt', onProgress, async () => {
       const description = body.description.trim()
       if (!description) throw new BadRequestException('Description is required')
-
-      const targetCount = body.targetTier ? TARGET_NOTE_COUNT[body.targetTier] ?? 90 : 90
       return buildGeneratePrompt({
         ctx,
         description,
@@ -94,13 +94,18 @@ export class AiChartService {
       })
     })
 
-    const parsed = await runStep(steps, 'generate', onProgress, () =>
-      this.callClaudeForChart(prompt, 'generate'),
-    )
+    const parsed = await runStep(steps, 'generate', onProgress, async () => {
+      emitDetail(steps, 'generate', `Calling AI for ~${targetCount} notes…`, onProgress)
+      const result = await this.callClaudeForChart(prompt, 'generate')
+      emitDetail(steps, 'generate', `Received ${(result.notes as unknown[]).length} raw notes from AI`, onProgress)
+      return result
+    })
 
-    const notes = await runStep(steps, 'normalize', onProgress, async () =>
-      this.normalizeGeneratedNotes(parsed.notes, body.snapMode, ctx.song.bpm),
-    )
+    const notes = await runStep(steps, 'normalize', onProgress, async () => {
+      const normalized = this.normalizeGeneratedNotes(parsed.notes, body.snapMode, ctx.song.bpm)
+      emitDetail(steps, 'normalize', `Kept ${normalized.length} valid notes after normalization`, onProgress)
+      return normalized
+    })
     const sections = this.normalizeSections(parsed.sections)
 
     const readyDef = steps.find((s) => s.stepId === 'ready')!
@@ -119,30 +124,30 @@ export class AiChartService {
 
     const steps = AI_STREAM_STEPS['scale-chart']
 
+    const targetCount = TARGET_NOTE_COUNT[body.targetTier] ?? 90
+
     const ctx = await runStep(steps, 'load_chart', onProgress, async () => {
       const loaded = await this.chartContext.loadChartContext(songId, body.chartId)
       if (loaded.notes.length === 0) throw new BadRequestException('Cannot scale an empty chart')
       return loaded
     })
 
-    const prompt = await runStep(steps, 'build_prompt', onProgress, async () => {
-      const targetCount = TARGET_NOTE_COUNT[body.targetTier] ?? 90
-      return this.buildScalePrompt(
-        ctx,
-        body.targetTier,
-        targetCount,
-        body.instruction?.trim(),
-        body.snapMode,
-      )
+    const prompt = await runStep(steps, 'build_prompt', onProgress, async () =>
+      this.buildScalePrompt(ctx, body.targetTier, targetCount, body.instruction?.trim(), body.snapMode),
+    )
+
+    const parsed = await runStep(steps, 'generate', onProgress, async () => {
+      emitDetail(steps, 'generate', `Calling AI for ~${targetCount} notes (${body.targetTier})…`, onProgress)
+      const result = await this.callClaudeForChart(prompt, 'scale')
+      emitDetail(steps, 'generate', `Received ${(result.notes as unknown[]).length} raw notes from AI`, onProgress)
+      return result
     })
 
-    const parsed = await runStep(steps, 'generate', onProgress, () =>
-      this.callClaudeForChart(prompt, 'scale'),
-    )
-
-    const notes = await runStep(steps, 'normalize', onProgress, async () =>
-      this.normalizeGeneratedNotes(parsed.notes, body.snapMode, ctx.song.bpm),
-    )
+    const notes = await runStep(steps, 'normalize', onProgress, async () => {
+      const normalized = this.normalizeGeneratedNotes(parsed.notes, body.snapMode, ctx.song.bpm)
+      emitDetail(steps, 'normalize', `Kept ${normalized.length} valid notes after normalization`, onProgress)
+      return normalized
+    })
     const sections = this.normalizeSections(parsed.sections)
 
     const readyDef = steps.find((s) => s.stepId === 'ready')!
@@ -208,11 +213,13 @@ export class AiChartService {
       })
       for (const note of existing) {
         deletedBeforeStates.push({ noteId: note.id, beforeState: this.toNote(note) })
-        await tx.note.update({
-          where: { id: note.id },
+        deletedIds.push(note.id)
+      }
+      if (deletedIds.length > 0) {
+        await tx.note.updateMany({
+          where: { id: { in: deletedIds } },
           data: { deletedAt: new Date() },
         })
-        deletedIds.push(note.id)
       }
       await tx.sectionMarker.deleteMany({ where: { songId } })
 
@@ -585,6 +592,7 @@ export class AiChartService {
     const system = [
       'You are a rhythm-game chart arranger for AMA-MIDI.',
       'Charts use 8 lanes (tracks 1-8), timeline 0-300 seconds.',
+      CHART_NOTE_TYPE_INSTRUCTIONS,
       'Return ONLY valid JSON with keys "notes" and "sections". No markdown.',
       'The returned chart is a full replacement, not a patch.',
     ].join(' ')
@@ -597,7 +605,7 @@ export class AiChartService {
       'Preserve recognizable timing motifs and song structure.',
       'For easier targets: thin density, reduce large lane jumps, reduce simultaneous notes, and simplify holds.',
       'For harder targets: add notes, controlled doubles, holds, and syncopation while preserving musical feel.',
-      'JSON shape: {"notes":[{"track":1,"time":0.0,"noteType":"TAP","title":"Kick"}],"sections":[{"time":0,"label":"Intro","color":"#10B981"}]}',
+      `JSON shape: ${CHART_JSON_EXAMPLE}`,
     ].filter(Boolean).join(' ')
 
     return { system, user }
@@ -656,14 +664,24 @@ export class AiChartService {
       const track = row.track as number
       let time = snapTime(row.time as number, snapMode, bpm)
       time = Math.round(time * 10) / 10
-      const noteType = typeof row.noteType === 'string' ? row.noteType : 'TAP'
+
+      let duration = this.readDuration(row)
+      let noteType = this.parseNoteType(row)
+      if (!noteType && duration != null && duration > 0) noteType = 'HOLD'
+      if (!noteType) noteType = 'TAP'
 
       if (track < TRACK_MIN || track > TRACK_MAX) continue
       if (time < TIME_MIN || time > TIME_MAX) continue
       if (!NOTE_TYPES.has(noteType)) continue
 
-      const duration = typeof row.duration === 'number' ? row.duration : undefined
-      if (noteType === 'HOLD' && (duration == null || duration <= 0)) continue
+      if (noteType === 'HOLD') {
+        if (duration == null || duration <= 0) {
+          duration = this.defaultHoldDuration(bpm)
+        }
+        duration = Math.round(duration * 10) / 10
+      } else {
+        duration = undefined
+      }
 
       const key = this.slotKey(track, time)
       if (seen.has(key)) continue
@@ -681,6 +699,24 @@ export class AiChartService {
     }
 
     return out.sort((a, b) => a.time - b.time || a.track - b.track)
+  }
+
+  private parseNoteType(row: Record<string, unknown>): string | null {
+    const raw = row.noteType ?? row.type ?? row.note_type
+    if (typeof raw !== 'string') return null
+    const upper = raw.trim().toUpperCase()
+    if (upper === 'LONG' || upper === 'LONGPRESS') return 'HOLD'
+    return NOTE_TYPES.has(upper) ? upper : null
+  }
+
+  private readDuration(row: Record<string, unknown>): number | undefined {
+    const raw = row.duration ?? row.holdDuration ?? row.hold_duration
+    return typeof raw === 'number' && raw > 0 ? raw : undefined
+  }
+
+  private defaultHoldDuration(bpm: number): number {
+    const beat = Math.round((60 / Math.max(bpm, 1)) * 10) / 10
+    return Math.max(0.3, beat)
   }
 
   private normalizeSections(raw: unknown[]): GeneratedChartSection[] {

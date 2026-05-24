@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { ChevronLeftIcon } from '@radix-ui/react-icons'
 import type { Note, SectionMarker, Song } from '@ama-midi/shared'
 import { Modal } from '../../../../components/ui'
@@ -52,11 +53,15 @@ export function AiAssistantModal({
   }
 
   const handleOpenChange = (next: boolean) => {
+    if (!next && streamRun.processing) return
     if (!next) {
-      if (streamRun.processing) streamRun.cancel()
       closeAiAssistant()
       setResultMessage(null)
     }
+  }
+
+  const blockDismissWhileProcessing = (event: Event) => {
+    if (streamRun.processing) event.preventDefault()
   }
 
   const handleFeatureSelect = (next: AiAssistantFeature) => {
@@ -70,6 +75,7 @@ export function AiAssistantModal({
   }
 
   const handleBack = () => {
+    if (streamRun.processing) return
     if (entry === 'selection') {
       closeAiAssistant()
       return
@@ -104,7 +110,13 @@ export function AiAssistantModal({
 
   return (
     <Modal.Root open={open} onOpenChange={handleOpenChange}>
-      <EditorModalContent className="max-w-lg">
+      <EditorModalContent
+        className="max-w-lg"
+        data-tour="ai-assistant-modal"
+        onPointerDownOutside={blockDismissWhileProcessing}
+        onInteractOutside={blockDismissWhileProcessing}
+        onEscapeKeyDown={blockDismissWhileProcessing}
+      >
         <div className="ai-assistant-header flex items-center gap-2 border-b px-6 py-4">
           {showBack && (
             <button
@@ -151,7 +163,15 @@ export function AiAssistantModal({
 
           {phase === 'processing' && streamAction && (
             <div className="space-y-4">
-              <AiProgressTree action={streamAction} steps={streamRun.steps} />
+              <AiProgressTree
+                action={streamAction}
+                steps={streamRun.steps}
+                details={streamRun.details}
+                stepStartTimes={streamRun.stepStartTimes}
+              />
+              <p className="text-[11px]" style={{ color: 'var(--modal-muted)' }}>
+                Keep this open while AI runs — use Cancel to stop.
+              </p>
               {streamRun.error && (
                 <p className="rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-xs font-medium text-red-200">
                   {streamRun.error}
@@ -191,6 +211,7 @@ export function AiAssistantModal({
                 size="sm"
                 onClick={() => {
                   streamRun.cancel()
+                  toast.message('AI generation cancelled')
                   setPhase('configure')
                 }}
               >

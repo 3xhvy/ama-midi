@@ -11,7 +11,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       callbackURL: process.env.GOOGLE_CALLBACK_URL!,
       scope: ['email', 'profile'],
-    })
+      // prompt is valid at runtime but missing from @types/passport-google-oauth20
+      prompt: 'select_account',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
   }
 
   async validate(

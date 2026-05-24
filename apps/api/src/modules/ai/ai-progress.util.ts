@@ -27,3 +27,16 @@ export async function runStep<T>(
 }
 
 export { AI_STREAM_STEPS }
+
+/** Emit a detail message on an already-active step without changing its status. */
+export function emitDetail(
+  steps: AiStreamStepDef[],
+  stepId: string,
+  detail: string,
+  onProgress: AiProgressEmitter | undefined,
+): void {
+  if (!onProgress) return
+  const def = steps.find((s) => s.stepId === stepId)
+  if (!def) return
+  onProgress({ type: 'step', stepId, label: def.label, status: 'active', detail })
+}
