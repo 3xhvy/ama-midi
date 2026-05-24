@@ -125,6 +125,8 @@ k6 run scripts/load-test.js
 
 ## Testing
 
+See [Performance & Correctness Testing Plan](docs/performance-testing-plan.md) for step-by-step procedures covering conflict tests, boundary tests, load tests, and 10,000-note rendering verification.
+
 ```bash
 # Unit tests (NotesService)
 cd apps/api && pnpm test
