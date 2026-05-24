@@ -602,13 +602,12 @@ function ToolsTab({
     viewMode, setViewMode,
     zoom, setZoom,
     snapMode, setSnapMode,
-    activeNoteType, setActiveNoteType,
     heatmapEnabled, setHeatmapEnabled,
     createMode, setCreateMode,
   } = useEditorStore()
 
   const selectedCount = selectedNotes.length
-  const selectedType = selectedCount === 1 ? selectedNotes[0].noteType : activeNoteType
+  const selectedType = selectedCount > 0 ? selectedNotes[0].noteType : 'TAP'
 
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-4">
@@ -650,14 +649,9 @@ function ToolsTab({
 
         {canEdit && (
           <>
-            <ToolRow label="Create type">
-              <ToggleGroup
-                items={TYPE_MODES}
-                value={activeNoteType}
-                onValueChange={(v) => setActiveNoteType(v as NoteType)}
-                className="w-full"
-              />
-            </ToolRow>
+            <p className="text-xs leading-relaxed text-shell-muted">
+              Place notes: click for tap · drag down for hold
+            </p>
 
             <ToolRow label="Create mode">
               <ToggleGroup
