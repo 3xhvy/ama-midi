@@ -172,6 +172,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
           return [...old, note]
         },
       )
+      queryClient.invalidateQueries({ queryKey: ['events', noteChartId] })
       if (actor) {
         options.onActivity?.({
           actor,
@@ -191,6 +192,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
         { queryKey: ['notes', noteChartId], exact: false },
         (old) => (old ? old.map((n) => (n.id === note.id ? note : n)) : [note]),
       )
+      queryClient.invalidateQueries({ queryKey: ['events', noteChartId] })
       if (actor) {
         options.onActivity?.({
           actor,
@@ -212,6 +214,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
         },
         (old) => (old ? old.filter((n) => n.id !== noteId) : old),
       )
+      if (chartId) queryClient.invalidateQueries({ queryKey: ['events', chartId] })
       if (actor) {
         options.onActivity?.({
           actor,
@@ -238,6 +241,7 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
         },
       )
       queryClient.invalidateQueries({ queryKey: ['validation', songId] })
+      queryClient.invalidateQueries({ queryKey: ['events', batchChartId] })
       if (actor) {
         const totalNotes = data.created.length + data.deletedIds.length
         options.onActivity?.({
@@ -250,9 +254,18 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
       }
     })
 
-    socket.on('section-created', () => queryClient.invalidateQueries({ queryKey: ['sections', songId] }))
-    socket.on('section-updated', () => queryClient.invalidateQueries({ queryKey: ['sections', songId] }))
-    socket.on('section-deleted', () => queryClient.invalidateQueries({ queryKey: ['sections', songId] }))
+    socket.on('section-created', () => {
+      queryClient.invalidateQueries({ queryKey: ['sections', songId] })
+      if (chartId) queryClient.invalidateQueries({ queryKey: ['events', chartId] })
+    })
+    socket.on('section-updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['sections', songId] })
+      if (chartId) queryClient.invalidateQueries({ queryKey: ['events', chartId] })
+    })
+    socket.on('section-deleted', () => {
+      queryClient.invalidateQueries({ queryKey: ['sections', songId] })
+      if (chartId) queryClient.invalidateQueries({ queryKey: ['events', chartId] })
+    })
 
     socket.on('chart-switched', (payload: { actor: ActivityActor; data: { chartId: string; chartName: string } }) => {
       options.onActivity?.({
