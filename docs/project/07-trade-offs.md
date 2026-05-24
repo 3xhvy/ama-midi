@@ -10,18 +10,20 @@ Every architectural decision is a trade-off. This table makes the trade-offs exp
 
 ## Decision Summary Table
 
-| Decision | Chose | Rejected | What Was Gained | What Was Given Up |
-|---|---|---|---|---|
-| **Deployment topology** | Modular monolith | Microservices | Fast build, single deploy unit, clean module boundaries | Independent service scaling, team autonomy at scale |
-| **Conflict enforcement** | DB unique constraint | App-level pre-check | Atomic race condition safety | Richer pre-validation error messages |
-| **Change history model** | Event sourcing (ledger) | Git-style branching | Simple undo, full audit trail, no locking | Branch-based experimental versions |
-| **Note rendering** | DOM virtualization | Canvas | Browser event model, accessibility, hover/click | Raw rendering ceiling (canvas handles more elements) |
-| **UI feedback model** | Optimistic UI | Server-wait | Instant feel, composer flow state preserved | More complex rollback state management |
-| **Time resolution** | 0.1s snap | Millisecond precision | Perceptually clean constraints, no overlapping notes | Ultra-fine timing (not needed for game soundtrack prototyping) |
-| **State management split** | TanStack Query + Zustand | Redux / single store | Server state and client state managed by best-fit tool | Single store mental model, one devtools view |
-| **Auth strategy** | Google OAuth SSO | Username/password | IT-controlled access, no password management liability | Dependency on Google Workspace availability |
-| **Shared types** | `packages/shared` monorepo | Duplicated types | Compile-time sync between API and frontend types | Extra build pipeline step for the shared package |
-| **Zoom as global state** | Zustand atom | Component-local state | Note positions and fetch window always in sync | Slightly more state lifted than strictly necessary |
+
+| Decision                   | Chose                      | Rejected              | What Was Gained                                         | What Was Given Up                                              |
+| -------------------------- | -------------------------- | --------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| **Deployment topology**    | Modular monolith           | Microservices         | Fast build, single deploy unit, clean module boundaries | Independent service scaling, team autonomy at scale            |
+| **Conflict enforcement**   | DB unique constraint       | App-level pre-check   | Atomic race condition safety                            | Richer pre-validation error messages                           |
+| **Change history model**   | Event sourcing (ledger)    | Git-style branching   | Simple undo, full audit trail, no locking               | Branch-based experimental versions                             |
+| **Note rendering**         | DOM virtualization         | Canvas                | Browser event model, accessibility, hover/click         | Raw rendering ceiling (canvas handles more elements)           |
+| **UI feedback model**      | Optimistic UI              | Server-wait           | Instant feel, composer flow state preserved             | More complex rollback state management                         |
+| **Time resolution**        | 0.1s snap                  | Millisecond precision | Perceptually clean constraints, no overlapping notes    | Ultra-fine timing (not needed for game soundtrack prototyping) |
+| **State management split** | TanStack Query + Zustand   | Redux / single store  | Server state and client state managed by best-fit tool  | Single store mental model, one devtools view                   |
+| **Auth strategy**          | Google OAuth SSO           | Username/password     | IT-controlled access, no password management liability  | Dependency on Google Workspace availability                    |
+| **Shared types**           | `packages/shared` monorepo | Duplicated types      | Compile-time sync between API and frontend types        | Extra build pipeline step for the shared package               |
+| **Zoom as global state**   | Zustand atom               | Component-local state | Note positions and fetch window always in sync          | Slightly more state lifted than strictly necessary             |
+
 
 ---
 

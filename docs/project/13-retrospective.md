@@ -1,6 +1,6 @@
 # Retrospective
 
-← [README](../../README.md) · [← Deploy Pipeline](./09-deploy.md)
+← [README](../../README.md) · [← k6 Test Report](./12-k6-test-report.md)
 
 ---
 

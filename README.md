@@ -1,10 +1,10 @@
 # AMA-MIDI
 
-**A real-time collaborative MIDI sequencer for Amanotes internal teams.**
+A real-time collaborative MIDI sequencer I built for Amanotes-style internal teams — composers, game devs, and QA editing the same song on an 8-track × 300-second piano roll, with duplicate-safe positioning at the database layer, a change ledger for undo, and enough performance to stay usable at 10,000 notes.
 
-Composers, game developers, and QA open the same song simultaneously, place notes on an 8-track × 300-second piano roll, and see each other's changes in under a second — with zero data corruption. The editor handles 10,000 notes without freezing, enforces duplicate-free positioning at the database layer, and logs every mutation for instant undo and full audit history.
+Live demo: [ama-midi.hvy-dev.uk](https://ama-midi.hvy-dev.uk) · API health: [/api/health](https://ama-midi.hvy-dev.uk/api/health)
 
-> This is not a CRUD application. It is an internal creative tool that bridges music composition and game production for teams that need to iterate fast and ship with confidence.
+> I treated this as a creative workflow tool, not a CRUD demo — the hard part is shared context under concurrency, not storing rows.
 
 ---
 
@@ -21,23 +21,24 @@ Composers, game developers, and QA open the same song simultaneously, place note
 
 ## Project Documentation
 
-Full project documentation is organized as a narrative — problem first, decisions second, implementation third.
+I wrote these in order — problem first, then decisions, then how I built it. Each file is meant to be read standalone if you're grading one slice of the work.
 
 
 | Doc                                                                  | What It Covers                                                                  |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [01 · Problem & Vision](docs/project/01-problem-and-vision.md)       | Why this exists. The workflow gap. Why it's technically hard.                   |
-| [02 · Actors & Use Cases](docs/project/02-actors-and-use-cases.md)   | 4 actors, their real needs, the non-obvious UX decisions behind each.           |
-| [03 · Feature Hierarchy](docs/project/03-features.md)                | P0 → P1 → P2 priority tiers with rationale. What was cut and why.               |
-| [04 · Design Thinking](docs/project/04-design-thinking.md)           | 6 key architectural decisions. Strongest opposing argument first.               |
-| [05 · Architecture & System Design](docs/project/05-architecture.md) | Stack choices, module map, data model, real-time topology.                      |
-| [06 · Major Feature Workflows](docs/project/06-workflows.md)         | Note creation (happy + conflict path), real-time collaboration, AI suggester.   |
-| [07 · Key Trade-offs](docs/project/07-trade-offs.md)                 | Decision table: what was chosen, what was rejected, what was gained and lost.   |
-| [08 · Project Structure](docs/project/08-project-structure.md)       | Annotated monorepo folder tree. Why each boundary exists.                       |
-| [09 · Deploy Pipeline](docs/project/09-deploy.md)                    | VPS topology, Docker Compose services, Nginx config, GitHub Actions CI/CD.      |
-| [10 · Retrospective](docs/project/10-retrospective.md)               | What I'd do differently. Why this problem is genuinely hard.                    |
-| [Load Testing (k6)](docs/load-testing.md)                            | Seed, curl probe, smoke vs full k6, throttle overrides, results interpretation. |
-| [k6 Test Report](docs/k6-test-report.md)                             | My load-test narrative for the grader — attempt, diagnosis, fix, re-test. |
+| [01 · Problem & Vision](docs/project/01-problem-and-vision.md)       | Why I think this problem exists and what makes it hard.                         |
+| [02 · Actors & Use Cases](docs/project/02-actors-and-use-cases.md)   | The four roles and the UX calls I made for each.                                |
+| [03 · Feature Hierarchy](docs/project/03-features.md)                | What I shipped P0/P1/P2 and what I cut.                                         |
+| [04 · Design Thinking](docs/project/04-design-thinking.md)           | Six architecture decisions — opposing argument first, then my choice.           |
+| [05 · Architecture & System Design](docs/project/05-architecture.md) | Stack, modules, data model, realtime topology.                                  |
+| [06 · Major Feature Workflows](docs/project/06-workflows.md)         | Note create (happy + conflict), collaboration, AI suggester.                    |
+| [07 · Key Trade-offs](docs/project/07-trade-offs.md)                 | What I gained and gave up per decision.                                         |
+| [08 · Project Structure](docs/project/08-project-structure.md)       | Monorepo layout and why the boundaries are where they are.                      |
+| [09 · Deploy Pipeline](docs/project/09-deploy.md)                    | How I deploy to VPS (Docker, Nginx, GitHub Actions).                            |
+| [10 · Performance & Correctness Testing](docs/project/10-performance-testing.md) | How I verified conflicts, boundaries, load, 10k UI, and collaboration. |
+| [11 · Load Testing (k6)](docs/project/11-load-testing.md)            | How I run k6 locally — seed, probe, smoke, full 100 VU.                         |
+| [12 · k6 Test Report](docs/project/12-k6-test-report.md)             | My load-test narrative — first attempt, diagnosis, fix, second attempt.         |
+| [13 · Retrospective](docs/project/13-retrospective.md)               | What I'd do differently and why the problem is genuinely difficult.             |
 
 
 ---
@@ -98,31 +99,28 @@ curl http://localhost:3001/health
 
 ## Architecture (Summary)
 
-**Turborepo monorepo.** `apps/web` (React 18 + Vite) · `apps/api` (NestJS) · `packages/shared` (zero-dep TypeScript types).
+Monorepo: `apps/web` (React 18 + Vite), `apps/api` (NestJS), `packages/shared` (shared types).
 
-**Why modular monolith:** Clean NestJS module boundaries without microservices overhead. `AuthModule`, `SongModule`, `NoteModule`, `LedgerModule`, `RealtimeModule`, `AiModule` — each owns its domain, communicates through defined interfaces. Natural microservice cut points if scale demands it.
+I chose a **modular monolith** — NestJS modules with clear boundaries (`Auth`, `Song`, `Note`, `Ledger`, `Realtime`, `Ai`) without microservices overhead for a solo build. A **DB unique constraint** on `(chart, track, time)` handles duplicate races atomically (one 201, one 409; never rely on app pre-check alone). **Event sourcing** via an immutable ledger: undo is a compensating event, full audit trail.
 
-**Why DB-level unique constraint:** App-level pre-checks are race conditions. Two concurrent writes both pass the check before either commits. The partial unique index is atomic — one insert wins, one gets `P2002` → HTTP 409 → optimistic rollback + toast.
-
-**Why event sourcing:** Every note mutation is an immutable event. Undo = compensating event (new `NOTE_DELETED`). No history mutation, no branching complexity. Full audit trail with before/after state.
-
-→ Full architecture detail: [Architecture & System Design](docs/project/05-architecture.md)
+→ Details: [Architecture & System Design](docs/project/05-architecture.md)
 
 ---
 
 ## Testing
 
-```bash
-# Unit tests (NoteService: behavioral contracts)
-cd apps/api && pnpm test
+I kept automated tests focused on behavioural contracts in the API (`cd apps/api && pnpm test`). Integration tests need a real `ama_midi_test` database:
 
-# Integration tests (real DB — requires ama_midi_test database)
+```bash
+cd apps/api && pnpm test
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ama_midi_test pnpm test
 ```
 
 ### Load test (k6)
 
-Requires [k6](https://k6.io/), a running API, a JWT, and a chart you can edit. Full guide: **[Load Testing (k6)](docs/load-testing.md)**.
+How I run it: **[Load Testing (k6)](docs/project/11-load-testing.md)**. What I found: **[k6 Test Report](docs/project/12-k6-test-report.md)**. Broader checks (conflicts, boundaries, 10k UI, collaboration): **[Performance & Correctness Testing](docs/project/10-performance-testing.md)**.
+
+Requires k6, a running API, JWT, and a chart I can edit.
 
 ```bash
 # 1. Seed 10k notes on your chart (optional, for UI + dense chart)
@@ -144,16 +142,12 @@ BASE_URL=http://localhost:3001 CHART_ID="$CHART_ID" TOKEN="$TOKEN" \
   k6 run scripts/load-test.js
 ```
 
-Load test write-up (first attempt, what I found, the fix, second attempt): **[k6 Test Report](docs/k6-test-report.md)**.
-
-**Critical test — concurrent conflict:**
+**Concurrent conflict** (two POSTs to the same `(track, time)` → one 201, one 409, exactly one DB row):
 
 ```bash
 # Two simultaneous POSTs to the same (track, time).
 # Expected: [201, 409] in some order. DB contains exactly 1 note.
 ```
-
-See also [Performance & Correctness Testing Plan](docs/performance-testing-plan.md) (conflicts, boundaries, 10k UI rendering).
 
 ---
 
@@ -181,9 +175,9 @@ See `.env.example`. Required:
 
 ## Deploy
 
-Two separated VPS with Docker Compose 1 for Postgre DB other for Application. Host Nginx handles TLS and reverse proxy. GitHub Actions builds images → pushes to GHCR → SSHs to VPS → `docker compose pull && up`.
+I run Postgres on one VPS and the app stack on another, with host Nginx for TLS and reverse proxy. CI builds images → GHCR → SSH deploy.
 
-→ Full deploy guide: [Deploy Pipeline](docs/project/09-deploy.md)
+→ [Deploy Pipeline](docs/project/09-deploy.md)
 
 ---
 

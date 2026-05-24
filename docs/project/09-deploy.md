@@ -1,6 +1,6 @@
 # Deploy Pipeline
 
-← [README](../../README.md) · [← Project Structure](./08-project-structure.md) · [Retrospective →](./10-retrospective.md)
+← [README](../../README.md) · [← Project Structure](./08-project-structure.md) · [Performance Testing →](./10-performance-testing.md)
 
 ---
 
@@ -51,6 +51,7 @@ services:
 The `api` container connects to `postgres` and `redis` via Docker DNS (hostnames `postgres` and `redis`). No ports are published to `0.0.0.0`.
 
 **Multi-stage Dockerfiles:**
+
 - `api`: `node:20-alpine` build stage compiles TypeScript → `node:20-alpine` runtime stage copies dist only. No devDependencies in production image.
 - `web`: `node:20-alpine` build stage runs `vite build` → `nginx:alpine` runtime stage serves static files. Final image is ~20MB.
 
@@ -135,12 +136,14 @@ Push to main
 
 ### Secrets Required (GitHub repository settings)
 
-| Secret | Value |
-|---|---|
-| `VPS_HOST` | VPS IP address |
-| `VPS_USER` | Deploy user (e.g., `deploy`) |
-| `VPS_SSH_KEY` | Private key for the deploy user |
-| `GHCR_TOKEN` | GitHub personal access token with `read:packages` |
+
+| Secret        | Value                                             |
+| ------------- | ------------------------------------------------- |
+| `VPS_HOST`    | VPS IP address                                    |
+| `VPS_USER`    | Deploy user (e.g., `deploy`)                      |
+| `VPS_SSH_KEY` | Private key for the deploy user                   |
+| `GHCR_TOKEN`  | GitHub personal access token with `read:packages` |
+
 
 ### Environment Variables on VPS
 
@@ -192,4 +195,4 @@ After this, every push to `main` deploys automatically.
 
 ---
 
-*→ Next: [Retrospective](./10-retrospective.md)*
+*→ Next: [Performance & Correctness Testing](./10-performance-testing.md)*

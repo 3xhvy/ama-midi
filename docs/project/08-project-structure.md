@@ -82,13 +82,13 @@ ama-midi/                          ← Turborepo monorepo root
 
 ## Key Structural Decisions
 
-**`features/` over `components/`:** Each domain owns its components, hooks, and types. Cross-feature code goes in `hooks/` or `store/`. Nothing in `editor/` reaches into `songs/` internals.
+`**features/` over `components/`:** Each domain owns its components, hooks, and types. Cross-feature code goes in `hooks/` or `store/`. Nothing in `editor/` reaches into `songs/` internals.
 
-**`note.service.ts` + `note.query.service.ts` split:** Writes care about integrity (transactions, constraints, events). Reads care about performance (time-window pagination, track summaries). Mixing them in one file conflates optimization targets. Both share `PrismaService` — no separate database.
+`**note.service.ts` + `note.query.service.ts` split:** Writes care about integrity (transactions, constraints, events). Reads care about performance (time-window pagination, track summaries). Mixing them in one file conflates optimization targets. Both share `PrismaService` — no separate database.
 
-**`packages/shared` as a true zero-dep library:** No runtime dependencies. Just TypeScript types, constants, and pure functions. Importable in both NestJS (Node.js) and React (browser) without bundler complications.
+`**packages/shared` as a true zero-dep library:** No runtime dependencies. Just TypeScript types, constants, and pure functions. Importable in both NestJS (Node.js) and React (browser) without bundler complications.
 
-**`deploy/nginx/` checked into the repo:** The Nginx configuration for the VPS lives in version control. Changes to routing or upstream config go through the same PR process as code changes.
+`**deploy/nginx/` checked into the repo:** The Nginx configuration for the VPS lives in version control. Changes to routing or upstream config go through the same PR process as code changes.
 
 ---
 

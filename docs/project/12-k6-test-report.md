@@ -1,8 +1,10 @@
 # k6 Load Test Report
 
+← [README](../../README.md) · [← Load Testing (k6)](./11-load-testing.md) · [Retrospective →](./13-retrospective.md)
+
 This is my write-up for the load-test requirement: 100 virtual users, 30 seconds, hitting `POST /charts/:chartId/notes`, with p95 latency under 200ms and no 500s (201 and 409 both count as success).
 
-I ran everything locally with `pnpm dev` on macOS against `http://localhost:3001`, on a chart I own with 10,000 seeded notes and a Composer JWT. The script is [`scripts/load-test.js`](../scripts/load-test.js); step-by-step setup is in [Load Testing (k6)](./load-testing.md) if you want to reproduce it.
+I ran everything locally with `pnpm dev` on macOS against `http://localhost:3001`, on a chart I own with 10,000 seeded notes and a Composer JWT. The script is `[scripts/load-test.js](../../scripts/load-test.js)`; step-by-step setup is in [Load Testing (k6)](./11-load-testing.md) if you want to reproduce it.
 
 ---
 
@@ -14,11 +16,13 @@ Then I ran the full scenario. I raised the local throttle caps first (`THROTTLE_
 
 Latency was the problem. p95 only stayed under 200ms at smoke load. By 5 VUs it was already 217ms. At 100 VUs it hit **3.03 seconds**, about fifteen times the target, even though the responses that did come back were valid.
 
-| Run | What I ran | Requests | Accepted | p95 | How I read it |
-|-----|------------|----------|----------|-----|---------------|
-| Smoke | 1 VU, 60s, 2s pause | 29 | 100% | 143ms | Pass — normal editing speed is fine |
-| Sweep | 5–50 VU, 30s each | 789–1,374 | 100% | 217ms–1.82s | Correct, but too slow |
-| Full | 100 VU, 30s | 1,443 | 100% | **3.03s** | Stable, but nowhere near the SLO |
+
+| Run   | What I ran          | Requests  | Accepted | p95         | How I read it                       |
+| ----- | ------------------- | --------- | -------- | ----------- | ----------------------------------- |
+| Smoke | 1 VU, 60s, 2s pause | 29        | 100%     | 143ms       | Pass — normal editing speed is fine |
+| Sweep | 5–50 VU, 30s each   | 789–1,374 | 100%     | 217ms–1.82s | Correct, but too slow               |
+| Full  | 100 VU, 30s         | 1,443     | 100%     | **3.03s**   | Stable, but nowhere near the SLO    |
+
 
 At that point I did not think the issue was duplicate handling or database constraints — those were working. I thought something on the write path was doing far too much work per request.
 
@@ -50,12 +54,14 @@ I restarted the API and re-ran the 100 VU test and the VU sweep. The latency num
 
 ### 100 VUs
 
-| Metric | Before fix | After fix |
-|--------|------------|-----------|
-| p95 latency | 3.03s | **37ms** |
-| Average | 2.05s | 13ms |
-| Throughput | ~45 req/s | **~880 req/s** |
-| 500 errors | 0% | 0% |
+
+| Metric      | Before fix | After fix      |
+| ----------- | ---------- | -------------- |
+| p95 latency | 3.03s      | **37ms**       |
+| Average     | 2.05s      | 13ms           |
+| Throughput  | ~45 req/s  | **~880 req/s** |
+| 500 errors  | 0%         | 0%             |
+
 
 The **200ms latency SLO passes at 100 VUs now**. That was the main goal of the fix.
 
@@ -63,13 +69,15 @@ k6 still reported failures on correctness thresholds in this particular run, but
 
 ### VU sweep (after fix, `THROTTLE_*=10000`)
 
-| VUs | p95 | Failed | Accepted | All k6 thresholds |
-|-----|-----|--------|----------|-------------------|
-| 10 | 35ms | 0% | 100% | Pass |
-| 20 | 19ms | 0% | 100% | Pass |
-| 30 | 11ms | 66% | ~34% | Fail — 429 |
-| 50 | 7ms | 100% | 0% | Fail — 429 |
-| 100 | 11ms | 65% | ~35% | Fail — 429 |
+
+| VUs | p95  | Failed | Accepted | All k6 thresholds |
+| --- | ---- | ------ | -------- | ----------------- |
+| 10  | 35ms | 0%     | 100%     | Pass              |
+| 20  | 19ms | 0%     | 100%     | Pass              |
+| 30  | 11ms | 66%    | ~34%     | Fail — 429        |
+| 50  | 7ms  | 100%   | 0%       | Fail — 429        |
+| 100 | 11ms | 65%    | ~35%     | Fail — 429        |
+
 
 10–20 VUs is still a harsh profile compared to real editing, but at that level every threshold went green — fast, no 500s, 100% accepted. Above ~20 VUs my synthetic load outruns the 10k/min dev ceiling. If you need a fully green 100 VU k6 run locally, I raised both limits to 60000 for the session only (then removed them):
 
@@ -84,16 +92,18 @@ I deliberately kept production limits unchanged. Real composers are not posting 
 
 ## How I would grade my own work
 
-| Requirement | First run | After fix |
-|-------------|-----------|-----------|
-| p95 &lt; 200ms at 100 VU | No (3.03s) | **Yes (37ms)** |
-| No 500 under load | Yes | Yes |
-| 201/409 when the request gets through | Yes | Yes |
-| Every k6 threshold green at 100 VU without touching throttle | Yes | No — 429 above ~20 VU with a 10k cap |
+
+| Requirement                                                  | First run  | After fix                            |
+| ------------------------------------------------------------ | ---------- | ------------------------------------ |
+| p95 < 200ms at 100 VU                                        | No (3.03s) | **Yes (37ms)**                       |
+| No 500 under load                                            | Yes        | Yes                                  |
+| 201/409 when the request gets through                        | Yes        | Yes                                  |
+| Every k6 threshold green at 100 VU without touching throttle | Yes        | No — 429 above ~20 VU with a 10k cap |
+
 
 My honest summary: the first run showed the API stayed correct under load but failed the latency SLO because I had tied a 10k-note analysis job to every create. After moving that work off the hot path, latency is well inside the target at 100 VUs. The remaining k6 red on the second run is rate limiting on an unrealistic burst, not correctness or performance regression.
 
-If you only look at one number for latency, the 100 VU p95 drop from 3.03s to 37ms is the story. If you want a run where every k6 check passes, the 10–20 VU sweeps are the cleanest evidence, or bump `THROTTLE_*` temporarily for the synthetic 100 VU case.
+If you only look at one number for latency, the 100 VU p95 drop from 3.03s to 37ms is the story. If you want a run where every k6 check passes, the 10–20 VU sweeps are the cleanest evidence, or bump `THROTTLE_`* temporarily for the synthetic 100 VU case.
 
 ---
 
@@ -117,4 +127,8 @@ for vus in 10 20 30 50 100; do
 done
 ```
 
-Conflict, boundary, and 10k UI checks are in the [Performance & Correctness Testing Plan](./performance-testing-plan.md).
+Conflict, boundary, and 10k UI checks are in [Performance & Correctness Testing](./10-performance-testing.md).
+
+---
+
+*→ Next: [Retrospective](./13-retrospective.md)*
