@@ -65,7 +65,7 @@ curl http://localhost:3001/health
 | Undo | Compensating event reverts last action, broadcasts to all tabs |
 | Role-based Views | Composer / Developer / QA views of the same data |
 | AI Note Suggester | Claude API suggests next notes as ghost overlays (accept/dismiss) |
-| 10,000-note Performance | Virtualized DOM rendering + time-windowed chunked API fetching |
+| 10,000-note Performance | Two-layer windowing: server returns only notes in viewport time-range; client viewport clamp limits DOM nodes to what is on-screen |
 
 ---
 
@@ -87,9 +87,9 @@ Application-level pre-checks are a race condition under concurrent writes. Two r
 
 Every note mutation writes an immutable `NoteEvent` (`NOTE_CREATED`, `NOTE_UPDATED`, `NOTE_DELETED`) with `before_state` and `after_state` JSONB. Undo is a compensating event — it doesn't rewrite history, it appends an inverse. This gives a complete audit trail, safe multi-tab undo, and a foundation for time-travel queries, without version branching complexity.
 
-### Why DOM virtualization, not Canvas
+### Why windowed fetch + client clamp, not Canvas
 
-`@tanstack/virtual` virtualizes the Y-axis (time axis): only the ~80 notes visible in the current viewport are mounted as DOM elements at any time, even with 10,000 notes in memory. Canvas would improve raw rendering throughput for very large datasets but makes click detection, hover states, selection boxes, and drag handles significantly harder to implement correctly and accessibly. DOM virtualization delivers the required performance with standard event handling.
+Performance for 10,000 notes is achieved in two layers. The API accepts `timeFrom`/`timeTo` query parameters and returns only notes within a 20-second bucket window around the visible viewport (plus a ±5s prefetch buffer for smooth scrolling). The client applies a second filter — `getVisibleTimeRange` — on the fetched array before rendering, so only notes whose Y coordinate is within the scroll viewport are mounted as DOM elements. Together, these limit live DOM nodes to the notes currently on screen (~60–120 depending on note density and zoom level). `@tanstack/react-virtual` is installed but not used — it is designed for lists with known item heights, while note circles are positioned absolutely on a 2D grid; a coordinate filter is the correct primitive. Canvas would improve raw rendering throughput at scale > 50,000 notes but makes click detection, selection boxes, and drag handles significantly harder to implement correctly.
 
 ---
 
@@ -98,7 +98,7 @@ Every note mutation writes an immutable `NoteEvent` (`NOTE_CREATED`, `NOTE_UPDAT
 | Decision | Trade-off |
 |---|---|
 | Synchronous EventEmitter | No persistence if the process crashes between note write and ledger write. Outbox pattern is scaffolded (`OutboxEvent` table) but worker is inactive. |
-| DOM virtualization | Scrolling through 10,000 notes requires layout recalculation on each scroll event. Canvas would be faster at scale > 50,000 notes. |
+| Windowed rendering | Scroll triggers re-filter on the fetched array (cheap) and may trigger a React Query refetch when the viewport crosses a 20s bucket boundary (one network request). Canvas would be faster at scale > 50,000 notes. |
 | 0.1s snap resolution | Times are snapped to one decimal place (`Math.round(time * 10) / 10`). Sub-0.1s positioning is not supported. Changing this requires a DB migration. |
 | Outbox table inactive | `OutboxEvent` table is created and seeded but the polling worker is not implemented. Real-time broadcast falls back to direct Socket.io emit. |
 | Google OAuth only | No email/password auth. Users without a Google account cannot log in. |
@@ -119,7 +119,7 @@ k6 run scripts/load-test.js
 
 > k6 run pending deployment; local target p95 < 200ms
 
-**Piano roll rendering:** 10,000 notes → ~80 DOM nodes in view at all times via `@tanstack/virtual`. Verified locally with seed data.
+**Piano roll rendering:** 10,000 notes → ~60–120 DOM nodes in view at any time via two-layer windowing (server `timeFrom`/`timeTo` + client `getVisibleTimeRange` clamp). Verified locally with `pnpm seed` (inserts 10,000 notes across all tracks) then inspecting DOM node count in DevTools → Elements.
 
 ---
 
