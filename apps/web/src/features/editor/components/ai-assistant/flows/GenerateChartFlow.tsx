@@ -3,19 +3,25 @@ import { toast } from 'sonner'
 import {
   SONG_DIFFICULTY_OPTIONS,
   SongDifficultyEnum,
+  type ChartApplyPreview,
   type SongDifficulty,
 } from '@ama-midi/shared'
 import { Button, Textarea } from '../../../../../components/ui'
+import { apiClient } from '../../../../auth/api'
+import { useAuthStore } from '../../../../../store/auth.store'
 import { useEditorStore } from '../../../../../store/editor.store'
 import type { AiFlowBaseProps } from '../ai-assistant.types'
 
 export function GenerateChartFlow({
+  songId,
   song,
+  chartId,
   noteCount,
   onPhaseChange,
   onCancel,
   streamRun,
 }: AiFlowBaseProps) {
+  const token = useAuthStore((s) => s.token)
   const { snapMode, setChartPreview, closeAiAssistant } = useEditorStore()
   const [description, setDescription] = useState('')
   const [targetTier, setTargetTier] = useState<SongDifficulty | ''>('')
@@ -28,11 +34,17 @@ export function GenerateChartFlow({
       toast.error('Describe the chart you want first')
       return
     }
+    if (!chartId) {
+      toast.error('No chart selected')
+      return
+    }
 
     onPhaseChange('processing')
     try {
       const result = await start({
         action: 'generate-chart',
+        chartId,
+        replaceExisting,
         description: brief,
         snapMode,
         ...(targetTier ? { targetTier } : {}),
@@ -46,7 +58,16 @@ export function GenerateChartFlow({
         return
       }
 
-      setChartPreview({ notes, sections, replaceExisting })
+      const preview = await apiClient(token)<ChartApplyPreview>(
+        `/songs/${songId}/charts/${chartId}/preview-chart`,
+        { method: 'POST', body: JSON.stringify({ notes, replaceExisting }) },
+      )
+      setChartPreview({
+        notes,
+        sections,
+        replaceExisting,
+        placement: replaceExisting ? null : preview,
+      })
       closeAiAssistant()
       setDescription('')
     } catch {

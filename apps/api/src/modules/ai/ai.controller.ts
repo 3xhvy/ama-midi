@@ -5,12 +5,13 @@ import type { Request, Response } from 'express'
 import { AiService } from './ai.service'
 import { AiChartService } from './ai-chart.service'
 import { SuggestNotesDto } from './dto/suggest-notes.dto'
-import { ApplyChartDto, GenerateChartDto, ScaleChartDto } from './dto/chart.dto'
+import { ApplyChartDto, GenerateChartDto, PreviewChartDto, ScaleChartDto } from './dto/chart.dto'
 import { AiStreamEnvelopeDto } from './dto/ai-stream.dto'
 import { endSse, initSse, writeSse } from './ai-stream.util'
 import type {
   ApplyChartResponse,
   AuthUser,
+  ChartApplyPreview,
   GenerateChartResponse,
   SuggestNotesResponse,
 } from '@ama-midi/shared'
@@ -51,6 +52,17 @@ export class AiController {
   ): Promise<GenerateChartResponse> {
     const user = req.user as AuthUser
     return this.aiChart.scaleChart(songId, user.role, body)
+  }
+
+  @Post('charts/:chartId/preview-chart')
+  previewChart(
+    @Param('songId') songId: string,
+    @Param('chartId') chartId: string,
+    @Body() body: PreviewChartDto,
+    @Req() req: Request,
+  ): Promise<ChartApplyPreview> {
+    const user = req.user as AuthUser
+    return this.aiChart.previewChart(songId, user, chartId, body)
   }
 
   @Post('apply-chart')

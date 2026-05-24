@@ -1,4 +1,5 @@
 import type {
+  ChartApplyPreview,
   ConflictAction,
   NoteCopyPreview,
   PatternPastePreview,
@@ -50,6 +51,16 @@ export function noteCopyPreviewToPlacement(preview: NoteCopyPreview): PlacementP
   return {
     songId: preview.songId,
     version: preview.selectionVersion,
+    summary: preview.summary,
+    creatable: preview.creatable,
+    conflicts: preview.conflicts,
+  }
+}
+
+export function chartApplyPreviewToPlacement(preview: ChartApplyPreview): PlacementPreview {
+  return {
+    songId: preview.songId,
+    version: preview.previewVersion,
     summary: preview.summary,
     creatable: preview.creatable,
     conflicts: preview.conflicts,

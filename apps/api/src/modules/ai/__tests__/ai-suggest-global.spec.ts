@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing'
 import { BadRequestException } from '@nestjs/common'
 import { AI_STREAM_STEPS } from '@ama-midi/shared'
 import { AiService } from '../ai.service'
+import { ChartContextService } from '../chart-context.service'
 import { LLM_ADAPTER, type LLMAdapter } from '../adapters/llm-adapter.interface'
 import { PrismaService } from '../../prisma/prisma.service'
 
@@ -10,33 +11,38 @@ const chartId = 'chart-1'
 
 function makePrisma() {
   return {
+    song: {
+      findUnique: jest.fn().mockResolvedValue({
+        name: 'Suggest Song',
+        bpm: 120,
+        timeSignature: '4/4',
+        category: 'EDM',
+      }),
+    },
     songChart: {
       findFirst: jest.fn().mockResolvedValue({
         id: chartId,
-        songId,
-        computedDifficulty: 'NORMAL',
+        name: 'Main',
         speedMultiplier: 1,
-        song: {
-          id: songId,
-          bpm: 120,
-          timeSignature: '4/4',
-          category: 'EDM',
-        },
+        computedDifficulty: 'NORMAL',
+        averageDifficultyScore: 8,
+        peakDifficultyScore: 12,
+        updatedAt: new Date('2026-05-01T12:00:00.000Z'),
       }),
     },
     note: {
       findMany: jest.fn().mockResolvedValue([
-        { track: 1, time: 1, noteType: 'TAP' },
-        { track: 2, time: 1.5, noteType: 'TAP' },
-        { track: 3, time: 2, noteType: 'TAP' },
-        { track: 4, time: 2.5, noteType: 'TAP' },
-        { track: 1, time: 3, noteType: 'TAP' },
+        { track: 1, time: 1, noteType: 'TAP', duration: null, title: null },
+        { track: 2, time: 1.5, noteType: 'TAP', duration: null, title: null },
+        { track: 3, time: 2, noteType: 'TAP', duration: null, title: null },
+        { track: 4, time: 2.5, noteType: 'TAP', duration: null, title: null },
+        { track: 1, time: 3, noteType: 'TAP', duration: null, title: null },
       ]),
     },
     sectionMarker: {
       findMany: jest.fn().mockResolvedValue([
-        { time: 0, label: 'Intro' },
-        { time: 2, label: 'Verse' },
+        { time: 0, label: 'Intro', color: '#10B981' },
+        { time: 2, label: 'Verse', color: '#6C63FF' },
       ]),
     },
     chartDifficultySegment: {
@@ -49,6 +55,9 @@ function makePrisma() {
           difficultyScore: 8,
         },
       ]),
+    },
+    chartValidationWarning: {
+      findMany: jest.fn().mockResolvedValue([]),
     },
   }
 }
@@ -70,6 +79,7 @@ describe('AiService.suggestNotes global context', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         AiService,
+        ChartContextService,
         { provide: LLM_ADAPTER, useValue: llm },
         { provide: PrismaService, useValue: prisma },
       ],

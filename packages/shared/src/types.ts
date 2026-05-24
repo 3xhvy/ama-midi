@@ -253,8 +253,11 @@ export interface GeneratedChartSection {
 }
 
 export interface GenerateChartRequest {
+  chartId: string
   description: string
   snapMode: SnapMode
+  replaceExisting: boolean
+  targetTier?: SongDifficulty
 }
 
 export interface ScaleChartRequest {
@@ -274,6 +277,8 @@ export interface ApplyChartRequest {
   notes: GeneratedChartNote[]
   sections?: GeneratedChartSection[]
   replaceExisting: boolean
+  previewVersion?: string
+  resolutions?: Array<{ conflictId: string; action: ConflictAction }>
 }
 
 export interface ApplyChartResponse {
@@ -385,31 +390,4 @@ export interface PatternPasteApplyResult {
   replacedCount: number
   skippedCount: number
   notes: Note[]
-}
-
-export interface GeneratedChartNote {
-  track: number
-  time: number
-  noteType?: NoteType
-  duration?: number
-  title?: string
-}
-
-export interface GeneratedChartSection {
-  time: number
-  label: string
-  color?: string
-}
-
-export interface GenerateChartResponse {
-  notes: GeneratedChartNote[]
-  sections: GeneratedChartSection[]
-}
-
-export interface ApplyChartResponse {
-  batchId: string
-  createdCount: number
-  skippedCount: number
-  sectionsCreated: number
-  replacedCount: number
 }

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -16,11 +17,12 @@ import {
   TIME_MIN,
   TRACK_MAX,
   TRACK_MIN,
-  analyzeChart,
-  measureDuration,
   snapTime,
+  type AiChartContext,
   type ApplyChartResponse,
   type AuthUser,
+  type ChartApplyPreview,
+  type ConflictAction,
   type GeneratedChartNote,
   type GeneratedChartSection,
   type GenerateChartResponse,
@@ -34,6 +36,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { AI_STREAM_STEPS, type AiProgressEmitter, runStep } from './ai-progress.util'
+import { ChartContextService } from './chart-context.service'
+import { ChartApplyPreviewService } from './chart-apply-preview.service'
+import { buildGeneratePrompt, serializeChartContextForPrompt } from './chart-context.prompt'
+import type { ApplyChartDto, GenerateChartDto, PreviewChartDto } from './dto/chart.dto'
 
 const MAX_GENERATED_NOTES = 150
 const NOTE_TYPES = new Set(['TAP', 'HOLD', 'SWIPE'])
@@ -53,28 +59,37 @@ export class AiChartService {
     private readonly prisma: PrismaService,
     private readonly access: ProjectAccessService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly chartContext: ChartContextService,
+    private readonly chartApplyPreview: ChartApplyPreviewService,
   ) {}
 
   async generateChart(
     songId: string,
     userRole: string,
-    body: { description: string; snapMode: SnapMode; targetTier?: keyof typeof TARGET_NOTE_COUNT },
+    body: GenerateChartDto,
     onProgress?: AiProgressEmitter,
   ): Promise<GenerateChartResponse> {
     if (userRole === 'VIEWER') throw new ForbiddenException('VIEWER cannot use AI chart generation')
 
     const steps = AI_STREAM_STEPS['generate-chart']
 
-    const { song, prompt } = await runStep(steps, 'prepare', onProgress, async () => {
-      const song = await this.prisma.song.findUnique({ where: { id: songId } })
-      if (!song) throw new NotFoundException('Song not found')
+    const ctx = await runStep(steps, 'load_chart', onProgress, () =>
+      this.chartContext.loadChartContext(songId, body.chartId),
+    )
 
+    const prompt = await runStep(steps, 'build_prompt', onProgress, async () => {
       const description = body.description.trim()
       if (!description) throw new BadRequestException('Description is required')
 
       const targetCount = body.targetTier ? TARGET_NOTE_COUNT[body.targetTier] ?? 90 : 90
-      const prompt = this.buildGeneratePrompt(song, description, body.snapMode, targetCount, body.targetTier)
-      return { song, prompt }
+      return buildGeneratePrompt({
+        ctx,
+        description,
+        snapHint: this.snapHint(body.snapMode, ctx.song.bpm),
+        targetCount,
+        targetTier: body.targetTier,
+        replaceExisting: body.replaceExisting,
+      })
     })
 
     const parsed = await runStep(steps, 'generate', onProgress, () =>
@@ -82,7 +97,7 @@ export class AiChartService {
     )
 
     const notes = await runStep(steps, 'normalize', onProgress, async () =>
-      this.normalizeGeneratedNotes(parsed.notes, body.snapMode, song.bpm),
+      this.normalizeGeneratedNotes(parsed.notes, body.snapMode, ctx.song.bpm),
     )
     const sections = this.normalizeSections(parsed.sections)
 
@@ -102,87 +117,21 @@ export class AiChartService {
 
     const steps = AI_STREAM_STEPS['scale-chart']
 
-    const loaded = await runStep(steps, 'load_chart', onProgress, async () => {
-      const song = await this.prisma.song.findUnique({ where: { id: songId } })
-      if (!song) throw new NotFoundException('Song not found')
-
-      const chart = await this.prisma.songChart.findFirst({
-        where: { id: body.chartId, songId },
-        select: {
-          id: true,
-          name: true,
-          speedMultiplier: true,
-          computedDifficulty: true,
-          averageDifficultyScore: true,
-          peakDifficultyScore: true,
-        },
-      })
-      if (!chart) throw new NotFoundException('Chart not found')
-
-      const [notes, sections, persistedSegments, warnings] = await Promise.all([
-        this.prisma.note.findMany({
-          where: { chartId: chart.id, deletedAt: null },
-          orderBy: [{ time: 'asc' }, { track: 'asc' }],
-          select: { track: true, time: true, noteType: true, duration: true, title: true },
-        }),
-        this.prisma.sectionMarker.findMany({
-          where: { songId },
-          orderBy: { time: 'asc' },
-          select: { time: true, label: true, color: true },
-        }),
-        this.prisma.chartDifficultySegment.findMany({
-          where: { chartId: chart.id },
-          orderBy: { startTimeMs: 'asc' },
-          select: { startTimeMs: true, endTimeMs: true, notesPerSecond: true, difficultyLevel: true, difficultyScore: true },
-        }),
-        this.prisma.chartValidationWarning.findMany({
-          where: { chartId: chart.id },
-          orderBy: [{ severity: 'asc' }, { startTimeMs: 'asc' }],
-          select: { code: true, severity: true, startTimeMs: true, endTimeMs: true, message: true },
-        }),
-      ])
-
-      if (notes.length === 0) throw new BadRequestException('Cannot scale an empty chart')
-
-      const localAnalysis = persistedSegments.length === 0
-        ? analyzeChart({
-            chartId: chart.id,
-            notes: notes.map((n) => ({
-              track: n.track,
-              time: n.time,
-              noteType: n.noteType as 'TAP' | 'HOLD' | 'SWIPE',
-              duration: n.duration,
-            })),
-            bpm: song.bpm,
-            timeSignature: song.timeSignature,
-            speedMultiplier: chart.speedMultiplier,
-          })
-        : null
-      const segments = persistedSegments.length > 0 ? persistedSegments : localAnalysis!.segments.map((s) => ({
-        startTimeMs: s.startTimeMs,
-        endTimeMs: s.endTimeMs,
-        notesPerSecond: s.notesPerSecond,
-        difficultyLevel: s.difficultyLevel,
-        difficultyScore: s.difficultyScore,
-      }))
-
-      return { song, chart, notes, sections, segments, warnings }
+    const ctx = await runStep(steps, 'load_chart', onProgress, async () => {
+      const loaded = await this.chartContext.loadChartContext(songId, body.chartId)
+      if (loaded.notes.length === 0) throw new BadRequestException('Cannot scale an empty chart')
+      return loaded
     })
 
     const prompt = await runStep(steps, 'build_prompt', onProgress, async () => {
       const targetCount = TARGET_NOTE_COUNT[body.targetTier] ?? 90
-      return this.buildScalePrompt({
-        song: loaded.song,
-        chart: loaded.chart,
-        notes: loaded.notes,
-        sections: loaded.sections,
-        segments: loaded.segments,
-        warnings: loaded.warnings,
-        targetTier: body.targetTier,
+      return this.buildScalePrompt(
+        ctx,
+        body.targetTier,
         targetCount,
-        instruction: body.instruction?.trim(),
-        snapMode: body.snapMode,
-      })
+        body.instruction?.trim(),
+        body.snapMode,
+      )
     })
 
     const parsed = await runStep(steps, 'generate', onProgress, () =>
@@ -190,7 +139,7 @@ export class AiChartService {
     )
 
     const notes = await runStep(steps, 'normalize', onProgress, async () =>
-      this.normalizeGeneratedNotes(parsed.notes, body.snapMode, loaded.song.bpm),
+      this.normalizeGeneratedNotes(parsed.notes, body.snapMode, ctx.song.bpm),
     )
     const sections = this.normalizeSections(parsed.sections)
 
@@ -200,15 +149,20 @@ export class AiChartService {
     return { notes, sections }
   }
 
+  async previewChart(
+    songId: string,
+    user: AuthUser,
+    chartId: string,
+    body: PreviewChartDto,
+  ): Promise<ChartApplyPreview> {
+    await this.access.assertCanEditSongChart(songId, user)
+    return this.chartApplyPreview.buildPreview(songId, chartId, body.notes, body.replaceExisting)
+  }
+
   async applyChart(
     songId: string,
     user: AuthUser,
-    body: {
-      chartId: string
-      notes: GeneratedChartNote[]
-      sections?: GeneratedChartSection[]
-      replaceExisting: boolean
-    },
+    body: ApplyChartDto,
   ): Promise<ApplyChartResponse> {
     await this.access.assertCanEditSongChart(songId, user)
     const chart = await this.prisma.songChart.findFirst({
@@ -223,34 +177,86 @@ export class AiChartService {
       throw new BadRequestException(`Cannot apply more than ${MAX_GENERATED_NOTES} notes at once`)
     }
 
+    if (body.replaceExisting) {
+      return this.applyChartReplace(songId, user, chartId, body)
+    }
+
+    if (body.resolutions?.length || body.previewVersion) {
+      return this.applyChartMergeWithResolutions(songId, user, chartId, body)
+    }
+
+    return this.applyChartMergeSimple(songId, user, chartId, body)
+  }
+
+  private async applyChartReplace(
+    songId: string,
+    user: AuthUser,
+    chartId: string,
+    body: ApplyChartDto,
+  ): Promise<ApplyChartResponse> {
     const batchId = randomUUID()
     const deletedIds: string[] = []
+    const createdEntries: Note[] = []
+
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.note.findMany({
+        where: { chartId, deletedAt: null },
+      })
+      for (const note of existing) {
+        await tx.note.update({
+          where: { id: note.id },
+          data: { deletedAt: new Date() },
+        })
+        deletedIds.push(note.id)
+      }
+      await tx.sectionMarker.deleteMany({ where: { songId } })
+
+      for (const draft of body.notes) {
+        const row = await this.createChartNote(tx, songId, chartId, user.id, draft)
+        if (row) createdEntries.push(row)
+      }
+
+      if (body.sections?.length) {
+        await tx.sectionMarker.createMany({
+          data: body.sections.map((s) => ({
+            songId,
+            time: Math.round(s.time * 10) / 10,
+            label: s.label.trim(),
+            color: s.color ?? '#6C63FF',
+            createdBy: user.id,
+          })),
+        })
+      }
+    })
+
+    this.emitBatchEvents(songId, user.id, batchId, createdEntries, deletedIds)
+
+    return {
+      batchId,
+      createdCount: createdEntries.length,
+      skippedCount: 0,
+      sectionsCreated: body.sections?.length ?? 0,
+      replacedCount: deletedIds.length,
+    }
+  }
+
+  private async applyChartMergeSimple(
+    songId: string,
+    user: AuthUser,
+    chartId: string,
+    body: ApplyChartDto,
+  ): Promise<ApplyChartResponse> {
+    const batchId = randomUUID()
     const createdEntries: Note[] = []
     let skippedCount = 0
 
     await this.prisma.$transaction(async (tx) => {
-      if (body.replaceExisting) {
-        const existing = await tx.note.findMany({
-          where: { chartId, deletedAt: null },
-        })
-        for (const note of existing) {
-          await tx.note.update({
-            where: { id: note.id },
-            data: { deletedAt: new Date() },
-          })
-          deletedIds.push(note.id)
-        }
-        await tx.sectionMarker.deleteMany({ where: { songId } })
-      }
-
       const occupied = new Set<string>()
-      if (!body.replaceExisting) {
-        const current = await tx.note.findMany({
-          where: { chartId, deletedAt: null },
-          select: { track: true, time: true },
-        })
-        for (const n of current) occupied.add(this.slotKey(n.track, n.time))
-      }
+      const current = await tx.note.findMany({
+        where: { chartId, deletedAt: null },
+        select: { track: true, time: true },
+      })
+      for (const n of current) occupied.add(this.slotKey(n.track, n.time))
 
       for (const draft of body.notes) {
         const track = draft.track
@@ -267,21 +273,8 @@ export class AiChartService {
         occupied.add(key)
 
         try {
-          const row = await tx.note.create({
-            data: {
-              chartId,
-              songId,
-              track,
-              time,
-              title: draft.title?.trim() || 'AI Chart',
-              description: '',
-              noteType: noteType as 'TAP' | 'HOLD' | 'SWIPE',
-              duration: noteType === 'HOLD' ? draft.duration! : null,
-              createdBy: user.id,
-            },
-            include: { creator: { select: { name: true, avatarUrl: true } } },
-          })
-          createdEntries.push(this.toNote(row))
+          const row = await this.createChartNote(tx, songId, chartId, user.id, draft)
+          if (row) createdEntries.push(row)
         } catch (e: unknown) {
           if (typeof e === 'object' && e !== null && 'code' in e && (e as { code: string }).code === 'P2002') {
             skippedCount++
@@ -304,11 +297,208 @@ export class AiChartService {
       }
     })
 
-    for (const noteId of deletedIds) {
+    this.emitBatchEvents(songId, user.id, batchId, createdEntries, [])
+
+    return {
+      batchId,
+      createdCount: createdEntries.length,
+      skippedCount,
+      sectionsCreated: body.sections?.length ?? 0,
+      replacedCount: 0,
+    }
+  }
+
+  private async applyChartMergeWithResolutions(
+    songId: string,
+    user: AuthUser,
+    chartId: string,
+    body: ApplyChartDto,
+  ): Promise<ApplyChartResponse> {
+    if (body.previewVersion) {
+      const ctx = await this.chartContext.loadChartContext(songId, chartId)
+      const currentVersion = this.chartContext.previewVersion(ctx)
+      if (body.previewVersion !== currentVersion) {
+        const preview = await this.chartApplyPreview.buildPreview(songId, chartId, body.notes, false)
+        throw new ConflictException({ preview })
+      }
+    }
+
+    const preview = await this.chartApplyPreview.buildPreview(songId, chartId, body.notes, false)
+    if (body.resolutions?.length) {
+      this.chartApplyPreview.assertResolutionsMatchPreview(preview, body.resolutions)
+    }
+
+    const resolutionMap = new Map<string, ConflictAction>(
+      (body.resolutions ?? []).map((resolution) => [resolution.conflictId, resolution.action]),
+    )
+    const batchId = randomUUID()
+    const deletedIds: string[] = []
+    const createdEntries: Array<{ note: Note; replacesNoteId?: string }> = []
+    const deletedBeforeStates: Array<{ noteId: string; beforeState: Note }> = []
+    let skippedCount = 0
+
+    await this.prisma.$transaction(async (tx) => {
+      const classified = await this.chartApplyPreview.classifyForMerge(chartId, body.notes, tx)
+
+      if (body.resolutions?.length) {
+        this.chartApplyPreview.assertResolutionsMatchClassification(classified, body.resolutions)
+      }
+
+      skippedCount = classified.conflicts.length
+
+      for (const conflict of classified.conflicts) {
+        if (resolutionMap.get(conflict.conflictId) !== 'REPLACE_WITH_PATTERN') continue
+
+        const existing = await tx.note.findFirst({
+          where: { id: conflict.conflictId, chartId, deletedAt: null },
+          include: { creator: { select: { name: true, avatarUrl: true } } },
+        })
+        if (!existing) continue
+
+        await tx.note.update({
+          where: { id: existing.id },
+          data: { deletedAt: new Date() },
+        })
+
+        deletedIds.push(existing.id)
+        deletedBeforeStates.push({
+          noteId: existing.id,
+          beforeState: this.toNote(existing),
+        })
+      }
+
+      skippedCount -= deletedIds.length
+
+      for (const slot of classified.creatable) {
+        const row = await this.createChartNote(tx, songId, chartId, user.id, {
+          track: slot.track,
+          time: slot.time,
+          noteType: slot.noteType,
+          duration: slot.duration,
+          title: slot.title,
+        })
+        if (row) createdEntries.push({ note: row })
+      }
+
+      for (const conflict of classified.conflicts) {
+        if (resolutionMap.get(conflict.conflictId) !== 'REPLACE_WITH_PATTERN') continue
+
+        const row = await this.createChartNote(tx, songId, chartId, user.id, {
+          track: conflict.track,
+          time: conflict.time,
+          noteType: conflict.incomingNote.noteType,
+          duration: conflict.incomingNote.duration,
+          title: conflict.incomingNote.title,
+        })
+        if (row) {
+          createdEntries.push({ note: row, replacesNoteId: conflict.conflictId })
+        }
+      }
+
+      if (body.sections?.length) {
+        await tx.sectionMarker.createMany({
+          data: body.sections.map((s) => ({
+            songId,
+            time: Math.round(s.time * 10) / 10,
+            label: s.label.trim(),
+            color: s.color ?? '#6C63FF',
+            createdBy: user.id,
+          })),
+        })
+      }
+    })
+
+    for (const { noteId, beforeState } of deletedBeforeStates) {
       this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
         songId,
         noteId,
         userId: user.id,
+        beforeState,
+        batchId,
+        replacedByBatch: true,
+        realtimeMode: 'batch',
+      } satisfies NoteDeletedEvent)
+    }
+
+    const createdNotes = createdEntries.map((entry) => entry.note)
+
+    for (const { note, replacesNoteId } of createdEntries) {
+      this.eventEmitter.emit(NOTE_EVENTS.CREATED, {
+        songId,
+        noteId: note.id,
+        userId: user.id,
+        afterState: note,
+        batchId,
+        replacesNoteId,
+        realtimeMode: 'batch',
+      } satisfies NoteCreatedEvent)
+    }
+
+    if (createdNotes.length > 0 || deletedIds.length > 0) {
+      this.eventEmitter.emit(NOTE_EVENTS.BATCH_APPLIED, {
+        songId,
+        batchId,
+        created: createdNotes,
+        deletedIds,
+        actorId: user.id,
+      } satisfies NotesBatchAppliedPayload)
+    }
+
+    return {
+      batchId,
+      createdCount: createdNotes.length,
+      replacedCount: deletedIds.length,
+      skippedCount,
+      sectionsCreated: body.sections?.length ?? 0,
+    }
+  }
+
+  private async createChartNote(
+    tx: Pick<PrismaService, 'note'>,
+    songId: string,
+    chartId: string,
+    userId: string,
+    draft: GeneratedChartNote,
+  ): Promise<Note | null> {
+    const track = draft.track
+    const time = Math.round(draft.time * 10) / 10
+    const noteType = draft.noteType ?? 'TAP'
+
+    if (track < TRACK_MIN || track > TRACK_MAX) return null
+    if (time < TIME_MIN || time > TIME_MAX) return null
+    if (!NOTE_TYPES.has(noteType)) return null
+    if (noteType === 'HOLD' && (draft.duration == null || draft.duration <= 0)) return null
+
+    const row = await tx.note.create({
+      data: {
+        chartId,
+        songId,
+        track,
+        time,
+        title: draft.title?.trim() || 'AI Chart',
+        description: '',
+        noteType: noteType as 'TAP' | 'HOLD' | 'SWIPE',
+        duration: noteType === 'HOLD' ? draft.duration! : null,
+        createdBy: userId,
+      },
+      include: { creator: { select: { name: true, avatarUrl: true } } },
+    })
+
+    return this.toNote(row)
+  }
+
+  private emitBatchEvents(
+    songId: string,
+    userId: string,
+    batchId: string,
+    createdEntries: Note[],
+    deletedIds: string[],
+  ): void {
+    for (const noteId of deletedIds) {
+      this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
+        songId,
+        noteId,
+        userId,
         beforeState: { id: noteId },
         batchId,
         replacedByBatch: true,
@@ -320,7 +510,7 @@ export class AiChartService {
       this.eventEmitter.emit(NOTE_EVENTS.CREATED, {
         songId,
         noteId: note.id,
-        userId: user.id,
+        userId,
         afterState: note,
         batchId,
         realtimeMode: 'batch',
@@ -333,85 +523,28 @@ export class AiChartService {
         batchId,
         created: createdEntries,
         deletedIds,
-        actorId: user.id,
+        actorId: userId,
       } satisfies NotesBatchAppliedPayload)
     }
-
-    return {
-      batchId,
-      createdCount: createdEntries.length,
-      skippedCount,
-      sectionsCreated: body.sections?.length ?? 0,
-      replacedCount: deletedIds.length,
-    }
   }
 
-  private buildGeneratePrompt(
-    song: {
-      name: string
-      bpm: number
-      timeSignature: string
-      category: string
-    },
-    description: string,
-    snapMode: SnapMode,
+  private snapHint(snapMode: SnapMode, bpm: number): string {
+    return snapMode === '0.1s'
+      ? `${SNAP_RESOLUTION}s steps`
+      : snapMode === 'beat'
+        ? `quarter notes at ${bpm} BPM`
+        : `eighth notes at ${bpm} BPM`
+  }
+
+  private buildScalePrompt(
+    ctx: AiChartContext,
+    targetTier: SongDifficulty,
     targetCount: number,
-    targetTier?: string,
-  ) {
-    const measure = measureDuration(song.bpm, song.timeSignature)
-    const snapHint =
-      snapMode === '0.1s'
-        ? `${SNAP_RESOLUTION}s steps`
-        : snapMode === 'beat'
-          ? `quarter notes at ${song.bpm} BPM`
-          : `eighth notes at ${song.bpm} BPM`
-
-    const system = [
-      'You are a rhythm-game chart designer for AMA-MIDI.',
-      'Charts use 8 lanes (tracks 1–8), timeline 0–300 seconds.',
-      'Note types: TAP (default), HOLD (requires duration in seconds), SWIPE.',
-      'Return ONLY valid JSON with keys "notes" and "sections". No markdown.',
-    ].join(' ')
-
-    const user = [
-      `Song "${song.name}": ${song.bpm} BPM, ${song.timeSignature}, category ${song.category}.`,
-      targetTier ? `Target difficulty tier hint: ${targetTier} (not persisted — match density to this tier).` : null,
-      `Snap all times to ${snapHint}. One note per track+time (no overlaps).`,
-      `Composer brief: ${description}`,
-      `Generate about ${targetCount} notes spread across the full 0–300s timeline with clear structure (intro, build, peak, outro as appropriate).`,
-      `Match genre, mood, energy, and lane density from the brief.`,
-      `Also suggest 3–6 section markers when they help structure the chart.`,
-      `JSON shape: {"notes":[{"track":1,"time":0.0,"noteType":"TAP","title":"Kick"}],"sections":[{"time":0,"label":"Intro","color":"#10B981"}]}`,
-      `HOLD notes must include duration. Keep titles short.`,
-    ].filter(Boolean).join(' ')
-
-    return { system, user }
-  }
-
-  private buildScalePrompt(input: {
-    song: { name: string; bpm: number; timeSignature: string; category: string }
-    chart: {
-      name: string
-      speedMultiplier: number
-      computedDifficulty: string
-      averageDifficultyScore: number
-      peakDifficultyScore: number
-    }
-    notes: Array<{ track: number; time: number; noteType: string; duration: number | null; title: string }>
-    sections: Array<{ time: number; label: string; color: string }>
-    segments: Array<{ startTimeMs: number; endTimeMs: number; notesPerSecond: number; difficultyLevel: string; difficultyScore: number }>
-    warnings: Array<{ code: string; severity: string; startTimeMs: number | null; endTimeMs: number | null; message: string }>
-    targetTier: SongDifficulty
-    targetCount: number
-    instruction?: string
-    snapMode: SnapMode
-  }): { system: string; user: string } {
-    const snapHint =
-      input.snapMode === '0.1s'
-        ? `${SNAP_RESOLUTION}s steps`
-        : input.snapMode === 'beat'
-          ? `quarter notes at ${input.song.bpm} BPM`
-          : `eighth notes at ${input.song.bpm} BPM`
+    instruction: string | undefined,
+    snapMode: SnapMode,
+  ): { system: string; user: string } {
+    const snapHint = this.snapHint(snapMode, ctx.song.bpm)
+    const contextBlock = serializeChartContextForPrompt(ctx, { mode: 'scale', snapHint })
 
     const system = [
       'You are a rhythm-game chart arranger for AMA-MIDI.',
@@ -421,15 +554,10 @@ export class AiChartService {
     ].join(' ')
 
     const user = [
-      `Song: ${input.song.name}, ${input.song.bpm} BPM, ${input.song.timeSignature}, category ${input.song.category}.`,
-      `Source chart: ${input.chart.name}, computed ${input.chart.computedDifficulty}, average score ${input.chart.averageDifficultyScore.toFixed(1)}, peak score ${input.chart.peakDifficultyScore.toFixed(1)}, speed ${input.chart.speedMultiplier.toFixed(1)}x.`,
-      `Target tier: ${input.targetTier}. Target about ${input.targetCount} notes, never more than ${MAX_GENERATED_NOTES}.`,
+      contextBlock,
+      `Target tier: ${targetTier}. Target about ${targetCount} notes, never more than ${MAX_GENERATED_NOTES}.`,
       `Snap all times to ${snapHint}. Avoid duplicate track+time pairs.`,
-      input.instruction ? `User instruction: ${input.instruction}.` : null,
-      `Source notes: ${JSON.stringify(input.notes.map((n) => ({ track: n.track, time: n.time, noteType: n.noteType, duration: n.duration, title: n.title })).slice(0, MAX_GENERATED_NOTES))}.`,
-      `Source sections: ${JSON.stringify(input.sections)}.`,
-      `Analysis segments: ${JSON.stringify(input.segments.map((s) => ({ start: s.startTimeMs / 1000, end: s.endTimeMs / 1000, nps: s.notesPerSecond, level: s.difficultyLevel, score: s.difficultyScore })))}.`,
-      `Current warnings: ${JSON.stringify(input.warnings)}.`,
+      instruction ? `User instruction: ${instruction}.` : null,
       'Preserve recognizable timing motifs and song structure.',
       'For easier targets: thin density, reduce large lane jumps, reduce simultaneous notes, and simplify holds.',
       'For harder targets: add notes, controlled doubles, holds, and syncopation while preserving musical feel.',

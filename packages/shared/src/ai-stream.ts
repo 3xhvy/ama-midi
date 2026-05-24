@@ -9,7 +9,8 @@ export type AiStreamStepDef = { stepId: string; label: string }
 
 export const AI_STREAM_STEPS: Record<AiStreamAction, AiStreamStepDef[]> = {
   'generate-chart': [
-    { stepId: 'prepare', label: 'Prepare request' },
+    { stepId: 'load_chart', label: 'Load chart context' },
+    { stepId: 'build_prompt', label: 'Build generate prompt' },
     { stepId: 'generate', label: 'Generate with AI' },
     { stepId: 'normalize', label: 'Normalize chart' },
     { stepId: 'ready', label: 'Ready to preview' },
@@ -33,6 +34,8 @@ export const AI_STREAM_STEPS: Record<AiStreamAction, AiStreamStepDef[]> = {
 export type AiStreamRequest =
   | {
       action: 'generate-chart'
+      chartId: string
+      replaceExisting: boolean
       description: string
       snapMode: SnapMode
       targetTier?: SongDifficulty

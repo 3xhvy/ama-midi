@@ -1,8 +1,14 @@
-import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from 'class-validator'
+import { IsArray, IsBoolean, IsEnum, IsIn, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
-import type { SnapMode, SongDifficulty } from '@ama-midi/shared'
+import type { ConflictAction, SnapMode, SongDifficulty } from '@ama-midi/shared'
 
 export class GenerateChartDto {
+  @IsUUID()
+  chartId!: string
+
+  @IsBoolean()
+  replaceExisting!: boolean
+
   @IsString()
   @MaxLength(2000)
   description!: string
@@ -72,6 +78,23 @@ export class ScaleChartDto {
   snapMode!: SnapMode
 }
 
+class ChartApplyResolutionDto {
+  @IsString()
+  conflictId!: string
+
+  @IsEnum(['KEEP_EXISTING', 'REPLACE_WITH_PATTERN'])
+  action!: ConflictAction
+}
+
+export class PreviewChartDto {
+  @ValidateNested({ each: true })
+  @Type(() => GeneratedChartNoteDto)
+  notes!: GeneratedChartNoteDto[]
+
+  @IsBoolean()
+  replaceExisting!: boolean
+}
+
 export class ApplyChartDto {
   @IsUUID()
   chartId!: string
@@ -87,4 +110,14 @@ export class ApplyChartDto {
 
   @IsBoolean()
   replaceExisting!: boolean
+
+  @IsOptional()
+  @IsString()
+  previewVersion?: string
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ChartApplyResolutionDto)
+  resolutions?: ChartApplyResolutionDto[]
 }

@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common'
 import { LLM_ADAPTER, type LLMAdapter } from './adapters/llm-adapter.interface'
 import {
@@ -13,14 +12,15 @@ import {
   TIME_MIN,
   TRACK_MAX,
   TRACK_MIN,
-  analyzeChart,
   measureDuration,
   snapTime,
+  type AiChartContext,
+  type AiChartNote,
   type SnapMode,
   type SuggestNotesMode,
 } from '@ama-midi/shared'
-import { PrismaService } from '../prisma/prisma.service'
 import { type AiProgressEmitter, runStep } from './ai-progress.util'
+import { ChartContextService } from './chart-context.service'
 
 interface RawSuggestion {
   track: number
@@ -36,8 +36,8 @@ interface ChartContext {
   snapMode: SnapMode
   windowStart: number
   windowEnd: number
-  contextNotes: Array<{ track: number; time: number; noteType: string }>
-  targetTrackNotes: Array<{ track: number; time: number }>
+  contextNotes: AiChartNote[]
+  targetTrackNotes: AiChartNote[]
   occupied: Array<{ track: number; time: number }>
   sections: Array<{ time: number; label: string }>
   segments: Array<{
@@ -54,7 +54,7 @@ interface ChartContext {
 export class AiService {
   constructor(
     @Inject(LLM_ADAPTER) private readonly llm: LLMAdapter,
-    private readonly prisma: PrismaService,
+    private readonly chartContext: ChartContextService,
   ) {}
 
   async suggestNotes(
@@ -88,82 +88,27 @@ export class AiService {
 
     const steps = AI_STREAM_STEPS['suggest-notes']
 
-    const loaded = await runStep(steps, 'load_context', onProgress, async () => {
-      const chart = await this.prisma.songChart.findFirst({
-        where: { id: body.chartId, songId },
-        include: { song: true },
-      })
-      if (!chart) throw new NotFoundException('Chart not found')
+    const ctx = await runStep(steps, 'load_context', onProgress, () =>
+      this.chartContext.loadChartContext(songId, body.chartId),
+    )
 
-      const [allNotes, sections, persistedSegments] = await Promise.all([
-        this.prisma.note.findMany({
-          where: { chartId: chart.id, deletedAt: null },
-          orderBy: { time: 'asc' },
-          select: { track: true, time: true, noteType: true, duration: true },
-        }),
-        this.prisma.sectionMarker.findMany({
-          where: { songId },
-          orderBy: { time: 'asc' },
-          select: { time: true, label: true },
-        }),
-        this.prisma.chartDifficultySegment.findMany({
-          where: { chartId: chart.id },
-          orderBy: { startTimeMs: 'asc' },
-          select: {
-            startTimeMs: true,
-            endTimeMs: true,
-            notesPerSecond: true,
-            difficultyLevel: true,
-            difficultyScore: true,
-          },
-        }),
-      ])
-
-      return { chart, allNotes, sections, persistedSegments }
-    })
-
-    if (body.mode === 'fill_track' && loaded.allNotes.length < 5) {
+    if (body.mode === 'fill_track' && ctx.notes.length < 5) {
       const readyDef = steps.find((s) => s.stepId === 'ready')!
       onProgress?.({ type: 'step', stepId: 'ready', label: readyDef.label, status: 'done' })
       return { suggestions: [] }
     }
 
-    const segments = await runStep(steps, 'analyze', onProgress, async () => {
-      const localAnalysis =
-        loaded.persistedSegments.length === 0
-          ? analyzeChart({
-              chartId: loaded.chart.id,
-              notes: loaded.allNotes.map((n) => ({
-                track: n.track,
-                time: n.time,
-                noteType: n.noteType as 'TAP' | 'HOLD' | 'SWIPE',
-                duration: n.duration,
-              })),
-              bpm: loaded.chart.song.bpm,
-              timeSignature: loaded.chart.song.timeSignature,
-              speedMultiplier: loaded.chart.speedMultiplier,
-            })
-          : null
-
-      return loaded.persistedSegments.length > 0
-        ? loaded.persistedSegments
-        : localAnalysis!.segments.map((s) => ({
-            startTimeMs: s.startTimeMs,
-            endTimeMs: s.endTimeMs,
-            notesPerSecond: s.notesPerSecond,
-            difficultyLevel: s.difficultyLevel,
-            difficultyScore: s.difficultyScore,
-          }))
-    })
-
-    const context = this.buildContext(
-      loaded.chart.song,
-      loaded.chart.computedDifficulty,
-      loaded.allNotes,
-      body,
-      loaded.sections,
-      segments,
+    const segments = await runStep(steps, 'analyze', onProgress, async () =>
+      ctx.segments.map((s) => ({
+        startTimeMs: s.start * 1000,
+        endTimeMs: s.end * 1000,
+        notesPerSecond: s.nps,
+        difficultyLevel: s.level,
+        difficultyScore: s.score,
+      })),
     )
+
+    const context = this.buildContext(ctx, body, segments)
 
     const raw = await runStep(steps, 'generate', onProgress, async () => {
       const prompt = this.buildPrompt(
@@ -187,9 +132,7 @@ export class AiService {
   }
 
   private buildContext(
-    song: { bpm: number; timeSignature: string; category: string },
-    difficulty: string,
-    allNotes: Array<{ track: number; time: number; noteType: string }>,
+    ctx: AiChartContext,
     body: {
       playheadTime: number
       snapMode: SnapMode
@@ -197,7 +140,6 @@ export class AiService {
       selectedNotes?: Array<{ track: number; time: number }>
       mode?: SuggestNotesMode
     },
-    sections: Array<{ time: number; label: string }>,
     segments: Array<{
       startTimeMs: number
       endTimeMs: number
@@ -206,8 +148,9 @@ export class AiService {
       difficultyScore: number
     }>,
   ): ChartContext {
+    const { song, chart, notes, sections, occupied } = ctx
     const measure = measureDuration(song.bpm, song.timeSignature)
-    const chartNoteCount = allNotes.length
+    const chartNoteCount = notes.length
 
     if (
       body.selectedNotes?.length &&
@@ -222,20 +165,20 @@ export class AiService {
       return {
         bpm: song.bpm,
         timeSignature: song.timeSignature,
-        difficulty,
+        difficulty: chart.computedDifficulty,
         category: song.category,
         playheadTime: continueFromTime,
         snapMode: body.snapMode,
         windowStart,
         windowEnd,
         contextNotes: sorted.map((n) => {
-          const full = allNotes.find(
+          const full = notes.find(
             (note) => note.track === n.track && Math.abs(note.time - n.time) < SNAP_RESOLUTION / 2,
           )
-          return { track: n.track, time: n.time, noteType: full?.noteType ?? 'TAP' }
+          return full ?? { track: n.track, time: n.time, noteType: 'TAP' as const }
         }),
         targetTrackNotes: [],
-        occupied: allNotes.map((n) => ({ track: n.track, time: n.time })),
+        occupied,
         sections,
         segments,
         chartNoteCount,
@@ -245,28 +188,22 @@ export class AiService {
     const windowStart = Math.max(TIME_MIN, body.playheadTime - measure * 2)
     const windowEnd = Math.min(TIME_MAX, body.playheadTime + measure * 4)
 
-    const contextNotes = allNotes.filter((n) => n.time >= windowStart && n.time <= windowEnd)
+    const contextNotes = notes.filter((n) => n.time >= windowStart && n.time <= windowEnd)
     const targetTrackNotes =
-      body.targetTrack != null
-        ? allNotes.filter((n) => n.track === body.targetTrack)
-        : []
+      body.targetTrack != null ? notes.filter((n) => n.track === body.targetTrack) : []
 
     return {
       bpm: song.bpm,
       timeSignature: song.timeSignature,
-      difficulty,
+      difficulty: chart.computedDifficulty,
       category: song.category,
       playheadTime: body.playheadTime,
       snapMode: body.snapMode,
       windowStart,
       windowEnd,
-      contextNotes: contextNotes.map((n) => ({
-        track: n.track,
-        time: n.time,
-        noteType: n.noteType,
-      })),
-      targetTrackNotes: targetTrackNotes.map((n) => ({ track: n.track, time: n.time })),
-      occupied: allNotes.map((n) => ({ track: n.track, time: n.time })),
+      contextNotes,
+      targetTrackNotes,
+      occupied,
       sections,
       segments,
       chartNoteCount,

@@ -54,7 +54,7 @@ export function ScaleDifficultyFlow({
         return
       }
 
-      setChartPreview({ notes, sections, replaceExisting: true })
+      setChartPreview({ notes, sections, replaceExisting: true, placement: null })
       closeAiAssistant()
       setInstruction('')
     } catch {

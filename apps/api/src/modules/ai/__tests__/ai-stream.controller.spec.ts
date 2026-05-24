@@ -50,6 +50,8 @@ function makeReq(user: AuthUser = composerUser): Request {
   return { user } as unknown as Request
 }
 
+const chartId = 'chart-1'
+
 describe('AiController.streamAi', () => {
   let controller: AiController
   let aiChart: { generateChart: jest.Mock; scaleChart: jest.Mock }
@@ -102,7 +104,12 @@ describe('AiController.streamAi', () => {
     const { res, chunks } = makeMockRes()
     const envelope: AiStreamEnvelopeDto = {
       action: 'generate-chart',
-      payload: { description: 'Upbeat EDM chart', snapMode: 'beat' },
+      payload: {
+        chartId,
+        description: 'Upbeat EDM chart',
+        snapMode: 'beat',
+        replaceExisting: false,
+      },
     }
 
     await controller.streamAi(songId, envelope, makeReq(), res, 'text/event-stream')
@@ -190,7 +197,7 @@ describe('AiController.streamAi', () => {
     const { res, chunks } = makeMockRes()
     const envelope: AiStreamEnvelopeDto = {
       action: 'generate-chart',
-      payload: { description: 'Test', snapMode: '0.1s' },
+      payload: { chartId, description: 'Test', snapMode: '0.1s', replaceExisting: false },
     }
 
     await controller.streamAi(songId, envelope, makeReq(), res)
@@ -205,7 +212,7 @@ describe('AiController.streamAi', () => {
 
     await controller.streamAi(
       songId,
-      { action: 'generate-chart', payload: { description: 'Test', snapMode: '0.1s' } },
+      { action: 'generate-chart', payload: { chartId, description: 'Test', snapMode: '0.1s', replaceExisting: false } },
       makeReq(),
       res,
       'application/json',

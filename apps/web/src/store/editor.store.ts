@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { NoteSuggestion, SnapMode } from '@ama-midi/shared'
+import type { ChartApplyPreview, NoteSuggestion, SnapMode } from '@ama-midi/shared'
 
 export type AiAssistantFeature =
   | 'generate-chart'
@@ -31,6 +31,7 @@ export interface ChartPreviewState {
   }>
   sections?: Array<{ time: number; label: string; color?: string }>
   replaceExisting: boolean
+  placement: ChartApplyPreview | null
 }
 
 interface EditorStore {

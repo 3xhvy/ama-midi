@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing'
 import { BadRequestException, ForbiddenException } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { AiChartService } from '../ai-chart.service'
+import { ChartContextService } from '../chart-context.service'
+import { ChartApplyPreviewService } from '../chart-apply-preview.service'
 import { LLM_ADAPTER, type LLMAdapter } from '../adapters/llm-adapter.interface'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
@@ -29,6 +31,7 @@ function makePrisma() {
         computedDifficulty: 'HARD',
         averageDifficultyScore: 10,
         peakDifficultyScore: 18,
+        updatedAt: new Date('2026-05-01T12:00:00.000Z'),
       }),
       findUnique: jest.fn(),
     },
@@ -56,7 +59,7 @@ function makePrisma() {
     },
     chartValidationWarning: {
       findMany: jest.fn().mockResolvedValue([
-        { code: 'HIGH_DENSITY', severity: 'WARN', startTimeMs: 0, endTimeMs: 5000, message: 'Elevated density' },
+        { code: 'HIGH_DENSITY', severity: 'WARN', message: 'Elevated density' },
       ]),
     },
     $transaction: jest.fn(),
@@ -83,6 +86,8 @@ describe('AiChartService.scaleChart', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         AiChartService,
+        ChartContextService,
+        ChartApplyPreviewService,
         { provide: LLM_ADAPTER, useValue: llm },
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectAccessService, useValue: {} },
@@ -125,9 +130,9 @@ describe('AiChartService.scaleChart', () => {
     }))
     const userPrompt = (llm.complete as jest.Mock).mock.calls[0][0].messages[0].content
     expect(userPrompt).toContain('Target tier: NORMAL')
-    expect(userPrompt).toContain('Source notes')
-    expect(userPrompt).toContain('Analysis segments')
-    expect(userPrompt).toContain('Current warnings')
+    expect(userPrompt).toContain('Current notes (chronological)')
+    expect(userPrompt).toContain('Density segments')
+    expect(userPrompt).toContain('Warnings')
   })
 
   it('computes local analysis segments when persisted segments are missing', async () => {
@@ -140,7 +145,7 @@ describe('AiChartService.scaleChart', () => {
     })
 
     const userPrompt = (llm.complete as jest.Mock).mock.calls[0][0].messages[0].content
-    expect(userPrompt).toContain('Analysis segments')
+    expect(userPrompt).toContain('Density segments')
     expect(userPrompt).toContain('"start":0')
   })
 

@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { AiService } from '../ai.service'
 import { AiChartService } from '../ai-chart.service'
+import { ChartContextService } from '../chart-context.service'
+import { ChartApplyPreviewService } from '../chart-apply-preview.service'
 import { LLM_ADAPTER, type LLMAdapter } from '../adapters/llm-adapter.interface'
 import { AnthropicAdapter } from '../adapters/anthropic.adapter'
 import { getLLMAdapterClass } from '../ai.module'
@@ -19,7 +21,7 @@ describe('AI services LLM adapter injection', () => {
       providers: [
         AiService,
         { provide: LLM_ADAPTER, useValue: fakeLlm },
-        { provide: PrismaService, useValue: {} },
+        { provide: ChartContextService, useValue: {} },
       ],
     }).compile()
 
@@ -30,6 +32,8 @@ describe('AI services LLM adapter injection', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         AiChartService,
+        ChartContextService,
+        ChartApplyPreviewService,
         { provide: LLM_ADAPTER, useValue: fakeLlm },
         { provide: PrismaService, useValue: {} },
         { provide: ProjectAccessService, useValue: {} },
