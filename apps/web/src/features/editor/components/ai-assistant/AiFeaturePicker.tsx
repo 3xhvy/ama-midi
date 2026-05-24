@@ -67,7 +67,7 @@ export function AiFeaturePicker({ noteCount, selectedCount, onSelect }: Props) {
         What would you like AI to do?
       </p>
 
-      <div className="ai-feature-grid grid grid-cols-2 gap-2.5">
+      <div className="ai-feature-grid">
         {FEATURES.map((feat) => {
           const disabledReason = feat.disabledReason?.({ noteCount, selectedCount })
           const disabled = disabledReason != null
@@ -77,7 +77,8 @@ export function AiFeaturePicker({ noteCount, selectedCount, onSelect }: Props) {
               type="button"
               disabled={disabled}
               onClick={() => onSelect(feat.value)}
-              className={`ai-feature-card w-full ai-feature-card--${feat.accent}${disabled ? ' ai-feature-card--disabled' : ''}`}
+              data-tour={`ai-feature-${feat.value}`}
+              className={`ai-feature-card ai-feature-card--${feat.accent}${disabled ? ' ai-feature-card--disabled' : ''}`}
             >
               <span className="ai-feature-icon">
                 <feat.Icon className="h-5 w-5" aria-hidden />
@@ -88,10 +89,10 @@ export function AiFeaturePicker({ noteCount, selectedCount, onSelect }: Props) {
           )
 
           return (
-            <div key={feat.value} className="min-w-0 w-full">
+            <div key={feat.value} className="ai-feature-grid-cell">
               {disabled && disabledReason ? (
                 <Tooltip content={disabledReason} side="top">
-                  <span className="block w-full">{cardButton}</span>
+                  <span className="ai-feature-grid-trigger">{cardButton}</span>
                 </Tooltip>
               ) : (
                 cardButton

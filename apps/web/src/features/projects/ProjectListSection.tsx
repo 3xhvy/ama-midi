@@ -40,7 +40,9 @@ export function ProjectListSection({
 
   return (
     <div className={`grid gap-3 ${gridClass}`}>
-      {projects.map((project) => <ProjectCard key={project.id} project={project} />)}
+      {projects.map((project, index) => (
+        <ProjectCard key={project.id} project={project} tourAnchor={index === 0} />
+      ))}
     </div>
   )
 }

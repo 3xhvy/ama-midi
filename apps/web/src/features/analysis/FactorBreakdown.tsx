@@ -63,7 +63,7 @@ function barLimit(key: keyof ChartFactorBreakdown, tier: SongDifficulty): number
 
 export function FactorBreakdown({ factors, tier }: Props) {
   return (
-    <div className="space-y-3">
+    <div data-tour="analysis-factor-breakdown" className="space-y-3">
       <h3 className="text-xs font-medium uppercase tracking-wide text-shell-muted">
         Factor breakdown
       </h3>

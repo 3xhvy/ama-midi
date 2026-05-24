@@ -27,7 +27,7 @@ export function ProjectDashboardPage() {
 
   return (
     <AppShell variant="management">
-      <div className="mb-6 flex items-end justify-between gap-4">
+      <div className="mb-6 flex items-end justify-between gap-4" data-tour="projects-header">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-shell-muted">Management</p>
           <h1 className="mt-1 text-2xl font-semibold text-shell-text">Projects</h1>

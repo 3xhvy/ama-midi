@@ -14,6 +14,8 @@ import { LegacySongEditorRedirect } from './pages/LegacySongEditorRedirect'
 import { AuthCallbackPage }  from './pages/AuthCallbackPage'
 import { ProfileSetupPage }  from './pages/ProfileSetupPage'
 import { LoginPage }         from './pages/LoginPage'
+import { OnboardingGate }    from './features/onboarding/OnboardingGate'
+import { ProductTourOrchestrator } from './features/onboarding/ProductTourOrchestrator'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +40,8 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <OnboardingGate />
+        <ProductTourOrchestrator />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />

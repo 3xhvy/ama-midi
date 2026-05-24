@@ -28,7 +28,7 @@ export function StatCards({ analysis, noteCount }: Props) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+    <div data-tour="analysis-stat-cards" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
       {cards.map((card) => (
         <div
           key={card.label}

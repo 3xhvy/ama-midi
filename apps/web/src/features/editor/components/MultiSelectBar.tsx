@@ -34,7 +34,7 @@ export function MultiSelectBar({
 }: Props) {
   if (count < 2) return null
   return (
-    <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 px-2 py-1 bg-shell-surface border border-shell-border rounded-full shadow-md">
+    <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 px-2 py-1 bg-shell-surface border border-shell-border rounded-full shadow-md" data-tour="multi-select-bar">
       <span className="text-xs text-shell-text font-medium">{count} selected</span>
       {canEdit && (
         <Button
@@ -55,6 +55,7 @@ export function MultiSelectBar({
           icon={<CopyIcon />}
           onClick={onRepeat}
           className="px-2"
+          data-tour="repeat-notes"
         >
           Repeat
         </Button>
@@ -65,6 +66,7 @@ export function MultiSelectBar({
         icon={<ClipboardCopyIcon />}
         onClick={onSavePattern}
         className="px-2"
+        data-tour="save-pattern"
       >
         Save as Pattern
       </Button>

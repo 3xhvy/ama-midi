@@ -87,7 +87,11 @@ export function ImprovePatternFlow({
         selectedNotes: patternNotes,
         ...(instruction.trim() ? { instruction: instruction.trim() } : {}),
       })
-      if (result.type !== 'result' || result.action !== 'suggest-notes') return
+      if (result.type !== 'result' || result.action !== 'suggest-notes') {
+        toast.error('Unexpected AI response — try again')
+        onPhaseChange('configure')
+        return
+      }
 
       const { suggestions } = result.payload
       if (suggestions.length === 0) {
@@ -99,7 +103,9 @@ export function ImprovePatternFlow({
       setAiSuggestions(suggestions)
       onResultMessage(`${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} ready on chart`)
       onPhaseChange('result')
-    } catch {
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return
+      toast.error(e instanceof Error ? e.message : 'Failed to get suggestions')
       onPhaseChange('configure')
     }
   }

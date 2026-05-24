@@ -15,11 +15,7 @@ export function AuthCallbackPage() {
     apiClient(token)<AuthUser>('/auth/me')
       .then((user) => {
         setAuth(user, token)
-        if (!user.profileComplete) {
-          navigate('/profile-setup', { replace: true })
-        } else {
-          navigate('/', { replace: true })
-        }
+        navigate('/', { replace: true })
       })
       .catch(() => navigate('/login'))
   }, [navigate, setAuth])

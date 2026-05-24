@@ -82,6 +82,7 @@ export function ChartSwitcher({ songId, charts, activeChartId }: Props) {
         <button
           ref={btnRef}
           type="button"
+          data-tour="chart-difficulty"
           onClick={() => (open ? setOpen(false) : openDropdown())}
           className="editor-toolbar-chip"
           aria-haspopup="menu"

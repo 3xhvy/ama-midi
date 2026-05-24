@@ -4,6 +4,16 @@ export type ChartPromptMode = 'generate_replace' | 'generate_merge' | 'scale' | 
 
 const OCCUPIED_LABEL = 'Occupied slots (never duplicate track+time):'
 
+export const CHART_NOTE_TYPE_INSTRUCTIONS = [
+  'Note types: TAP (instant hit), HOLD (sustained — MUST include duration in seconds), SWIPE (flick).',
+  'Always use uppercase noteType: "TAP", "HOLD", or "SWIPE".',
+  'Mix note types in every chart: use HOLD for vocals, pads, bass sustains, and long accents (aim for roughly 15–35% HOLD unless the brief is explicitly tap-only).',
+  'Typical HOLD duration: 0.3–3.0 seconds, snapped to the grid like note times.',
+].join(' ')
+
+export const CHART_JSON_EXAMPLE =
+  '{"notes":[{"track":1,"time":0.0,"noteType":"TAP","title":"Kick"},{"track":2,"time":1.0,"noteType":"HOLD","duration":1.2,"title":"Pad"}],"sections":[{"time":0,"label":"Intro","color":"#10B981"}]}'
+
 export function serializeChartContextForPrompt(
   ctx: AiChartContext,
   options: { mode: ChartPromptMode; snapHint: string; maxNotes?: number },
@@ -41,7 +51,7 @@ export function buildGeneratePrompt(input: {
   const system = [
     'You are a rhythm-game chart designer for AMA-MIDI.',
     'Charts use 8 lanes (tracks 1–8), timeline 0–300 seconds.',
-    'Note types: TAP (default), HOLD (requires duration in seconds), SWIPE.',
+    CHART_NOTE_TYPE_INSTRUCTIONS,
     'Return ONLY valid JSON with keys "notes" and "sections". No markdown.',
   ].join(' ')
 
@@ -56,8 +66,7 @@ export function buildGeneratePrompt(input: {
     `Composer brief: ${input.description}`,
     task,
     `Also suggest 3–6 section markers when they clarify structure.`,
-    `JSON shape: {"notes":[{"track":1,"time":0.0,"noteType":"TAP","title":"Kick"}],"sections":[{"time":0,"label":"Intro","color":"#10B981"}]}`,
-    `HOLD notes must include duration. Keep titles short.`,
+    `JSON shape: ${CHART_JSON_EXAMPLE}`,
   ]
     .filter(Boolean)
     .join(' ')

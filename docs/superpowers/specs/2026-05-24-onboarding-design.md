@@ -1,7 +1,7 @@
 # Onboarding & Product Tour — Design Spec
 
 **Date:** 2026-05-24  
-**Status:** Approved
+**Status:** Approved (updated — unified Take a Tour journey)
 
 ---
 
@@ -10,7 +10,24 @@
 New users (first Google login) see:
 1. A welcome screen communicating core value
 2. A profile setup form (name, title, department)
-3. A guided tour — dashboard orientation first, then editor deep-dive when they open a song
+3. **Take a Tour** — one guided journey through the full product:
+
+```
+Project → Song → User (collaboration) → Editor (tracks, tools, validation, AI, difficulty, …)
+```
+
+First-login onboarding handles (1) and (2). **Take a Tour** is the single product walkthrough — triggered automatically after profile save and re-launchable from the app chrome.
+
+---
+
+## Two Experiences
+
+| Experience | When | What |
+|---|---|---|
+| **Onboarding modal** | `!profileComplete` | Welcome + profile form only |
+| **Take a Tour** | After profile, or user clicks "Take a tour" | Full 4-phase product tour (~22 steps) |
+
+`OnboardingGate` shows the modal when needed. It does **not** run a separate dashboard mini-tour.
 
 ---
 
@@ -18,145 +35,204 @@ New users (first Google login) see:
 
 ```
 App.tsx
-  └── <OnboardingGate>          reads auth store
-        ├── <OnboardingModal>   2-step stepper (welcome → profile)
-        └── <TourOverlay>       dashboard tour steps
+  └── <OnboardingGate>              profile modal when !profileComplete
+  └── <ProductTourOrchestrator>     cross-route tour state + TourOverlay
+        └── reads tourContext       first project/song from dashboard API
+        └── navigates between routes before each step
+        └── calls prepare()         open panels, switch tabs
 ```
 
-**Trigger conditions (from auth store):**
+**Trigger conditions:**
 
 | `profileComplete` | `tourComplete` | Result |
 |---|---|---|
 | false | any | Show `OnboardingModal` |
-| true | false | Show dashboard `TourOverlay` |
-| true | true | Nothing — user fully onboarded |
+| true | false | Auto-start **Take a Tour** once (skippable) |
+| true | true | Nothing — user fully onboarded; "Take a tour" still available from menu |
+
+**Persistence:**
+
+| Milestone | Storage |
+|---|---|
+| Profile complete | DB `profileComplete` |
+| Product tour complete | DB `tourComplete` + localStorage `ama-product-tour-seen` |
+| Re-launch tour | Clears only session flag; DB `tourComplete` unchanged (optional reset not in v1) |
 
 ---
 
 ## User Flow
 
 ```
-OAuth callback
-  → GET /auth/me
-  → navigate('/')          ← always, no more /profile-setup redirect
-  → OnboardingGate mounts
+OAuth callback → GET /auth/me → navigate('/')
 
 if !profileComplete:
-  OnboardingModal step 0 (Welcome)
-    → "Get started →"
-  OnboardingModal step 1 (Profile form)
-    → PATCH /users/me { name, title, department, profileComplete: true }
-    → setAuth(updatedUser)
-    → modal unmounts
+  OnboardingModal (welcome → profile) → PATCH profileComplete
 
-OnboardingGate sees profileComplete=true, tourComplete=false:
-  → dashboard TourOverlay (4 steps)
-  → on complete: PATCH /users/me { tourComplete: true }
+if profileComplete && !tourComplete:
+  ProductTourOrchestrator.start()   ← full journey begins
 
-User opens a song:
-  → useSongTour fires (3 steps, localStorage guard)
-  → useAppTour fires after useSongTour completes (7 editor steps)
+User clicks "Take a tour" anytime:
+  ProductTourOrchestrator.start({ force: true })
 ```
+
+---
+
+## Take a Tour — Phases & Steps
+
+Orchestrator resolves **tour context** before starting:
+- `projectId` — first active project from dashboard or `/projects`
+- `songId` — first recent song in that project, or first song in project list
+- If no project/song exists, phases 1–8 use centered fallback copy; phase 4 (editor) waits until user has a song or tour ends early with "Create a project first" CTA
+
+### Phase 1 — Project (4 steps)
+
+| # | target | page | message |
+|---|---|---|---|
+| 1 | `nav-projects` | `/` or any | **Projects** — every song belongs to a project. Open Projects to browse workspaces. |
+| 2 | `my-projects` | `/` | **Dashboard projects** — your active projects appear here. Pick one to see its songs. |
+| 3 | `projects-header` | `/projects` | **Project directory** — search, filter, and create production workspaces. |
+| 4 | `project-card` | `/projects` | **Open a project** — each card is a workspace with songs, members, and settings. |
+
+### Phase 2 — Song (3 steps)
+
+| # | target | page | message |
+|---|---|---|---|
+| 5 | `project-header` | `/projects/:id` | **Project home** — song count, status, and quick actions for this workspace. |
+| 6 | `song-table-row` | `/projects/:id` | **Song list** — each row is a chartable song. Click to open the piano roll editor. |
+| 7 | `quick-create-song` | `/projects/:id` | **Quick Create** — spin up an untitled song instantly, or use **New Song** for the full wizard. |
+
+### Phase 3 — User / collaboration (2 steps)
+
+| # | target | page | prepare |
+|---|---|---|---|
+| 8 | `project-members-tab` | `/projects/:id` | Switch to Members tab |
+| 9 | `session-presence` | editor | Navigate to song; highlight live session avatars |
+
+| 8 message | Invite composers and QA with permissions and song scope. Control who can edit which charts. |
+| 9 message | See who is in the song right now. Cursors and edits sync live across the team. |
+
+### Phase 4 — Editor (13 steps)
+
+| # | target | prepare | message |
+|---|---|---|---|
+| 10 | `piano-roll` | Left + right panels open | **Piano roll** — 8 tracks × 300 seconds. Click to place notes; drag for holds. |
+| 11 | `track-list` | Left panel open | **Tracks** — eight lanes, each with a fixed color (T1–T8). Mute a track to focus. Activity bars show note density. |
+| 12 | `transport-bar` | — | **Transport** — play, pause, scrub. Click the BPM badge to change tempo. |
+| 13 | `chart-difficulty` | — | **Charts & difficulty** — one song can have multiple charts. Badge shows computed tier (Easy → Master) and speed multiplier. |
+| 14 | `song-difficulty-stats` | Left panel, scroll to Song Stats | **Live difficulty** — Notes, combo, peak NPS, and tier update as you compose. |
+| 15 | `tools-tab` | Right panel → tools tab | **Tools panel** — zoom, snap, create mode, view modes, and selection tools. |
+| 16 | `zoom` | tools tab | **Zoom** — 1× to 8× timeline magnification for detail work. |
+| 17 | `fast-mode` | tools tab | **Create mode** — Fast places notes on click; Popup opens the full note editor. |
+| 18 | `view-mode` | tools tab | **View modes** — Composer, Dev, QA, and Preview for different workflows. |
+| 19 | `validation-tab` | Right panel → validation tab | **Validation** — errors and warnings (density spikes, speed mismatch, QA rules). Click an issue to jump to it. |
+| 20 | `history-tab` | Right panel → history tab | **History** — every edit is logged. Undo any action; changes sync to collaborators. |
+| 21 | `ai-suggest` | Close AI modal if open | **AI Assistant** — Generate chart, Scale difficulty, Fill track, or Improve pattern on a selection. |
+| 22 | `difficulty-heatmap` | tools tab | **Difficulty heatmap** — color overlay on the grid showing hard sections at a glance. |
+| 23 | `shortcut-help` | — | **Shortcuts** — press **?** anytime for the full keyboard reference. |
+
+**Total: 23 steps** (phase labels shown in tooltip subtitle: "Project · 2/4", etc.)
+
+---
+
+## TourStep Schema (extend)
+
+```ts
+export interface TourStep {
+  target:   string
+  message:  string
+  phase?:   'project' | 'song' | 'user' | 'editor'
+  side?:    'top' | 'bottom' | 'left' | 'right'
+  route?:   string | ((ctx: TourContext) => string)  // navigate before step
+  prepare?: (ctx: TourContext) => void | Promise<void> // tabs, panels, scroll
+}
+
+interface TourContext {
+  projectId?: string
+  songId?: string
+  navigate: (path: string) => void
+  editorStore: EditorStoreApi  // setLeftCollapsed, setRightPanelTab, etc.
+}
+```
+
+`TourOverlay` waits for `prepare` + route navigation + 300ms layout settle before resolving `[data-tour]` rect.
 
 ---
 
 ## Components
 
-### `OnboardingGate` (new)
-**File:** `features/onboarding/OnboardingGate.tsx`
+### `OnboardingGate`
+- Renders `OnboardingModal` when `!profileComplete`
+- On profile complete: calls `productTour.start()` if `!tourComplete`
 
-- Reads `user` from `useAuthStore`
-- If `!user` or `!token`: renders nothing (auth guards handle redirect)
-- If `!user.profileComplete`: renders `<OnboardingModal onComplete={...} />`
-- If `user.profileComplete && !user.tourComplete`: renders dashboard `<TourOverlay>`
-- `onTourComplete`: calls `PATCH /users/me { tourComplete: true }`, then `setAuth`
+### `OnboardingModal`
+Unchanged from prior spec (welcome + profile, forced step 0 CTA).
 
-Placed in `App.tsx` inside `<QueryClientProvider>` but outside `<Routes>` so it overlays all pages.
+### `ProductTourOrchestrator` (new)
+**File:** `features/onboarding/ProductTourOrchestrator.tsx`
 
-### `OnboardingModal` (new)
-**File:** `features/onboarding/OnboardingModal.tsx`
+- Fetches tour context (`useDashboard` or cached recent navigation)
+- Owns `TourOverlay` with full `PRODUCT_TOUR_STEPS`
+- On complete: `PATCH /users/me { tourComplete: true }`, `localStorage ama-product-tour-seen`
+- Exposes `start({ force?: boolean })` via context or Zustand slice
 
-Full-screen overlay (`fixed inset-0 z-50`), centered card (`max-w-lg`), progress dots at bottom.
+### `useProductTour` (new — replaces `useDashboardTour`, `useSongTour`, `useAppTour`)
+**File:** `features/onboarding/useProductTour.ts`
 
-**Step 0 — Welcome**
-- AMA-MIDI logo + tagline: *"The collaborative MIDI editor for game audio teams"*
-- 3 value prop cards:
-  - 🎹 **Piano Roll** — 8 tracks × 300s of musical timeline, fast note placement
-  - 👥 **Real-time Collaboration** — live cursors, instant sync across all team members
-  - ✨ **AI Suggestions** — generate full charts or fill track gaps with AI
-- CTA: "Get started →" (no skip — force value exposure on step 0)
+- Exports `PRODUCT_TOUR_STEPS` constant
+- `{ active, start, complete, skip, stepIndex }`
+- `shouldAutoStart`: `profileComplete && !tourComplete && !hasSeenProductTour(localStorage)`
 
-**Step 1 — Profile**
-- Fields: Display Name (optional), Title (required), Department (required, select)
-- Same validation as current `ProfileSetupPage`
-- On submit: `PATCH /users/me { name, title, department, profileComplete: true }`
-- On success: calls `onComplete()` prop → gate unmounts modal, starts dashboard tour
-- Error: inline below form
-- Skip allowed: submits with empty name, but title+department still required
-
-Props:
-```ts
-interface OnboardingModalProps {
-  onComplete: () => void
-}
-```
-
-### `useDashboardTour` (new)
-**File:** `features/onboarding/useDashboardTour.ts`
-
-4 steps targeting dashboard elements:
-
-| target | message |
-|---|---|
-| `dashboard-header` | Welcome to AMA-MIDI. This is your dashboard — your starting point for all projects and songs. |
-| `nav-projects` | Browse all projects here. Each project holds multiple songs and tracks collaborators. |
-| `quick-create-song` | Create a new song in seconds. Pick a project, set a title, and start composing. |
-| `song-card` | Each card is a song. Open it to enter the piano roll editor. |
-
-Returns: `{ steps, active, start, complete, skip }`
-
-### `useAppTour` (modify)
-**File:** `features/onboarding/useAppTour.ts`
-
-Rename internal steps to `EDITOR_TOUR_STEPS` for clarity. No logic change.  
-`shouldAutoStart` stays: `profileComplete && !tourComplete` — but this is now only consumed by the editor chain, not `OnboardingGate` (gate uses `useDashboardTour` instead).
-
-Update: `tourComplete` is set after **dashboard** tour completes (in `OnboardingGate`). Editor tour (`useSongTour` + `useAppTour`) uses its own localStorage guard (`ama-song-tour-seen`) — independent of `tourComplete`.
-
-### `useSongTour` + `useAppTour` chain (EditorPage)
-**File:** `pages/EditorPage.tsx`
-
-```ts
-const songTour = useSongTour()    // existing — 3 steps, localStorage guard
-const appTour  = useAppTour()     // existing — 7 editor steps
-
-// After songTour completes, auto-start appTour if not seen
-// useSongTour.complete() sets localStorage 'ama-song-tour-seen'
-// useAppTour checks user.profileComplete && !user.tourComplete
-// → but tourComplete is now set by dashboard tour, not editor tour
-// Fix: editor tour uses its own localStorage key 'ama-editor-tour-seen'
-```
-
-**Adjust `useAppTour`:** replace `tourComplete` DB flag with localStorage key `ama-editor-tour-seen`. Remove `PATCH /users/me { tourComplete: true }` from editor tour — `tourComplete` is only for dashboard tour.
+### Deprecate
+- `useDashboardTour.ts` — merged into product tour phase 1
+- `useSongTour.ts` — merged into product tour phase 2–4 transition
+- `useAppTour.ts` — merged into product tour phase 4
 
 ---
 
-## `data-tour` Attributes Needed
+## `data-tour` Attributes
 
-**Dashboard (new):**
-- `data-tour="dashboard-header"` — dashboard page heading
-- `data-tour="nav-projects"` — Projects nav link in `AppShell`
-- `data-tour="quick-create-song"` — `QuickCreateSongButton`
-- `data-tour="song-card"` — first `SongCard` (add to SongCard root element)
+### Management / project / song
 
-**Editor (verify existing):**
-- `data-tour="piano-roll"` — PianoRoll root
-- `data-tour="fast-mode"` — fast mode toggle
-- `data-tour="ai-suggest"` — AI menu button
-- `data-tour="ai-continue-pattern"` — continue pattern button
-- `data-tour="view-mode"` — view mode toggle group
-- `data-tour="history-tab"` — history tab button
-- `data-tour="shortcut-help"` — shortcut legend button
+| Attribute | Component |
+|---|---|
+| `nav-projects` | `AppShell` Projects nav link |
+| `my-projects` | `DashboardPage` My Projects section |
+| `projects-header` | `ProjectDashboardPage` heading |
+| `project-card` | First `ProjectCard` in list |
+| `project-header` | `ProjectPage` title area |
+| `song-table-row` | First row in `SongTable` |
+| `quick-create-song` | `QuickCreateSongButton` |
+| `project-members-tab` | `ProjectPage` Members tab trigger |
+
+### Editor
+
+| Attribute | Component | Notes |
+|---|---|---|
+| `piano-roll` | `EditorPage` | Exists |
+| `track-list` | First `TrackHeader` or Tracks section wrapper | **Add** |
+| `transport-bar` | `TransportBar` | **Add** |
+| `chart-difficulty` | `ChartSwitcher` trigger (badge visible) | **Add** |
+| `song-difficulty-stats` | `BottomBarStats` wrapper in left panel | **Add** |
+| `tools-tab` | Right panel tools tab trigger | **Add** |
+| `zoom` | Zoom `ToolRow` in `ToolsTab` | **Add** |
+| `fast-mode` | Create mode `ToolRow` | **Add** |
+| `view-mode` | View `ToolRow` | **Add** |
+| `validation-tab` | Validation tab trigger | **Add** |
+| `history-tab` | History tab trigger | Exists |
+| `ai-suggest` | `AiAssistantTrigger` | Exists |
+| `difficulty-heatmap` | Heatmap toggle in `ToolsTab` | **Add** |
+| `session-presence` | `SessionPresenceMenu` trigger | **Add** |
+| `shortcut-help` | Toolbar `?` | Exists |
+
+---
+
+## Take a Tour Entry Points
+
+| Location | Behavior |
+|---|---|
+| Auto after profile save | `productTour.start()` |
+| `AppShell` account menu or header | "Take a tour" → `productTour.start({ force: true })` |
+| Skip during tour | Marks `tourComplete` + localStorage (user opted out) |
 
 ---
 
@@ -164,10 +240,11 @@ const appTour  = useAppTour()     // existing — 7 editor steps
 
 | Scenario | Behavior |
 |---|---|
-| Profile PATCH fails | Inline error in form, user retries |
-| Dashboard tour PATCH fails | Swallow silently (non-critical) |
-| `data-tour` element not in DOM | `TourOverlay` shows tooltip at viewport center (existing behavior) |
-| User refreshes mid-onboarding | `OnboardingGate` re-reads auth store — modal re-shows if `!profileComplete` |
+| Profile PATCH fails | Inline error in modal |
+| Tour PATCH fails | Swallow; set localStorage only |
+| No project/song for context | Phases 1–2 use centered tooltips; skip navigation steps; end editor phase with create-project hint |
+| `data-tour` missing | Centered tooltip (existing fallback) |
+| Mid-tour refresh | Resume from step 0 if `!tourComplete`; persist `ama-product-tour-step` optionally (v2) |
 
 ---
 
@@ -175,24 +252,33 @@ const appTour  = useAppTour()     // existing — 7 editor steps
 
 | Action | File |
 |---|---|
-| NEW | `features/onboarding/OnboardingGate.tsx` |
+| NEW | `features/onboarding/ProductTourOrchestrator.tsx` |
+| NEW | `features/onboarding/useProductTour.ts` |
+| NEW | `features/onboarding/product-tour-steps.ts` |
+| NEW | `features/onboarding/tour-context.ts` |
+| NEW | `features/onboarding/editor-tour-storage.ts` → rename `product-tour-storage.ts` |
+| MOD | `features/onboarding/TourOverlay.tsx` — `prepare`, phase label, settle delay |
+| MOD | `features/onboarding/OnboardingGate.tsx` |
 | NEW | `features/onboarding/OnboardingModal.tsx` |
-| NEW | `features/onboarding/useDashboardTour.ts` |
-| MOD | `features/onboarding/useAppTour.ts` — switch from DB flag to localStorage |
-| MOD | `App.tsx` — add `<OnboardingGate>` |
-| MOD | `pages/AuthCallbackPage.tsx` — remove `/profile-setup` redirect |
-| MOD | `pages/EditorPage.tsx` — chain `useSongTour` → `useAppTour` |
-| MOD | `features/dashboard/DashboardPage.tsx` — add `data-tour` attrs |
-| MOD | `components/layout/AppShell.tsx` — add `data-tour="nav-projects"` |
-| MOD | `features/songs/SongCard.tsx` — add `data-tour="song-card"` |
-| MOD | `features/songs/QuickCreateSongButton.tsx` — add `data-tour="quick-create-song"` |
-| KEEP | `pages/ProfileSetupPage.tsx` — keep as fallback, no longer primary path |
+| MOD | `App.tsx` — gate + orchestrator |
+| MOD | `pages/AuthCallbackPage.tsx` |
+| MOD | `components/layout/AppShell.tsx` — nav anchors + "Take a tour" menu item |
+| MOD | `features/dashboard/DashboardPage.tsx` |
+| MOD | `features/projects/ProjectDashboardPage.tsx` |
+| MOD | `features/projects/ProjectCard.tsx` |
+| MOD | `features/projects/ProjectPage.tsx` |
+| MOD | `features/songs/SongTable.tsx` |
+| MOD | `features/songs/QuickCreateSongButton.tsx` |
+| MOD | `pages/EditorPage.tsx` — remove old song/app tour wiring |
+| MOD | Editor components — anchors per table above |
+| DELETE | `useDashboardTour.ts`, `useSongTour.ts`, `useAppTour.ts` (after migration) |
 
 ---
 
 ## Out of Scope
 
-- Analytics / tracking of onboarding completion rate
-- Re-triggering tour from settings/profile menu
+- Analytics / completion rate tracking
+- Mid-tour step persistence across refresh (v2)
 - Mobile-specific tour layout
-- Onboarding for invited collaborators (non-first-login users)
+- Separate onboarding for invited collaborators
+- Dashboard stat cards as dedicated steps

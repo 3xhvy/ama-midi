@@ -1,7 +1,5 @@
 import { useRef, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useSongTour }  from '../features/onboarding/useSongTour'
-import { TourOverlay }  from '../features/onboarding/TourOverlay'
 import { useQuery } from '@tanstack/react-query'
 import { EditorShell } from '../components/layout'
 import { Toolbar }            from '../features/editor/components/Toolbar'
@@ -34,6 +32,7 @@ import { PianoRoll } from '../features/editor/components/PianoRoll'
 import { HistoryPanel } from '../features/editor/components/HistoryPanel'
 import { ValidationPanel } from '../features/editor/components/ValidationPanel'
 import { ShortcutLegend } from '../features/editor/components/ShortcutLegend'
+import { TourDemoModals } from '../features/editor/components/TourDemoModals'
 import { useSocket } from '../features/collaboration/useSocket'
 import { useActivityNotices } from '../features/collaboration/useActivityNotices'
 import { useEditorStore } from '../store/editor.store'
@@ -84,7 +83,6 @@ export function EditorPage() {
 
   usePlayback()
 
-  const songTour = useSongTour()
   const { data: charts = [] } = useCharts(songId!)
   const activeChart = charts.find((c) => c.id === activeChartId) ?? charts[0]
 
@@ -376,7 +374,7 @@ export function EditorPage() {
       <div className="px-3 py-2 border-b border-shell-border">
         <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Tracks</span>
       </div>
-      <div className="py-1">
+      <div className="py-1" data-tour="track-list">
         {Array.from({ length: 8 }, (_, i) => i + 1).map((track) => (
           <TrackHeader
             key={track}
@@ -431,8 +429,8 @@ export function EditorPage() {
         className="flex flex-col flex-1 min-h-0"
       >
         <Tabs.List>
-          <Tabs.Trigger value="tools">tools</Tabs.Trigger>
-          <Tabs.Trigger value="validation">
+          <Tabs.Trigger value="tools" data-tour="tools-tab">tools</Tabs.Trigger>
+          <Tabs.Trigger value="validation" data-tour="validation-tab">
             val
             {validationTotal > 0 && (
               <span
@@ -592,6 +590,7 @@ export function EditorPage() {
         selectedNotes={selectedNoteObjects}
         sections={sections}
       />
+      <TourDemoModals />
       <EditorShell
         topBar={topBar}
         leftPanel={leftPanel}
@@ -625,9 +624,6 @@ export function EditorPage() {
       )}
 
       {showShortcuts && <ShortcutLegend onClose={() => setShowShortcuts(false)} />}
-      {songTour.active && (
-        <TourOverlay steps={songTour.steps} onComplete={songTour.complete} onSkip={songTour.skip} />
-      )}
     </div>
   )
 }
@@ -724,7 +720,7 @@ function ToolsTab({
       <section className="space-y-3">
         <PanelHeading title="Editor" meta={`${notes.length} notes`} />
 
-        <ToolRow label="View">
+        <ToolRow label="View" data-tour="view-mode">
           <ToggleGroup
             items={VIEW_MODES}
             value={viewMode}
@@ -733,7 +729,7 @@ function ToolsTab({
           />
         </ToolRow>
 
-        <ToolRow label="Zoom">
+        <ToolRow label="Zoom" data-tour="zoom">
           <ToggleGroup
             items={ZOOM_MODES}
             value={String(zoom)}
@@ -763,7 +759,7 @@ function ToolsTab({
               Place notes: click for tap · hold 0.1s or drag for hold
             </p>
 
-            <ToolRow label="Create mode">
+            <ToolRow label="Create mode" data-tour="fast-mode">
               <ToggleGroup
                 items={[
                   { value: 'fast',  label: 'Fast' },
@@ -779,6 +775,7 @@ function ToolsTab({
 
         <button
           type="button"
+          data-tour="difficulty-heatmap"
           onClick={() => setHeatmapEnabled(!heatmapEnabled)}
           className="w-full flex items-center justify-between rounded-md border border-shell-border bg-shell-bg px-3 py-2 text-xs text-shell-text hover:bg-shell-surface transition-colors"
         >
@@ -791,12 +788,12 @@ function ToolsTab({
         </button>
       </section>
 
-      <section className="space-y-3 border-t border-shell-border pt-4">
+      <section className="space-y-3 border-t border-shell-border pt-4" data-tour="selection-actions">
         <PanelHeading title="Selection" meta={selectedCount ? `${selectedCount} selected` : 'none'} />
 
         {selectedCount === 0 ? (
           <p className="text-xs leading-relaxed text-shell-muted">
-            Select notes on the canvas to edit groups here.
+            Select 2+ notes on the canvas to open the floating action bar — save, repeat, copy, and AI shortcuts appear above the grid.
           </p>
         ) : (
           <>
@@ -848,9 +845,13 @@ function PanelHeading({ title, meta }: { title: string; meta?: string }) {
   )
 }
 
-function ToolRow({ label, children }: { label: string; children: ReactNode }) {
+function ToolRow({
+  label,
+  children,
+  ...rest
+}: { label: string; children: ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5" {...rest}>
       <span className="text-xs text-shell-muted">{label}</span>
       {children}
     </div>

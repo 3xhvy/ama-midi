@@ -149,18 +149,22 @@ export function PatternPanel({ songId, chartId }: Props) {
   }
 
   return (
-    <div className="px-3 py-2 border-t border-shell-border">
+    <div data-tour="pattern-panel" className="px-3 py-2 border-t border-shell-border">
       <div className="text-xs font-medium text-shell-text uppercase tracking-wide mb-2">Patterns</div>
       {patterns.length === 0 ? (
-        <p className="text-[10px] text-shell-muted">No patterns yet. Select 2+ notes and save as pattern.</p>
+        <p className="text-[10px] text-shell-muted">
+          No patterns yet. Select 2+ notes and{' '}
+          <span data-tour="paste-pattern" className="text-shell-text">save as pattern</span>.
+        </p>
       ) : (
         <>
           <ul className="space-y-1">
-            {patterns.map(p => (
+            {patterns.map((p, index) => (
               <li key={p.id} className="flex items-center justify-between gap-2 text-xs">
                 <span className="min-w-0 truncate text-shell-text">{p.name} <span className="text-shell-muted">({p.notes.length})</span></span>
                 <div className="flex shrink-0 gap-1">
                   <button
+                    data-tour={index === 0 ? 'paste-pattern' : undefined}
                     onClick={() => openPastePopup(p)}
                     className="px-1.5 py-0.5 text-[10px] rounded border border-shell-border text-shell-muted hover:text-shell-text disabled:cursor-not-allowed disabled:opacity-50"
                   >

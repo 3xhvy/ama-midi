@@ -13,6 +13,7 @@ import { CreateSongWizard } from '../songs/create-wizard/CreateSongWizard'
 import { QuickCreateSongButton } from '../songs/QuickCreateSongButton'
 import { EditProjectModal } from './EditProjectModal'
 import { MemberTable } from '../project-members/MemberTable'
+import { useProductTourStore } from '../onboarding/product-tour.store'
 
 export function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -20,6 +21,12 @@ export function ProjectPage() {
   const { data: songs = [] } = useProjectSongs(projectId)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [tab, setTab] = useState('songs')
+  const tourProjectTab = useProductTourStore((s) => s.projectTab)
+
+  useEffect(() => {
+    if (tourProjectTab) setTab(tourProjectTab)
+  }, [tourProjectTab])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -42,7 +49,10 @@ export function ProjectPage() {
 
   return (
     <AppShell variant="management">
-      <div className="mb-5 flex flex-col gap-4 border-b border-shell-border pb-4 md:flex-row md:items-end md:justify-between">
+      <div
+        data-tour="project-header"
+        className="mb-5 flex flex-col gap-4 border-b border-shell-border pb-4 md:flex-row md:items-end md:justify-between"
+      >
         <div className="min-w-0">
           <BackNavLink to="/projects" label="Projects" className="mb-2" />
           <div className="flex flex-wrap items-center gap-3">
@@ -88,10 +98,10 @@ export function ProjectPage() {
         </div>
       </div>
 
-      <Tabs.Root defaultValue="songs">
+      <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List variant="management">
           <Tabs.Trigger value="songs">Songs</Tabs.Trigger>
-          <Tabs.Trigger value="members">Members</Tabs.Trigger>
+          <Tabs.Trigger value="members" data-tour="project-members-tab">Members</Tabs.Trigger>
           <Tabs.Trigger value="settings">Settings</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="songs" className="pt-4">

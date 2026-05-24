@@ -7,11 +7,13 @@ dist
 build
 .next
 .turbo
+.superpowers
 
 # Environment
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # IDE
 .idea

@@ -1,48 +1,65 @@
 # AMA-MIDI
 
-AMA-MIDI is a real-time collaborative MIDI sequencer built for Amanotes internal teams. Composers, game developers, and QA can open the same song simultaneously, place notes on an 8-track × 300-second piano roll, and see each other's changes in under a second — with zero data corruption. The editor handles 10,000 notes without freezing, enforces duplicate-free positioning at the database layer, and logs every mutation for instant undo and full audit history.
+**A real-time collaborative MIDI sequencer for Amanotes internal teams.**
+
+Composers, game developers, and QA open the same song simultaneously, place notes on an 8-track × 300-second piano roll, and see each other's changes in under a second — with zero data corruption. The editor handles 10,000 notes without freezing, enforces duplicate-free positioning at the database layer, and logs every mutation for instant undo and full audit history.
+
+> This is not a CRUD application. It is an internal creative tool that bridges music composition and game production for teams that need to iterate fast and ship with confidence.
 
 ---
 
-## Live URLs
+## Live Demo
 
-| Service | URL | Status |
-|---|---|---|
-| Web app | https://ama-midi.vercel.app | deploy pending |
-| API | https://api.ama-midi.up.railway.app | deploy pending |
-| Health | https://api.ama-midi.up.railway.app/health | deploy pending |
+| Service | URL |
+|---|---|
+| Web app | https://ama-midi.hvy-dev.uk |
+| API health | https://ama-midi.hvy-dev.uk/api/health |
+
+---
+
+## Project Documentation
+
+Full project documentation is organized as a narrative — problem first, decisions second, implementation third.
+
+| Doc | What It Covers |
+|---|---|
+| [01 · Problem & Vision](docs/project/01-problem-and-vision.md) | Why this exists. The workflow gap. Why it's technically hard. |
+| [02 · Actors & Use Cases](docs/project/02-actors-and-use-cases.md) | 4 actors, their real needs, the non-obvious UX decisions behind each. |
+| [03 · Feature Hierarchy](docs/project/03-features.md) | P0 → P1 → P2 priority tiers with rationale. What was cut and why. |
+| [04 · Design Thinking](docs/project/04-design-thinking.md) | 6 key architectural decisions. Strongest opposing argument first. |
+| [05 · Architecture & System Design](docs/project/05-architecture.md) | Stack choices, module map, data model, real-time topology. |
+| [06 · Major Feature Workflows](docs/project/06-workflows.md) | Note creation (happy + conflict path), real-time collaboration, AI suggester. |
+| [07 · Key Trade-offs](docs/project/07-trade-offs.md) | Decision table: what was chosen, what was rejected, what was gained and lost. |
+| [08 · Project Structure](docs/project/08-project-structure.md) | Annotated monorepo folder tree. Why each boundary exists. |
+| [09 · Deploy Pipeline](docs/project/09-deploy.md) | VPS topology, Docker Compose services, Nginx config, GitHub Actions CI/CD. |
+| [10 · Retrospective](docs/project/10-retrospective.md) | What I'd do differently. Why this problem is genuinely hard. |
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Clone and install
+# Clone and install
 git clone git@github.com:3xhvy/ama-midi.git
 cd ama-midi
 pnpm install
 
-# 2. Configure environment
+# Configure environment
 cp .env.example .env
-# Fill in: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET (min 32 chars), ANTHROPIC_API_KEY
+# Fill in: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET (min 32 chars)
+# AI_PROVIDER=anthropic|openai|deepseek + the matching API key
 
-# 3. Run DB migrations
-cd apps/api
-npx prisma migrate dev
+# Run DB migrations
+cd apps/api && npx prisma migrate dev
 
-# 4. Seed 10,000 notes for local performance testing
+# Seed 10,000 notes for local performance testing (optional)
 pnpm seed
 
-# 5. Start both apps
-cd ../..
-pnpm dev
+# Start both apps (web :3000 / api :3001)
+cd ../.. && pnpm dev
 ```
 
-- **Web:** http://localhost:3000
-- **API:** http://localhost:3001
-- **Health check:** http://localhost:3001/health
-
-### Full Docker Stack
+**Full Docker stack:**
 
 ```bash
 docker-compose up --build
@@ -51,214 +68,97 @@ curl http://localhost:3001/health
 
 ---
 
-## Features
+## Key Capabilities
 
-| Feature | Description |
+| Capability | How It Works |
 |---|---|
-| Piano Roll Editor | 8-track × 300s vertical timeline, notes as colored circles |
-| Fast Mode | Click grid → note placed instantly with optimistic UI |
-| Popup Mode | Form with title, description, color picker, track, time |
-| Duplicate Prevention | `UNIQUE (song_id, track, time)` DB constraint + 409 conflict toast |
-| Real-time Collaboration | Socket.io rooms per song, Redis Pub/Sub for multi-instance broadcast |
-| User Presence | Avatars of active editors |
-| Change Ledger | Every note mutation stored as an immutable `NoteEvent` |
-| Undo | Compensating event reverts last action, broadcasts to all tabs |
-| Role-based Views | Composer / Developer / QA views of the same data |
-| AI Note Suggester | Claude API suggests next notes as ghost overlays (accept/dismiss) |
-| 10,000-note Performance | Two-layer windowing: server returns only notes in viewport time-range; client viewport clamp limits DOM nodes to what is on-screen |
+| **Piano Roll Editor** | 8-track × 300s vertical timeline. Notes as colored circles at precise (track, time) positions. |
+| **Fast Mode** | Click grid → note placed instantly (optimistic UI). No form interruption. |
+| **Duplicate Prevention** | `UNIQUE (song_id, track, time) WHERE deleted_at IS NULL` — enforced atomically at DB layer, not application layer. |
+| **Real-time Collaboration** | Socket.io rooms per song. Redis Pub/Sub fans events to all API instances. All collaborators see changes in < 1s. |
+| **Change Ledger** | Every mutation writes an immutable `NoteEvent` with `before_state` / `after_state` JSONB. Undo = compensating event. |
+| **10,000-note Performance** | Two-layer windowing: API returns only the visible time window; client clamps to viewport. ~60–120 active DOM nodes regardless of total count. |
+| **AI Note Suggester** | Sends last 10 notes to a configurable AI provider (Anthropic Claude / OpenAI / DeepSeek) → receives 3–5 pattern-continuation suggestions → renders as ghost overlays (accept/dismiss per note). |
+| **Role-based Access** | Admin / Composer / Developer / Viewer enforced at NestJS route guards and React UI layer. |
 
 ---
 
-## Architecture
+## Architecture (Summary)
 
-### Why modular monolith, not microservices
+**Turborepo monorepo.** `apps/web` (React 18 + Vite) · `apps/api` (NestJS) · `packages/shared` (zero-dep TypeScript types).
 
-The scope (single team, tight deadline) doesn't justify the deployment and networking overhead of separate services. NestJS modules (`auth`, `songs`, `notes`, `ledger`, `realtime`, `ai`) give clean domain boundaries enforced by TypeScript while sharing a single process and a single Prisma connection pool. Splitting into microservices would add latency for every cross-domain call without meaningful gain at this scale.
+**Why modular monolith:** Clean NestJS module boundaries without microservices overhead. `AuthModule`, `SongModule`, `NoteModule`, `LedgerModule`, `RealtimeModule`, `AiModule` — each owns its domain, communicates through defined interfaces. Natural microservice cut points if scale demands it.
 
-### Why EventEmitter, not Kafka
+**Why DB-level unique constraint:** App-level pre-checks are race conditions. Two concurrent writes both pass the check before either commits. The partial unique index is atomic — one insert wins, one gets `P2002` → HTTP 409 → optimistic rollback + toast.
 
-`@nestjs/event-emitter` provides synchronous, in-process pub/sub between modules (e.g., `notes` → `ledger` → `realtime`). This is sufficient for a single-instance deployment and keeps local development dependency-free. An outbox table (`OutboxEvent` model) is already in the schema for a future migration to Kafka or a message broker — the pattern is in place, the worker is inactive.
+**Why event sourcing:** Every note mutation is an immutable event. Undo = compensating event (new `NOTE_DELETED`). No history mutation, no branching complexity. Full audit trail with before/after state.
 
-### Why DB unique constraint, not app-level duplicate check
-
-Application-level pre-checks are a race condition under concurrent writes. Two requests can both pass the check and both attempt to insert. The `UNIQUE (song_id, track, time) WHERE deleted_at IS NULL` partial index is the only guard that works under any concurrency. The API catches Prisma error code `P2002` and returns HTTP 409. There is intentionally no app-level pre-check.
-
-### Why event sourcing for the ledger
-
-Every note mutation writes an immutable `NoteEvent` (`NOTE_CREATED`, `NOTE_UPDATED`, `NOTE_DELETED`) with `before_state` and `after_state` JSONB. Undo is a compensating event — it doesn't rewrite history, it appends an inverse. This gives a complete audit trail, safe multi-tab undo, and a foundation for time-travel queries, without version branching complexity.
-
-### Why windowed fetch + client clamp, not Canvas
-
-Performance for 10,000 notes is achieved in two layers. The API accepts `timeFrom`/`timeTo` query parameters and returns only notes within a 20-second bucket window around the visible viewport (plus a ±5s prefetch buffer for smooth scrolling). The client applies a second filter — `getVisibleTimeRange` — on the fetched array before rendering, so only notes whose Y coordinate is within the scroll viewport are mounted as DOM elements. Together, these limit live DOM nodes to the notes currently on screen (~60–120 depending on note density and zoom level). `@tanstack/react-virtual` is installed but not used — it is designed for lists with known item heights, while note circles are positioned absolutely on a 2D grid; a coordinate filter is the correct primitive. Canvas would improve raw rendering throughput at scale > 50,000 notes but makes click detection, selection boxes, and drag handles significantly harder to implement correctly.
-
----
-
-## Trade-offs
-
-| Decision | Trade-off |
-|---|---|
-| Synchronous EventEmitter | No persistence if the process crashes between note write and ledger write. Outbox pattern is scaffolded (`OutboxEvent` table) but worker is inactive. |
-| Windowed rendering | Scroll triggers re-filter on the fetched array (cheap) and may trigger a React Query refetch when the viewport crosses a 20s bucket boundary (one network request). Canvas would be faster at scale > 50,000 notes. |
-| 0.1s snap resolution | Times are snapped to one decimal place (`Math.round(time * 10) / 10`). Sub-0.1s positioning is not supported. Changing this requires a DB migration. |
-| Outbox table inactive | `OutboxEvent` table is created and seeded but the polling worker is not implemented. Real-time broadcast falls back to direct Socket.io emit. |
-| Google OAuth only | No email/password auth. Users without a Google account cannot log in. |
-
----
-
-## Performance
-
-**Load test target:** p95 < 200ms at 100 concurrent users for `POST /songs/:id/notes`
-
-```bash
-# Run after deployment (requires k6)
-BASE_URL=https://api.ama-midi.up.railway.app \
-SONG_ID=<seed-song-id> \
-TOKEN=<jwt> \
-k6 run scripts/load-test.js
-```
-
-> k6 run pending deployment; local target p95 < 200ms
-
-**Piano roll rendering:** 10,000 notes → ~60–120 DOM nodes in view at any time via two-layer windowing (server `timeFrom`/`timeTo` + client `getVisibleTimeRange` clamp). Verified locally with `pnpm seed` (inserts 10,000 notes across all tracks) then inspecting DOM node count in DevTools → Elements.
+→ Full architecture detail: [Architecture & System Design](docs/project/05-architecture.md)
 
 ---
 
 ## Testing
 
-See [Performance & Correctness Testing Plan](docs/performance-testing-plan.md) for step-by-step procedures covering conflict tests, boundary tests, load tests, and 10,000-note rendering verification.
-
 ```bash
-# Unit tests (NotesService)
+# Unit tests (NoteService: 6 behavioral contracts)
 cd apps/api && pnpm test
 
-# Integration tests (real DB)
+# Integration tests (real DB — requires ama_midi_test database)
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ama_midi_test pnpm test
 
-# Load test
+# Load test (requires k6 + running API)
 k6 run scripts/load-test.js
 ```
 
-**Unit tests: NotesService (6 cases)**
-- `create` rounds time to 1 decimal place before insert
-- `create` throws 409 on duplicate position (P2002)
-- `create` emits `note.created` event on success
-- `softDelete` emits `note.deleted` event with `beforeState`
-- `undo` finds and soft-deletes last `NOTE_CREATED` by current user
-- `undo` throws `NotFoundException` when nothing to undo
+**Critical test — concurrent conflict:**
 
-**Integration tests:** to be run against test DB (`ama_midi_test`).
+```bash
+# Two simultaneous POSTs to the same (song_id, track, time).
+# Expected: [201, 409] in some order. DB contains exactly 1 note.
+# Promise.all — not sequential — is what tests the race condition.
+```
 
----
-
-## Grading Coverage Map
-
-| Criterion | Where |
-|---|---|
-| Google OAuth + JWT | `apps/api/src/modules/auth/` |
-| Song CRUD | `apps/api/src/modules/songs/` |
-| Note CRUD + 409 conflict | `apps/api/src/modules/notes/notes.service.ts` |
-| PATCH /notes/:id | `notes.controller.ts` + `notes.service.ts` + `dto/update-note.dto.ts` |
-| DB unique constraint | `prisma/migrations/20260522053814_fix_notes_partial_unique/` |
-| DB indexes | `prisma/schema.prisma` (`@@index([songId, time])`, `@@index([songId, track])`) |
-| Soft delete | `notes.service.ts` → `softDelete` |
-| Immutable ledger | `apps/api/src/modules/ledger/` |
-| Undo | `notes.service.ts` → `undo` |
-| WebSocket collaboration | `apps/api/src/modules/realtime/` |
-| Redis broadcast | `realtime/` + `LedgerModule` |
-| AI suggestions | `apps/api/src/modules/ai/` |
-| 10k-note performance | `apps/web/src/features/editor/components/PianoRoll.tsx` |
-| Optimistic UI | `apps/web/src/features/notes/useNotes.ts` |
-| Role-based access | `apps/api/src/modules/auth/roles.guard.ts` |
-| Unit tests | `apps/api/src/modules/notes/__tests__/notes.service.spec.ts` |
-| Seed script | `apps/api/prisma/seed.ts` |
-| Load test | `scripts/load-test.js` |
-| Docker / CI | `docker-compose.yml` + `.github/` |
-
----
-
-## Security
-
-| Layer | Implementation |
-|---|---|
-| Transport | HTTPS enforced at host level (Vercel/Railway) |
-| Security headers | `helmet()` — sets `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`, and more |
-| Authentication | Google OAuth 2.0 (OIDC) → JWT issued by API; client sends `Authorization: Bearer <token>` header on every request |
-| CSRF | **Not applicable.** CSRF attacks exploit ambient credentials (cookies). This app uses a custom `Authorization` header set by JavaScript — cross-origin requests cannot set custom headers (blocked by CORS preflight). The attack surface does not exist. |
-| XSS | Helmet's `Content-Security-Policy` blocks inline script injection. React's JSX escapes output by default. JWT stored in memory (`useAuthStore`) — not `httpOnly` cookie, which would re-introduce CSRF surface. |
-| Rate limiting | `ThrottlerModule` global guard — 100 requests / 60 s per IP via NestJS `@nestjs/throttler` |
-| Input validation | `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true` — rejects unknown fields on all endpoints |
-| Authorization | JWT guard on all protected routes; role-based guard (`COMPOSER` / `VIEWER`) on AI and mutation endpoints |
+See [Performance & Correctness Testing Plan](docs/performance-testing-plan.md) for full procedures.
 
 ---
 
 ## Environment Variables
 
+See `.env.example`. Required:
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+| `JWT_SECRET` | Min 32 chars. Generate: `openssl rand -hex 32` |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `GOOGLE_CALLBACK_URL` | OAuth redirect URI |
+| `AI_PROVIDER` | `anthropic` \| `openai` \| `deepseek` — selects AI backend |
+| `ANTHROPIC_API_KEY` | Required when `AI_PROVIDER=anthropic` |
+| `OPENAI_API_KEY` | Required when `AI_PROVIDER=openai` |
+| `DEEPSEEK_API_KEY` | Required when `AI_PROVIDER=deepseek` |
+| `FRONTEND_URL` | Used for CORS and OAuth redirect validation |
+
+---
+
+## Deploy
+
+Two separated VPS with Docker Compose 1 for Postgre DB other for Application. Host Nginx handles TLS and reverse proxy. GitHub Actions builds images → pushes to GHCR → SSHs to VPS → `docker compose pull && up`.
+
+→ Full deploy guide: [Deploy Pipeline](docs/project/09-deploy.md)
+
+---
+
+## Commands
+
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ama_midi
-REDIS_URL=redis://localhost:6379
-JWT_SECRET=<min 32 chars — openssl rand -hex 32>
-GOOGLE_CLIENT_ID=<Google Cloud Console>
-GOOGLE_CLIENT_SECRET=<Google Cloud Console>
-GOOGLE_CALLBACK_URL=http://localhost:3001/auth/google/callback
-ANTHROPIC_API_KEY=<console.anthropic.com>
-FRONTEND_URL=http://localhost:3000
-```
-
----
-
-## API Reference
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | /auth/google | — | Google OAuth login |
-| GET | /auth/me | JWT | Current user |
-| GET | /songs | JWT | List songs |
-| POST | /songs | JWT | Create song |
-| GET | /songs/:id | JWT | Song detail |
-| GET | /songs/:id/notes | JWT | List notes (time-windowed) |
-| POST | /songs/:id/notes | JWT | Create note — 409 on duplicate |
-| PATCH | /songs/:id/notes/:noteId | JWT | Update note metadata |
-| DELETE | /songs/:id/notes/:noteId | JWT | Soft delete note |
-| POST | /songs/:id/events/undo | JWT | Undo last action |
-| GET | /songs/:id/events | JWT | Paginated change history |
-| POST | /songs/:id/suggest-notes | JWT, COMPOSER | AI note suggestions |
-
----
-
-## Project Structure
-
-```
-ama-midi/
-├── apps/
-│   ├── web/                        # Vite + React 18 + TypeScript
-│   │   └── src/
-│   │       ├── features/           # auth, songs, editor, notes, collaboration
-│   │       ├── hooks/              # useSocket, useNotes, useUndo
-│   │       ├── store/              # Zustand (editor mode, presence, view mode)
-│   │       └── pages/              # EditorPage, SongListPage, LoginPage
-│   │
-│   └── api/                        # NestJS + TypeScript
-│       ├── prisma/                 # schema, migrations, seed
-│       └── src/modules/
-│           ├── auth/               # Google OAuth + JWT + guards
-│           ├── songs/              # Song CRUD
-│           ├── notes/              # Note CRUD + conflict handling
-│           ├── ledger/             # NoteEvent immutable log
-│           ├── realtime/           # Socket.io gateway + Redis adapter
-│           ├── ai/                 # Claude API note suggester
-│           └── versions/           # Song snapshot versions
-│
-├── packages/
-│   └── shared/                     # Zero-dependency shared TypeScript types
-│       └── src/
-│           ├── types.ts            # Note, Song, NoteEvent, AuthUser
-│           ├── colors.ts           # LAYER_COLORS, NOTE_PRESET_COLORS
-│           ├── constants.ts        # TRACK_MIN/MAX, TIME_MIN/MAX, SNAP_RESOLUTION
-│           └── events.ts           # NOTE_EVENTS, NoteCreatedEvent, NoteUpdatedEvent, NoteDeletedEvent
-│
-├── scripts/
-│   └── load-test.js                # k6 load test (100 VUs, 30s)
-├── docker-compose.yml
-├── turbo.json
-└── pnpm-workspace.yaml
+pnpm install          # Install all workspaces
+pnpm dev              # Start web (:3000) and api (:3001)
+pnpm build            # Build all
+pnpm lint             # Lint all
+pnpm test             # Test all
+cd apps/api && pnpm test                        # API tests only
+cd apps/api && npx prisma migrate dev           # Run DB migrations
+docker-compose up --build                       # Full Docker stack
 ```

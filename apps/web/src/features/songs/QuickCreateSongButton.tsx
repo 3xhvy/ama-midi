@@ -45,6 +45,7 @@ export function QuickCreateSongButton({
   return (
     <Button
       id="quick-create-trigger"
+      data-tour="quick-create-song"
       size={size}
       variant={variant}
       rounded={rounded}

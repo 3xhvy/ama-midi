@@ -84,8 +84,12 @@ export function SongTable({ projectId, songs }: { projectId: string; songs: Song
                   </td>
                 </tr>
               ) : (
-                filtered.map((song) => (
-                  <tr key={song.id} className="border-t border-shell-border hover:bg-shell-bg">
+                filtered.map((song, index) => (
+                  <tr
+                    key={song.id}
+                    data-tour={index === 0 ? 'song-table-row' : undefined}
+                    className="border-t border-shell-border hover:bg-shell-bg"
+                  >
                     <td className="px-3 py-2 font-medium text-shell-text">{song.name}</td>
                     <td className="px-3 py-2">
                       <SongPersonCell name={song.creatorName} avatarUrl={resolveSongPersonAvatar(song, 'creator')} />

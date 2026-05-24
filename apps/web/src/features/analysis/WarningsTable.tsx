@@ -40,7 +40,7 @@ export function WarningsTable({ warnings, onJumpTo }: Props) {
   ]
 
   return (
-    <div className="space-y-3">
+    <div data-tour="analysis-warnings" className="space-y-3">
       {hasBlocking && (
         <div className="rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
           This chart blocks publish approval.

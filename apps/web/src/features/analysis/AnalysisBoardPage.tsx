@@ -61,7 +61,10 @@ export function AnalysisBoardPage() {
 
   return (
     <AppShell variant="management">
-      <div className="mb-6 flex flex-col gap-4 border-b border-shell-border pb-4 md:flex-row md:items-end md:justify-between">
+      <div
+        data-tour="analysis-board-header"
+        className="mb-6 flex flex-col gap-4 border-b border-shell-border pb-4 md:flex-row md:items-end md:justify-between"
+      >
         <div className="min-w-0">
           <BackNavLink
             to={`/projects/${projectId}/songs/${songId}?chart=${chartId}`}
@@ -84,6 +87,7 @@ export function AnalysisBoardPage() {
         </div>
         <Button
           size="sm"
+          data-tour="analysis-reanalyze"
           onClick={() => reanalyze.mutate()}
           loading={reanalyze.isPending}
         >
@@ -92,16 +96,37 @@ export function AnalysisBoardPage() {
       </div>
 
       {loading || !analysis ? (
-        <div className="space-y-4">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-48 w-full" />
+        <div className="space-y-6">
+          <div data-tour="analysis-stat-cards">
+            <Skeleton className="h-16 w-full" />
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div
+              data-tour="analysis-section-timeline"
+              className="space-y-2 rounded-lg border border-shell-border bg-shell-surface p-4"
+            >
+              <Skeleton className="h-48 w-full" />
+            </div>
+            <div
+              data-tour="analysis-factor-breakdown"
+              className="rounded-lg border border-shell-border bg-shell-surface p-4"
+            >
+              <Skeleton className="h-48 w-full" />
+            </div>
+          </div>
+          <div data-tour="analysis-warnings" className="rounded-lg border border-shell-border p-4">
+            <Skeleton className="h-32 w-full" />
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
           <StatCards analysis={analysis} noteCount={notes.length} />
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-2 rounded-lg border border-shell-border bg-shell-surface p-4">
+            <div
+              data-tour="analysis-section-timeline"
+              className="space-y-2 rounded-lg border border-shell-border bg-shell-surface p-4"
+            >
               <h3 className="text-xs font-medium uppercase tracking-wide text-shell-muted">
                 Section timeline
               </h3>

@@ -112,7 +112,7 @@ export function DashboardPage() {
         })}
       </div>
 
-      <section className="mt-5 rounded-lg border border-shell-border bg-gradient-to-b from-primary/5 to-shell-surface p-3">
+      <section data-tour="my-projects" className="mt-5 rounded-lg border border-shell-border bg-gradient-to-b from-primary/5 to-shell-surface p-3">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold text-shell-text">My Projects</h2>

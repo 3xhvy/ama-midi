@@ -38,7 +38,7 @@ export function TransportBar({ songId, bpm, canEdit }: TransportBarProps) {
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-1.5">
+    <div data-tour="transport-bar" className="flex shrink-0 items-center gap-1.5">
       <button
         type="button"
         onClick={() => { setPlayheadTime(0); setPlaying(false) }}

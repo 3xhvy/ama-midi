@@ -2,6 +2,7 @@ import type { AiChartContext } from '@ama-midi/shared'
 import {
   buildGeneratePrompt,
   serializeChartContextForPrompt,
+  CHART_NOTE_TYPE_INSTRUCTIONS,
 } from '../chart-context.prompt'
 
 function makeCtx(noteCount: number): AiChartContext {
@@ -91,7 +92,7 @@ describe('buildGeneratePrompt', () => {
       [
         'You are a rhythm-game chart designer for AMA-MIDI.',
         'Charts use 8 lanes (tracks 1–8), timeline 0–300 seconds.',
-        'Note types: TAP (default), HOLD (requires duration in seconds), SWIPE.',
+        CHART_NOTE_TYPE_INSTRUCTIONS,
         'Return ONLY valid JSON with keys "notes" and "sections". No markdown.',
       ].join(' '),
     )

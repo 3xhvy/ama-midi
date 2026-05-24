@@ -39,7 +39,7 @@ export function BottomBarStats({ notes, bpm = 120, speedMultiplier = 1 }: Props)
   }, [notes])
 
   return (
-    <div className="px-3 py-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-shell-muted">
+    <div data-tour="song-difficulty-stats" className="px-3 py-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-shell-muted">
       <span>Notes</span>
       <span className="font-medium text-right text-shell-text">{notes.length}</span>
       <span>Max combo</span>

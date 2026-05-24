@@ -59,7 +59,11 @@ export function GenerateChartFlow({
         snapMode,
         ...(targetTier ? { targetTier } : {}),
       })
-      if (result.type !== 'result' || result.action !== 'generate-chart') return
+      if (result.type !== 'result' || result.action !== 'generate-chart') {
+        toast.error('Unexpected AI response — try again')
+        onPhaseChange('configure')
+        return
+      }
 
       const { notes, sections } = result.payload
       if (notes.length === 0) {
@@ -78,9 +82,12 @@ export function GenerateChartFlow({
         replaceExisting,
         placement: replaceExisting ? null : preview,
       })
+      toast.success('Chart preview ready — review and apply in the bar above')
       closeAiAssistant()
       setDescription('')
-    } catch {
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return
+      toast.error(e instanceof Error ? e.message : 'Failed to generate chart preview')
       onPhaseChange('configure')
     }
   }
@@ -113,7 +120,7 @@ export function GenerateChartFlow({
         <AiFlowTextarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="e.g. Upbeat EDM drop at 128 BPM feel — sparse intro 0–30s, building hi-hats on tracks 2–3, dense doubles in chorus 60–90s, calm outro"
+          placeholder="e.g. Upbeat EDM drop — sparse intro, building hi-hats, hold notes on vocals/bass, dense doubles in chorus"
           rows={5}
           maxLength={2000}
           disabled={processing}

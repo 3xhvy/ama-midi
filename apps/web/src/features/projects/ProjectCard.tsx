@@ -6,7 +6,7 @@ import { Badge, IconButton } from '../../components/ui'
 import { cn, timeAgo } from '../../lib/utils'
 import { EditProjectModal } from './EditProjectModal'
 
-export function ProjectCard({ project }: { project: Project }) {
+export function ProjectCard({ project, tourAnchor = false }: { project: Project; tourAnchor?: boolean }) {
   const navigate = useNavigate()
   const [editOpen, setEditOpen] = useState(false)
 
@@ -17,6 +17,7 @@ export function ProjectCard({ project }: { project: Project }) {
   return (
     <>
       <div
+        data-tour={tourAnchor ? 'project-card' : undefined}
         className={cn(
           'w-full rounded-lg border border-shell-border bg-shell-surface px-4 py-3',
           'transition-all duration-150',

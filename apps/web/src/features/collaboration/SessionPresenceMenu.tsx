@@ -74,6 +74,7 @@ export function SessionPresenceMenu({ users, currentUserId, compact = false }: P
       <button
         ref={btnRef}
         type="button"
+        data-tour="session-presence"
         aria-haspopup="listbox"
         aria-expanded={open}
         title={countLabel}
