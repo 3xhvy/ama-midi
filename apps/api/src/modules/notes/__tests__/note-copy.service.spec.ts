@@ -11,6 +11,7 @@ import { NoteCopyService } from '../note-copy.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
 import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
+import { EditorCommandService } from '../../editor-commands/editor-command.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { AuthUser } from '@ama-midi/shared'
 
@@ -117,6 +118,7 @@ describe('NoteCopyService', () => {
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: ProjectAccessService, useValue: mockAccess },
         { provide: ChartAnalyzeService, useValue: mockAnalyze },
+        { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
       ],
     }).compile()
 

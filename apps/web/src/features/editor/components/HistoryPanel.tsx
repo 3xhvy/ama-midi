@@ -1,10 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { Avatar } from '../../../components/ui'
 import { useAuthStore } from '../../../store/auth.store'
 import { apiClient } from '../../auth/api'
-import { useUndo } from '../../notes/useNotes'
-import { groupHistoryEvents, type EditorEventRow } from '@ama-midi/shared'
+import type { EditorCommandRow } from '@ama-midi/shared'
 
 interface Props {
   chartId?: string
@@ -22,51 +20,42 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-function eventLabel(event: EditorEventRow): string {
-  const state = event.eventType.endsWith('CREATED') || event.eventType.endsWith('UPDATED')
-    ? event.afterState
-    : event.beforeState
-  const name = event.user?.name ?? 'Someone'
-  if (event.entityType === 'NOTE') {
-    const track = state?.track ?? '?'
-    const time = state?.time ?? '?'
-    if (event.eventType === 'NOTE_CREATED') return `${name} added a note at Track ${track}, ${time}s`
-    if (event.eventType === 'NOTE_UPDATED') return `${name} edited a note at Track ${track}, ${time}s`
-    return `${name} removed a note at Track ${track}, ${time}s`
+type CmdMeta = { dot: string; verb: string; detail: string }
+
+function getCmdMeta(cmd: EditorCommandRow): CmdMeta {
+  const s = cmd.summary as Record<string, unknown>
+  switch (cmd.commandType) {
+    case 'SINGLE_NOTE_CREATED': return { dot: 'bg-green-400', verb: 'Added note', detail: `Track ${s.track} · ${s.time}s` }
+    case 'SINGLE_NOTE_UPDATED': return { dot: 'bg-blue-400', verb: 'Edited note', detail: `Track ${s.track} · ${s.time}s` }
+    case 'SINGLE_NOTE_DELETED': return { dot: 'bg-red-400', verb: 'Removed note', detail: `Track ${s.track} · ${s.time}s` }
+    case 'PATTERN_PASTED':      return { dot: 'bg-purple-400', verb: 'Pasted pattern', detail: `${s.noteCount ?? '?'} notes` }
+    case 'NOTES_REPEATED':      return { dot: 'bg-purple-400', verb: 'Repeated notes', detail: `${s.noteCount ?? '?'} notes` }
+    case 'NOTES_MOVED':         return { dot: 'bg-yellow-400', verb: 'Moved notes', detail: `${s.noteCount ?? '?'} notes` }
+    case 'SECTION_CREATED':     return { dot: 'bg-green-400', verb: 'Added section', detail: `"${s.label ?? ''}"` }
+    case 'SECTION_UPDATED':     return { dot: 'bg-blue-400', verb: 'Updated section', detail: `"${s.label ?? ''}"` }
+    case 'SECTION_DELETED':     return { dot: 'bg-red-400', verb: 'Removed section', detail: `"${s.label ?? ''}"` }
+    case 'AI_NOTES_APPLIED':    return { dot: 'bg-indigo-400', verb: 'Applied AI notes', detail: '' }
+    case 'CHART_SWITCHED':      return { dot: 'bg-gray-400', verb: 'Switched chart', detail: `"${s.chartName ?? ''}"` }
+    case 'UNDO':                return { dot: 'bg-orange-400', verb: 'Undid action', detail: `${s.targetCommandType ?? ''}` }
+    default:                    return { dot: 'bg-gray-400', verb: cmd.commandType, detail: '' }
   }
-  if (event.entityType === 'SECTION') {
-    const label = state?.label ? `"${state.label}"` : 'a section'
-    if (event.eventType === 'SECTION_CREATED') return `${name} added section ${label}`
-    if (event.eventType === 'SECTION_UPDATED') return `${name} updated section ${label}`
-    return `${name} removed ${label}`
-  }
-  const chartName = state?.chartName ?? event.afterState?.chartName ?? 'a chart'
-  return `${name} switched to chart "${chartName}"`
 }
 
 export function HistoryPanel({ chartId, onClose, inline = false }: Props) {
   const token = useAuthStore(s => s.token)
-  const undo = useUndo(chartId)
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
     queryKey: ['events', chartId],
     queryFn: async ({ pageParam }) => {
       const url = `/charts/${chartId}/events${pageParam ? `?cursor=${pageParam}` : ''}`
-      return apiClient(token)<{ events: EditorEventRow[]; nextCursor: string | null }>(url)
+      return apiClient(token)<{ events: EditorCommandRow[]; nextCursor: string | null }>(url)
     },
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     initialPageParam: undefined as string | undefined,
     enabled: !!token && !!chartId,
   })
 
-  const events = data?.pages.flatMap(p => p.events) ?? []
-  const groupedEvents = groupHistoryEvents(events)
-
-  function handleUndo() {
-    undo.mutateAsync()
-      .then(() => toast.success('Undo successful'))
-      .catch(() => {/* useUndo already shows the error toast */})
-  }
+  const commands = data?.pages.flatMap(p => p.events) ?? []
 
   return (
     <div
@@ -78,20 +67,9 @@ export function HistoryPanel({ chartId, onClose, inline = false }: Props) {
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-shell-border">
         <span className="text-sm font-medium text-shell-text">History</span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleUndo}
-            disabled={undo.isPending || !chartId}
-            className="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary-dark disabled:opacity-50 transition-colors"
-          >
-            Undo
-          </button>
-          {!inline && onClose && (
-            <button onClick={onClose} className="text-shell-muted hover:text-shell-text text-lg leading-none">
-              ×
-            </button>
-          )}
-        </div>
+        {!inline && onClose && (
+          <button onClick={onClose} className="text-shell-muted hover:text-shell-text text-lg leading-none">×</button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -109,37 +87,26 @@ export function HistoryPanel({ chartId, onClose, inline = false }: Props) {
           </div>
         )}
 
-        {groupedEvents.length === 0 && !isLoading && (
+        {commands.length === 0 && !isLoading && (
           <p className="p-4 text-sm text-shell-muted text-center">No history yet</p>
         )}
 
         <div className="p-3 space-y-2">
-          {groupedEvents.map(item => {
-            if (item.kind === 'burst') {
-              return (
-                <details key={item.id} className="group">
-                  <summary className="flex gap-3 items-start cursor-pointer list-none">
-                    <Avatar src={item.actor.avatarUrl ?? undefined} name={item.actor.name ?? 'Unknown'} size="sm" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-shell-text leading-relaxed">{item.actor.name} did {item.total} actions</p>
-                      <p className="text-xs text-shell-muted mt-0.5">{timeAgo(item.createdAt)}</p>
-                    </div>
-                  </summary>
-                  <div className="ml-11 mt-2 space-y-1">
-                    {item.events.map(event => (
-                      <p key={event.id} className="text-xs text-shell-muted">{eventLabel(event)}</p>
-                    ))}
-                  </div>
-                </details>
-              )
-            }
-            const event = item.event
+          {commands.map(cmd => {
+            const { dot, verb, detail } = getCmdMeta(cmd)
             return (
-              <div key={event.id} className="flex gap-3 items-start">
-                <Avatar src={event.user?.avatarUrl ?? undefined} name={event.user?.name ?? 'Unknown'} size="sm" />
+              <div key={cmd.id} className="flex gap-3 items-start">
+                <Avatar src={cmd.user?.avatarUrl ?? undefined} name={cmd.user?.name ?? 'Unknown'} size="sm" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-shell-text leading-relaxed">{eventLabel(event)}</p>
-                  <p className="text-xs text-shell-muted mt-0.5">{timeAgo(event.createdAt)}</p>
+                  <p className="text-xs text-shell-text leading-relaxed">
+                    <span className="font-semibold">{cmd.user?.name ?? 'Someone'}</span>
+                    {' · '}
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full align-middle mr-0.5 ${dot}`} />
+                    {verb}
+                    {detail && <span className="text-shell-muted"> · {detail}</span>}
+                    {cmd.isCompensation && <span className="ml-1 text-orange-400 text-[10px]">(undo)</span>}
+                  </p>
+                  <p className="text-xs text-shell-muted mt-0.5">{timeAgo(cmd.createdAt)}</p>
                 </div>
               </div>
             )

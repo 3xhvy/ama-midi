@@ -29,6 +29,8 @@ import { getSelectionRect, selectNotesInBox, type SelectionPoint } from '../engi
 import type { Note, Song } from '@ama-midi/shared'
 import type { CursorData } from '../../collaboration/useSocket'
 
+const HOLD_ARM_MS = 100
+
 type PopupState =
   | { type: 'create'; track: number; time: number; pos: { x: number; y: number } }
   | { type: 'edit';   note: Note;    pos: { x: number; y: number } }
@@ -64,11 +66,18 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const [ghost,        setGhost]        = useState<{ track: number; time: number } | null>(null)
   const [popup,        setPopup]        = useState<PopupState>(null)
   const [drag,         setDrag]         = useState<
-    | { start: { x: number; y: number; track: number; time: number }; currentY: number }
+    | {
+        start: { x: number; y: number; track: number; time: number }
+        currentY: number
+        holdArmed: boolean
+      }
     | null
   >(null)
   const [selectionDrag, setSelectionDrag] = useState<SelectionDragState>(null)
   const [sectionPopover, setSectionPopover] = useState<{ time: number; pos: { x: number; y: number } } | null>(null)
+  const dragRef = useRef(drag)
+  dragRef.current = drag
+  const justPlacedRef = useRef(false)
 
   const { pxPerSecond, viewMode, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
           selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack } = useEditorStore()
@@ -219,7 +228,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
     const y     = e.clientY - rect.top + scrollTop
     const track = xToTrack(x, layoutGridWidth)
     const time  = yToTime(y, pxPerSecond, snapMode, bpm)
-    setDrag({ start: { x: e.clientX, y: e.clientY, track, time }, currentY: e.clientY })
+    setDrag({ start: { x: e.clientX, y: e.clientY, track, time }, currentY: e.clientY, holdArmed: false })
   }, [effectiveCanEdit, getCanvasPoint, layoutGridWidth, pxPerSecond, scrollTop, snapMode, bpm])
 
   useEffect(() => {
@@ -264,38 +273,61 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
 
   useEffect(() => {
     if (!drag) return
-    function onMove(e: MouseEvent) { setDrag(d => d ? { ...d, currentY: e.clientY } : null) }
+
+    function onMove(e: MouseEvent) {
+      setDrag(d => {
+        if (!d) return null
+        const dragPx = e.clientY - d.start.y
+        const holdArmed = d.holdArmed || dragPx >= HOLD_DRAG_THRESHOLD_PX
+        return { ...d, currentY: e.clientY, holdArmed }
+      })
+    }
+
     function onUp(e: MouseEvent) {
-      if (!drag) return
-      const dragPx = e.clientY - drag.start.y
-      if (dragPx >= HOLD_DRAG_THRESHOLD_PX) {
+      const current = dragRef.current
+      if (!current) return
+      dragRef.current = null
+      setDrag(null)
+      justPlacedRef.current = true
+
+      const dragPx = e.clientY - current.start.y
+      if (current.holdArmed) {
         const duration = Math.max(0.1, dragPx / pxPerSecond)
         createNote.mutate({
-          track:    drag.start.track,
-          time:     drag.start.time,
+          track:    current.start.track,
+          time:     current.start.time,
           noteType: 'HOLD',
           duration,
-          title:    `Hold ${drag.start.track}:${drag.start.time}`,
+          title:    `Hold ${current.start.track}:${current.start.time}`,
         })
       } else {
         createNote.mutate({
-          track:    drag.start.track,
-          time:     drag.start.time,
+          track:    current.start.track,
+          time:     current.start.time,
           noteType: 'TAP',
-          title:    `Note ${drag.start.track}:${drag.start.time}`,
+          title:    `Note ${current.start.track}:${current.start.time}`,
         })
       }
-      setDrag(null)
     }
+
+    const armTimer = window.setTimeout(() => {
+      setDrag(d => d ? { ...d, holdArmed: true } : null)
+    }, HOLD_ARM_MS)
+
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup',  onUp)
     return () => {
+      clearTimeout(armTimer)
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup',  onUp)
     }
-  }, [drag, createNote, pxPerSecond])
+  }, [drag?.start.x, drag?.start.y, drag?.start.track, drag?.start.time, createNote, pxPerSecond])
 
   const handleGridClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (justPlacedRef.current) {
+      justPlacedRef.current = false
+      return
+    }
     if (e.shiftKey) return
     if (!effectiveCanEdit || !ghost) {
       if (!effectiveCanEdit) notifyReadOnly()
@@ -411,7 +443,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
         <div ref={trackAreaRef} className="relative flex-1 min-h-0 overflow-hidden">
           <div
             ref={containerRef}
-            className={`overflow-y-auto overflow-x-auto w-full h-full select-none [scrollbar-gutter:stable] ${effectiveCanEdit ? 'cursor-ns-resize' : 'cursor-not-allowed'}`}
+            className={`overflow-y-auto overflow-x-auto w-full h-full select-none [scrollbar-gutter:stable] ${effectiveCanEdit ? '' : 'cursor-not-allowed'}`}
             onScroll={handleScroll}
             onMouseDownCapture={(e) => {
               if (e.shiftKey) {
@@ -503,9 +535,19 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
               />
             )}
 
-            {drag && (() => {
+            {drag && !drag.holdArmed && (
+              <GhostCircle
+                track={drag.start.track}
+                time={drag.start.time}
+                gridWidth={layoutGridWidth}
+                pxPerSecond={pxPerSecond}
+              />
+            )}
+
+            {drag && drag.holdArmed && (() => {
               const startY = timeToY(drag.start.time, pxPerSecond)
-              const px     = Math.max(HOLD_DRAG_THRESHOLD_PX, drag.currentY - drag.start.y)
+              const dragPx = Math.max(0, drag.currentY - drag.start.y)
+              const px     = Math.max(HOLD_DRAG_THRESHOLD_PX, dragPx)
               const x      = trackToX(drag.start.track, layoutGridWidth)
               const tw     = trackWidth(layoutGridWidth)
               const color  = trackColor(drag.start.track)
@@ -525,15 +567,15 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
 
             {visibleNotes.length === 0 && viewMode === 'composer' && effectiveCanEdit && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <p className="text-sm text-canvas-muted">Click for tap · drag down for hold</p>
+                <p className="text-sm text-canvas-muted">Click for tap · hold 0.1s or drag for hold</p>
               </div>
             )}
 
             {effectiveCanEdit && chartId && (
-              <AiSuggestions songId={songId} chartId={chartId} gridWidth={layoutGridWidth} pxPerSecond={pxPerSecond} scrollTop={scrollTop} />
+              <AiSuggestions songId={songId} chartId={chartId} gridWidth={layoutGridWidth} pxPerSecond={pxPerSecond} notes={notes} />
             )}
             {effectiveCanEdit && (
-              <ChartPreviewLayer gridWidth={layoutGridWidth} pxPerSecond={pxPerSecond} scrollTop={scrollTop} />
+              <ChartPreviewLayer gridWidth={layoutGridWidth} pxPerSecond={pxPerSecond} />
             )}
             </div>
           </div>

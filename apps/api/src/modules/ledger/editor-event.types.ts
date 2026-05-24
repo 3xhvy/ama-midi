@@ -12,5 +12,6 @@ export interface RecordEditorEventInput {
   batchId?: string | null
   replacesEventId?: string | null
   undoneByEventId?: string | null
+  commandId?: string | null
   undoable: boolean
 }

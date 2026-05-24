@@ -5,6 +5,7 @@ import { NotesService } from '../notes.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
 import { ChartAnalyzeService } from '../../charts/chart-analyze.service'
+import { EditorCommandService } from '../../editor-commands/editor-command.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { AuthUser } from '@ama-midi/shared'
 
@@ -60,6 +61,7 @@ describe('NotesService', () => {
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: ProjectAccessService, useValue: mockAccess },
         { provide: ChartAnalyzeService, useValue: mockAnalyze },
+        { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
       ],
     }).compile()
 
@@ -172,8 +174,8 @@ describe('NotesService', () => {
     })
   })
 
-  describe('undo', () => {
-    it('finds and deletes last NOTE_CREATED by current user', async () => {
+  describe('undo (legacy — removed)', () => {
+    it.skip('finds and deletes last NOTE_CREATED by current user', async () => {
       const mockEvent = { id: 'e1', noteId: 'n1', songId: 's1', eventType: 'NOTE_CREATED', batchId: null }
       const mockNote = {
         id: 'n1', chartId: 'c1', songId: 's1', track: 1, time: 5.0, title: 'T',
@@ -188,19 +190,19 @@ describe('NotesService', () => {
         .mockResolvedValueOnce(mockNote)
       prisma.note.update.mockResolvedValue({ ...mockNote, deletedAt: new Date() })
 
-      await service.undo('c1', mockUser)
+      await (service as any).undo('c1', mockUser)
 
       expect(prisma.note.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'n1' }, data: { deletedAt: expect.any(Date) } }),
       )
     })
 
-    it('throws NotFoundException when nothing to undo', async () => {
+    it.skip('throws NotFoundException when nothing to undo', async () => {
       prisma.noteEvent.findFirst.mockResolvedValue(null)
-      await expect(service.undo('s1', mockUser)).rejects.toThrow(NotFoundException)
+      await expect((service as any).undo('s1', mockUser)).rejects.toThrow(NotFoundException)
     })
 
-    it('undo reverts every created note in the latest batch', async () => {
+    it.skip('undo reverts every created note in the latest batch', async () => {
       prisma.noteEvent.findFirst.mockResolvedValue({
         id: 'e-batch',
         batchId: 'batch-1',
@@ -242,7 +244,7 @@ describe('NotesService', () => {
         .mockResolvedValueOnce({ ...mockNote, id: 'n2' })
         .mockResolvedValueOnce({ ...mockNote, id: 'n1' })
 
-      await service.undo('c1', mockUser)
+      await (service as any).undo('c1', mockUser)
 
       expect(prisma.note.update).toHaveBeenCalledTimes(2)
       expect(eventEmitter.emit).toHaveBeenCalledWith(
@@ -256,7 +258,7 @@ describe('NotesService', () => {
       )
     })
 
-    it('undo restores notes deleted by a replacement batch', async () => {
+    it.skip('undo restores notes deleted by a replacement batch', async () => {
       prisma.noteEvent.findFirst.mockResolvedValue({
         id: 'e-batch',
         batchId: 'batch-1',
@@ -295,7 +297,7 @@ describe('NotesService', () => {
         creator: { name: 'Other' },
       })
 
-      await service.undo('c1', mockUser)
+      await (service as any).undo('c1', mockUser)
 
       expect(prisma.note.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -319,7 +321,7 @@ describe('NotesService', () => {
       )
     })
 
-    it('undo keeps single-note undo behavior when latest event has no batchId', async () => {
+    it.skip('undo keeps single-note undo behavior when latest event has no batchId', async () => {
       const mockEvent = { id: 'e1', noteId: 'n1', songId: 's1', eventType: 'NOTE_CREATED', batchId: null }
       const mockNote = {
         id: 'n1', chartId: 'c1', songId: 's1', track: 1, time: 5.0, title: 'T',
@@ -334,7 +336,7 @@ describe('NotesService', () => {
         .mockResolvedValueOnce(mockNote)
       prisma.note.update.mockResolvedValue({ ...mockNote, deletedAt: new Date() })
 
-      await service.undo('c1', mockUser)
+      await (service as any).undo('c1', mockUser)
 
       expect(prisma.noteEvent.findMany).not.toHaveBeenCalled()
       expect(prisma.note.update).toHaveBeenCalledTimes(1)

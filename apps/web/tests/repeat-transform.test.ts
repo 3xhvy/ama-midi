@@ -4,6 +4,7 @@ import {
   MAX_REPEAT_GENERATED_NOTES,
   formatRepeatInterval,
   getRepeatDefaults,
+  getSelectionLengthInterval,
   parseRepeatCountDraft,
   parseRepeatIntervalDraft,
   sanitizeRepeatCountDraft,
@@ -24,7 +25,8 @@ test('repeat defaults use three copies and one measure interval', () => {
 })
 
 test('selection length interval is based on selected note span', () => {
-  assert.equal(formatRepeatInterval(2.5 - 1.0), '1.5')
+  assert.equal(getSelectionLengthInterval(notes), 1.5)
+  assert.equal(formatRepeatInterval(getSelectionLengthInterval(notes)), '1.5')
 })
 
 test('repeat drafts sanitize and parse numeric input', () => {

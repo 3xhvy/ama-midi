@@ -9,10 +9,12 @@ import { TrackHeader }        from '../features/editor/components/TrackHeader'
 import { computeNps }         from '../features/editor/components/LiveContextStrip'
 import { MultiSelectBar }     from '../features/editor/components/MultiSelectBar'
 import { ChartPreviewBar }    from '../features/editor/components/ChartPreviewBar'
+import { ReadOnlyBanner }     from '../features/editor/components/ReadOnlyBanner'
 import { SavePatternModal }   from '../features/editor/components/SavePatternModal'
 import { CopyToModal }        from '../features/editor/components/CopyToModal'
 import { RepeatModal }       from '../features/editor/components/RepeatModal'
 import { ConflictReviewModal } from '../features/editor/components/ConflictReviewModal'
+import { UndoConflictModal } from '../features/editor/components/UndoConflictModal'
 import { mergeResolutions, noteCopyPreviewToPlacement } from '../features/editor/components/placement-preview'
 import { useApplyNoteCopy }   from '../features/editor/hooks/useNoteCopy'
 import { PatternPanel }       from '../features/editor/components/PatternPanel'
@@ -21,7 +23,7 @@ import { AnalysisSummaryPanel } from '../features/editor/components/AnalysisSumm
 import { BottomBarStats }     from '../features/editor/components/BottomBarStats'
 import { useCharts } from '../features/charts/useCharts'
 import { useNotes }           from '../features/notes/useNotes'
-import { useDeleteNote, useUpdateNote } from '../features/notes/useNotes'
+import { useDeleteNote, useUpdateNote, useUndoPreview, useApplyUndo } from '../features/notes/useNotes'
 import { useSections }        from '../features/sections/useSections'
 import { usePlayback }        from '../features/editor/hooks/usePlayback'
 import { Button, Tabs, ToggleGroup } from '../components/ui'
@@ -32,13 +34,13 @@ import { ShortcutLegend } from '../features/editor/components/ShortcutLegend'
 import { useSocket } from '../features/collaboration/useSocket'
 import { useActivityNotices } from '../features/collaboration/useActivityNotices'
 import { useEditorStore } from '../store/editor.store'
-import { useUndo } from '../features/notes/useNotes'
 import { useSongChartAccess } from '../hooks/useSongChartAccess'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useIsMobile } from '../hooks/useMediaQuery'
 import { useAuthStore } from '../store/auth.store'
 import { apiClient } from '../features/auth/api'
-import { type Note, type NoteType, type Song, type ConflictAction, type NoteCopyPreview, type NoteCopyPreviewRequest, trackColor } from '@ama-midi/shared'
+import { type Note, type NoteType, type Song, type ConflictAction, type NoteCopyPreview, type NoteCopyPreviewRequest, type UndoPreview, trackColor } from '@ama-midi/shared'
+import type { UndoResolution } from '../features/undo/undo.types'
 import { toast } from 'sonner'
 import { useProject } from '../features/projects/useProjects'
 import { recordRecentProject, recordRecentSong } from '../features/navigation/recent-navigation'
@@ -109,7 +111,8 @@ export function EditorPage() {
 
   const chartId = activeChart?.id
 
-  const undo       = useUndo(chartId)
+  const undoPreviewMutation = useUndoPreview(chartId)
+  const applyUndoMutation   = useApplyUndo(chartId)
   const deleteNote = useDeleteNote(chartId)
   const updateNote = useUpdateNote(chartId)
   const { data: allNotes = [] } = useNotes(chartId)
@@ -158,6 +161,10 @@ export function EditorPage() {
   const [copyConflictChanged, setCopyConflictChanged] = useState(false)
   const [copyStep,            setCopyStep]            = useState<'INPUT' | 'REVIEW' | 'APPLYING'>('INPUT')
 
+  const [undoPreviewData,  setUndoPreviewData]  = useState<UndoPreview | null>(null)
+  const [undoResolutions,  setUndoResolutions]  = useState<Record<string, UndoResolution['action']>>({})
+  const [undoShowModal,    setUndoShowModal]     = useState(false)
+
   const applyNoteCopy = useApplyNoteCopy(chartId)
 
   const jumpToRef = useRef<((time: number, track?: number) => void) | null>(null)
@@ -182,9 +189,60 @@ export function EditorPage() {
     focusNote(note?.id ?? null)
   }
 
+  function handleUndo() {
+    if (!canEdit || !chartId) return
+    undoPreviewMutation.mutate(undefined, {
+      onSuccess: (preview) => {
+        if (preview.conflicts.length === 0) {
+          applyUndoMutation.mutate(
+            { commandId: preview.commandId, resolutions: [] },
+            {
+              onSuccess: () => toast.success('Undo successful'),
+              onError: () => toast.error('Nothing to undo'),
+            },
+          )
+        } else {
+          setUndoPreviewData(preview)
+          setUndoResolutions({})
+          setUndoShowModal(true)
+        }
+      },
+      onError: () => toast.error('Nothing to undo'),
+    })
+  }
+
+  function handleApplyUndoWithConflicts() {
+    if (!undoPreviewData) return
+    const resolutions: UndoResolution[] = undoPreviewData.conflicts.map(c => ({
+      conflictId: c.conflictId,
+      action: undoResolutions[c.conflictId] ?? 'KEEP_EXISTING',
+    }))
+    applyUndoMutation.mutate(
+      { commandId: undoPreviewData.commandId, resolutions },
+      {
+        onSuccess: () => {
+          toast.success('Undo applied')
+          setUndoShowModal(false)
+          setUndoPreviewData(null)
+          setUndoResolutions({})
+        },
+        onError: (err: any) => {
+          const nextConflicts = err?.body?.conflicts as UndoPreview['conflicts'] | undefined
+          if (err?.status === 409 && nextConflicts && undoPreviewData) {
+            setUndoPreviewData({ ...undoPreviewData, conflicts: nextConflicts })
+            setUndoResolutions({})
+            toast.warning('Conflicts changed while reviewing. Review again.')
+            return
+          }
+          toast.error('Undo failed')
+        },
+      },
+    )
+  }
+
   useKeyboardShortcuts({
     canEdit,
-    onUndo: () => undo.mutate(),
+    onUndo: handleUndo,
     onDeleteNote: () => {},
     onEditNote: () => {},
     onJumpToStart: () => jumpToRef.current?.(0),
@@ -231,7 +289,6 @@ export function EditorPage() {
         charts={charts}
         activeChartId={activeChartId}
         canEdit={canEdit}
-        readOnlyMessage={readOnlyMessage}
         bpm={song?.bpm ?? 120}
         song={song}
         presenceList={presenceList}
@@ -242,6 +299,7 @@ export function EditorPage() {
         onToggleLeft={handleToggleLeft}
         onToggleRight={handleToggleRight}
       />
+      {!canEdit && readOnlyMessage && <ReadOnlyBanner message={readOnlyMessage} />}
       {canEdit && <ChartPreviewBar songId={songId!} chartId={chartId} />}
     </>
   )
@@ -505,6 +563,15 @@ export function EditorPage() {
           onCancel={resetCopyState}
           hasConflictChanged={copyConflictChanged}
           onDismissConflictBanner={() => setCopyConflictChanged(false)}
+        />
+      )}
+      {undoShowModal && undoPreviewData && (
+        <UndoConflictModal
+          preview={undoPreviewData}
+          resolutions={undoResolutions}
+          onResolve={(id, action) => setUndoResolutions(prev => ({ ...prev, [id]: action }))}
+          onApply={handleApplyUndoWithConflicts}
+          onCancel={() => { setUndoShowModal(false); setUndoPreviewData(null); setUndoResolutions({}) }}
         />
       )}
       {showSavePattern && (

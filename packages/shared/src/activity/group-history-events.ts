@@ -19,16 +19,23 @@ function withinWindow(newest: EditorEventRow, candidate: EditorEventRow) {
 }
 
 export function groupHistoryEvents(events: EditorEventRow[]): GroupedHistoryItem[] {
+  const seen = new Set<string>()
+  const unique = events.filter(event => {
+    if (seen.has(event.id)) return false
+    seen.add(event.id)
+    return true
+  })
+
   const result: GroupedHistoryItem[] = []
   let i = 0
 
-  while (i < events.length) {
-    const first = events[i]
+  while (i < unique.length) {
+    const first = unique[i]
     const group = [first]
     let j = i + 1
 
-    while (j < events.length && events[j].userId === first.userId && withinWindow(first, events[j])) {
-      group.push(events[j])
+    while (j < unique.length && unique[j].userId === first.userId && withinWindow(first, unique[j])) {
+      group.push(unique[j])
       j += 1
     }
 

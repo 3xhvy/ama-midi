@@ -7,6 +7,7 @@ import { useCreateNote } from '../../notes/useNotes'
 import { trackToX, timeToY, trackWidth } from '../engine'
 import {
   trackColor,
+  type Note,
   type NoteSuggestion,
   type SuggestNotesRequest,
   type SuggestNotesResponse,
@@ -17,14 +18,18 @@ interface Props {
   chartId:     string
   gridWidth:   number
   pxPerSecond: number
-  scrollTop:   number
+  notes:       Note[]
 }
 
-export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, scrollTop }: Props) {
+export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, notes }: Props) {
   const [suggestions, setSuggestions] = useState<NoteSuggestion[]>([])
   const token = useAuthStore(s => s.token)
   const createNote = useCreateNote(chartId)
   const { setTriggerAiSuggest } = useEditorStore()
+
+  const occupiedKeys = new Set(
+    notes.map((n) => `${n.track}:${Math.round(n.time * 10) / 10}`),
+  )
 
   const handleSuggest = useCallback(async (request: SuggestNotesRequest) => {
     try {
@@ -71,8 +76,10 @@ export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, scrollT
   return (
     <>
       {suggestions.map((s, i) => {
+        const key = `${s.track}:${Math.round(s.time * 10) / 10}`
+        const isConflict = occupiedKeys.has(key)
         const x  = trackToX(s.track, gridWidth)
-        const y  = timeToY(s.time, pxPerSecond) - scrollTop
+        const y  = timeToY(s.time, pxPerSecond)
         const cx = x + tw / 2 - 8
         const color = trackColor(s.track)
         return (
@@ -83,13 +90,19 @@ export function AiSuggestions({ songId, chartId, gridWidth, pxPerSecond, scrollT
           >
             <div
               className="w-4 h-4 rounded-full border-2 animate-ghost-pulse"
-              style={{ backgroundColor: `${color}33`, borderColor: color }}
+              style={{
+                backgroundColor: isConflict ? 'rgba(239,68,68,0.2)' : `${color}33`,
+                borderColor: isConflict ? 'rgb(239,68,68)' : color,
+              }}
+              title={isConflict ? 'Conflict — a note already exists here' : undefined}
             />
             <div className="absolute left-1/2 -translate-x-1/2 top-5 hidden group-hover:flex gap-1 z-30 whitespace-nowrap">
-              <button
-                onClick={() => accept(s, i)}
-                className="px-2 py-0.5 text-xs bg-green-500 text-white rounded-full hover:bg-green-600"
-              >✓</button>
+              {!isConflict && (
+                <button
+                  onClick={() => accept(s, i)}
+                  className="px-2 py-0.5 text-xs bg-green-500 text-white rounded-full hover:bg-green-600"
+                >✓</button>
+              )}
               <button
                 onClick={() => dismiss(i)}
                 className="px-2 py-0.5 text-xs bg-gray-500 text-white rounded-full hover:bg-gray-600"

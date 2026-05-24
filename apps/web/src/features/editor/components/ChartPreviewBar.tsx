@@ -53,7 +53,7 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-primary/30 bg-primary/10 px-4 py-2">
+    <div className="-mx-4 flex w-auto items-center justify-between gap-3 border-t border-primary/30 bg-primary/10 px-4 py-2">
       <div className="min-w-0 text-xs text-shell-text">
         <span className="font-medium">AI chart preview</span>
         <span className="ml-2 text-shell-muted">

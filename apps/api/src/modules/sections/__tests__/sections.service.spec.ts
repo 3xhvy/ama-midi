@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter'
 import { SectionsService } from '../sections.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ProjectAccessService } from '../../project-access/project-access.service'
+import { EditorCommandService } from '../../editor-commands/editor-command.service'
 import type { AuthUser } from '@ama-midi/shared'
 
 const mockUser: AuthUser = {
@@ -40,6 +41,7 @@ describe('SectionsService', () => {
         { provide: PrismaService,  useValue: mockPrisma },
         { provide: EventEmitter2,  useValue: mockEmitter },
         { provide: ProjectAccessService, useValue: mockAccess },
+        { provide: EditorCommandService, useValue: { record: jest.fn().mockResolvedValue({ id: 'cmd-mock' }) } },
       ],
     }).compile()
     service = module.get<SectionsService>(SectionsService)

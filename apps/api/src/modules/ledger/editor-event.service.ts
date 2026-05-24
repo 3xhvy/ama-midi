@@ -20,6 +20,7 @@ export class EditorEventService {
         batchId: input.batchId ?? null,
         replacesEventId: input.replacesEventId ?? null,
         undoneByEventId: input.undoneByEventId ?? null,
+        commandId: input.commandId ?? null,
         undoable: input.undoable,
       },
     })

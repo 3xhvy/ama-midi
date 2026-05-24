@@ -65,4 +65,12 @@ describe('groupHistoryEvents', () => {
 
     expect(grouped).toHaveLength(4)
   })
+
+  it('dedupes duplicate event ids from paginated refetches', () => {
+    const event = row('e1', 'u1', '2026-05-24T10:00:01.000Z')
+    const grouped = groupHistoryEvents([event, event, event, event])
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]).toMatchObject({ kind: 'burst', total: 4 })
+  })
 })

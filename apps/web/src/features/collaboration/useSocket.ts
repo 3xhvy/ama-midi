@@ -291,15 +291,26 @@ export function useSocket(songId: string, chartId?: string, projectId?: string, 
     return () => {
       disposed = true
       window.clearTimeout(connectTimer)
-      socket.removeAllListeners()
-      socket.io.off('reconnect')
+
+      // Disable reconnection first so the Manager won't schedule another attempt
+      // between now and when the socket finally disconnects.
       socket.io.reconnection(false)
+      socket.io.off('reconnect')
+      socket.removeAllListeners()
 
       if (socket.connected) {
+        // Socket is fully open — safe to emit leave events and disconnect now.
         socket.emit('leave-song', { songId })
         if (projectId) socket.emit('leave-project', { projectId })
         socket.disconnect()
       } else {
+        // Socket is connecting or reconnecting (WebSocket upgrade may be in
+        // progress). Calling socket.disconnect() now would close the raw
+        // WebSocket before the 101 handshake completes, triggering the browser
+        // error "WebSocket is closed before the connection is established".
+        // Instead, defer the disconnect until after the socket finishes
+        // connecting — engine.io will complete the upgrade cleanly and then
+        // we tear it down immediately.
         socket.once('connect', () => socket.disconnect())
       }
 

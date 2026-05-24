@@ -18,7 +18,6 @@ import { apiClient } from '../../auth/api'
 import { formatTime } from '../../../lib/utils'
 import { EditorBreadcrumb } from '../../navigation/EditorBreadcrumb'
 import { ChartSwitcher } from '../../charts/ChartSwitcher'
-import { ReadOnlyBanner } from './ReadOnlyBanner'
 import { AiSuggestMenu } from './AiSuggestMenu'
 import { PresenceBar } from '../../collaboration/PresenceBar'
 import type { Song, SongChart } from '@ama-midi/shared'
@@ -56,7 +55,6 @@ interface ToolbarProps {
   charts:          SongChart[]
   activeChartId:   string | null
   canEdit:         boolean
-  readOnlyMessage?: string | null
   bpm:             number
   song?:           Song
   presenceList:    { id: string; name: string; avatarUrl?: string; title?: string | null; department?: string | null }[]
@@ -71,7 +69,7 @@ interface ToolbarProps {
 export function Toolbar({
   projectId, projectName, songId, songName, songStatus,
   charts, activeChartId,
-  canEdit, readOnlyMessage, bpm, song,
+  canEdit, bpm, song,
   presenceList, isConnected = false,
   onShowShortcuts,
   leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
@@ -249,10 +247,6 @@ export function Toolbar({
         )}
       </div>
       </div>
-
-      {!canEdit && readOnlyMessage && (
-        <ReadOnlyBanner message={readOnlyMessage} />
-      )}
     </div>
   )
 }

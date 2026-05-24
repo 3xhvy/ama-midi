@@ -3,11 +3,11 @@ import { EventEmitter2 } from '@nestjs/event-emitter'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { ChartAnalyzeService } from '../charts/chart-analyze.service'
+import { EditorCommandService } from '../editor-commands/editor-command.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
 import type { AuthUser, Note, NoteCreatedEvent, NoteDeletedEvent, NoteUpdatedEvent } from '@ama-midi/shared'
 import { UpdateNoteDto } from './dto/update-note.dto'
-import { noteEnd, overlapsAny, findOverlapping, type NoteSlot } from './note-overlap'
-import { randomUUID } from 'crypto'
+import { overlapsAny } from './note-overlap'
 
 function snapTime(time: number): number {
   return Math.round(time * 10) / 10
@@ -53,6 +53,7 @@ export class NotesService {
     private readonly eventEmitter: EventEmitter2,
     private readonly access: ProjectAccessService,
     private readonly analyze: ChartAnalyzeService,
+    private readonly editorCommands: EditorCommandService,
   ) {}
 
   async create(
@@ -86,11 +87,21 @@ export class NotesService {
       })
 
       const note = toNote(n)
+
+      const cmd = await this.editorCommands.record({
+        songId,
+        chartId,
+        commandType: 'SINGLE_NOTE_CREATED',
+        userId: user.id,
+        summary: { track: note.track, time: note.time, title: note.title },
+      })
+
       this.eventEmitter.emit(NOTE_EVENTS.CREATED, {
         songId,
         noteId: note.id,
         userId: user.id,
         afterState: note,
+        commandId: cmd.id,
       } satisfies NoteCreatedEvent)
 
       await this.analyze.run(chartId)
@@ -119,71 +130,12 @@ export class NotesService {
       data: { deletedAt: new Date() },
     })
 
-    this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
+    const cmd = await this.editorCommands.record({
       songId,
-      noteId,
+      chartId,
+      commandType: 'SINGLE_NOTE_DELETED',
       userId: user.id,
-      beforeState: toNote(note),
-    } satisfies NoteDeletedEvent)
-
-    await this.analyze.run(chartId)
-  }
-
-  async undo(chartId: string, user: AuthUser): Promise<{ noteId: string }> {
-    const { songId } = await this.resolveChart(chartId, user)
-    const lastEvent = await this.prisma.noteEvent.findFirst({
-      where: { songId, userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    })
-    if (!lastEvent) throw new NotFoundException('Nothing to undo')
-
-    if (!lastEvent.batchId) {
-      if (lastEvent.eventType !== 'NOTE_CREATED' || !lastEvent.noteId) {
-        throw new NotFoundException('Nothing to undo')
-      }
-
-      const note = await this.prisma.note.findFirst({
-        where: { id: lastEvent.noteId, chartId, deletedAt: null },
-        include: { creator: { select: { name: true, avatarUrl: true } } },
-      })
-      if (!note) throw new NotFoundException('Note already deleted')
-
-      await this.softDeleteWithoutAnalyze(chartId, songId, note.id, user, note)
-      await this.analyze.run(chartId)
-      return { noteId: note.id }
-    }
-
-    const result = await this.undoBatch(chartId, songId, user, lastEvent.batchId)
-    await this.analyze.run(chartId)
-    return result
-  }
-
-  private async softDeleteWithoutAnalyze(
-    chartId: string,
-    songId: string,
-    noteId: string,
-    user: AuthUser,
-    note: {
-      id: string
-      chartId: string
-      songId: string
-      track: number
-      time: number
-      title: string
-      description: string
-      createdBy: string
-      noteType?: string
-      duration?: number | null
-      createdAt: Date
-      updatedAt: Date
-      creator?: { name: string; avatarUrl?: string | null }
-    },
-  ): Promise<void> {
-    if (note.createdBy !== user.id && user.role !== 'ADMIN') throw new ForbiddenException()
-
-    await this.prisma.note.update({
-      where: { id: noteId },
-      data: { deletedAt: new Date() },
+      summary: { track: note.track, time: note.time, title: note.title },
     })
 
     this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
@@ -191,112 +143,10 @@ export class NotesService {
       noteId,
       userId: user.id,
       beforeState: toNote(note),
+      commandId: cmd.id,
     } satisfies NoteDeletedEvent)
-    void chartId
-  }
 
-  private async undoBatch(chartId: string, songId: string, user: AuthUser, batchId: string): Promise<{ noteId: string }> {
-    const batchEvents = await this.prisma.noteEvent.findMany({
-      where: { songId, userId: user.id, batchId },
-      orderBy: { createdAt: 'desc' },
-    })
-    if (batchEvents.length === 0) throw new NotFoundException('Nothing to undo')
-
-    const undoBatchId = randomUUID()
-    let lastNoteId = batchEvents[0]?.noteId ?? batchEvents[0]?.id
-    const restoredNotes: Note[] = []
-    const deletedIds: string[] = []
-
-    for (const event of batchEvents) {
-      if (event.eventType === 'NOTE_CREATED' && event.noteId) {
-        const note = await this.prisma.note.findFirst({
-          where: { id: event.noteId, chartId, deletedAt: null },
-          include: { creator: { select: { name: true, avatarUrl: true } } },
-        })
-        if (!note) continue
-
-        await this.prisma.note.update({
-          where: { id: note.id },
-          data: { deletedAt: new Date() },
-        })
-
-        this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
-          songId,
-          noteId: note.id,
-          userId: user.id,
-          beforeState: toNote(note),
-          batchId: undoBatchId,
-          realtimeMode: 'batch',
-        } satisfies NoteDeletedEvent)
-
-        deletedIds.push(note.id)
-        lastNoteId = note.id
-      }
-
-      if (event.eventType === 'NOTE_DELETED' && event.beforeState) {
-        const before = event.beforeState as Partial<Note>
-        if (
-          before.track == null ||
-          before.time == null ||
-          before.title == null ||
-          before.noteType == null
-        ) {
-          continue
-        }
-
-        const existing = await this.prisma.note.findMany({
-          where: { chartId, track: before.track, deletedAt: null },
-          select: { id: true, track: true, time: true, noteType: true, duration: true },
-        })
-
-        const candidate: NoteSlot = {
-          track: before.track,
-          time: before.time,
-          noteType: before.noteType,
-          duration: before.duration ?? null,
-        }
-
-        if (findOverlapping(candidate, existing)) continue
-
-        const restored = await this.prisma.note.create({
-          data: {
-            chartId,
-            songId,
-            track: before.track,
-            time: before.time,
-            title: before.title,
-            description: before.description ?? '',
-            noteType: before.noteType as any,
-            duration: before.duration ?? null,
-            createdBy: before.createdBy ?? user.id,
-          },
-          include: { creator: { select: { name: true, avatarUrl: true } } },
-        })
-
-        const note = toNote(restored)
-        this.eventEmitter.emit(NOTE_EVENTS.CREATED, {
-          songId,
-          noteId: note.id,
-          userId: user.id,
-          afterState: note,
-          batchId: undoBatchId,
-          realtimeMode: 'batch',
-        } satisfies NoteCreatedEvent)
-
-        restoredNotes.push(note)
-        lastNoteId = note.id
-      }
-    }
-
-    this.eventEmitter.emit(NOTE_EVENTS.BATCH_APPLIED, {
-      songId,
-      batchId: undoBatchId,
-      created: restoredNotes,
-      deletedIds,
-      actorId: user.id,
-    })
-
-    return { noteId: lastNoteId ?? batchId }
+    await this.analyze.run(chartId)
   }
 
   async update(noteId: string, dto: UpdateNoteDto, user: AuthUser): Promise<Note> {
@@ -326,12 +176,22 @@ export class NotesService {
     })
 
     const note = toNote(updated)
+
+    const cmd = await this.editorCommands.record({
+      songId: note.songId,
+      chartId: existing.chartId,
+      commandType: 'SINGLE_NOTE_UPDATED',
+      userId: user.id,
+      summary: { noteId: note.id, track: note.track, time: note.time },
+    })
+
     this.eventEmitter.emit(NOTE_EVENTS.UPDATED, {
       songId: note.songId,
       noteId: note.id,
       userId: user.id,
       beforeState: toNote(existing),
       afterState: note,
+      commandId: cmd.id,
     } satisfies NoteUpdatedEvent)
 
     await this.analyze.run(existing.chartId)
@@ -339,20 +199,20 @@ export class NotesService {
   }
 
   async getEvents(chartId: string, user: AuthUser, cursor?: string, limit = 50) {
-    const { songId } = await this.resolveChart(chartId, user, 'view')
-    const events = await this.prisma.editorEvent.findMany({
+    await this.resolveChart(chartId, user, 'view')
+    const commands = await this.prisma.editorCommand.findMany({
       where: {
-        songId,
+        chartId,
         ...(cursor ? { id: { lt: cursor } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
       include: { user: { select: { id: true, name: true, avatarUrl: true } } },
     })
-    const hasMore = events.length > limit
-    const items = hasMore ? events.slice(0, limit) : events
+    const hasMore = commands.length > limit
+    const items = hasMore ? commands.slice(0, limit) : commands
     return {
-      events: items.map(event => ({ ...event, createdAt: event.createdAt.toISOString() })),
+      events: items.map(cmd => ({ ...cmd, createdAt: cmd.createdAt.toISOString() })),
       nextCursor: hasMore ? items[items.length - 1].id : null,
     }
   }

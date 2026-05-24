@@ -10,7 +10,7 @@ import {
 import { Button, Modal, Textarea } from '../../../components/ui'
 import { useAuthStore } from '../../../store/auth.store'
 import { useEditorStore } from '../../../store/editor.store'
-import { apiClient } from '../../auth/api'
+import { apiClient, extractApiErrorMessage } from '../../auth/api'
 
 interface Props {
   songId: string
@@ -61,8 +61,9 @@ export function AiGenerateChartModal({ songId, song, noteCount, open, onOpenChan
       toast.success(`Preview ready — ${result.notes.length} notes`)
       onOpenChange(false)
       setDescription('')
-    } catch {
-      toast.error('Failed to generate chart')
+    } catch (err) {
+      const message = extractApiErrorMessage(err, 'Failed to generate chart')
+      toast.error(message)
     } finally {
       setLoading(false)
       toast.dismiss(toastId)

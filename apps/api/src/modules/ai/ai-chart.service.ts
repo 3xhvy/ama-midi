@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { randomUUID } from 'crypto'
@@ -68,7 +69,7 @@ export class AiChartService {
 
     const targetCount = body.targetTier ? TARGET_NOTE_COUNT[body.targetTier] ?? 90 : 90
     const prompt = this.buildGeneratePrompt(song, description, body.snapMode, targetCount, body.targetTier)
-    const parsed = await this.callClaudeForChart(prompt)
+    const parsed = await this.callClaudeForChart(prompt, 'generate')
     const notes = this.normalizeGeneratedNotes(parsed.notes, body.snapMode, song.bpm)
     const sections = this.normalizeSections(parsed.sections)
 
@@ -158,7 +159,7 @@ export class AiChartService {
       instruction: body.instruction?.trim(),
       snapMode: body.snapMode,
     })
-    const parsed = await this.callClaudeForChart(prompt)
+    const parsed = await this.callClaudeForChart(prompt, 'scale')
 
     return {
       notes: this.normalizeGeneratedNotes(parsed.notes, body.snapMode, song.bpm),
@@ -405,13 +406,24 @@ export class AiChartService {
     return { system, user }
   }
 
-  private async callClaudeForChart(prompt: { system: string; user: string }) {
-    const text = await this.llm.complete({
-      system: prompt.system,
-      messages: [{ role: 'user', content: prompt.user }],
-      maxTokens: 8192,
-    })
-    return this.parseChartJson(text || '{}')
+  private async callClaudeForChart(prompt: { system: string; user: string }, operation: 'generate' | 'scale') {
+    try {
+      const text = await this.llm.complete({
+        system: prompt.system,
+        messages: [{ role: 'user', content: prompt.user }],
+        maxTokens: 8192,
+      })
+      return this.parseChartJson(text || '{}')
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
+      let hint = `AI chart ${operation} failed — try again in a moment.`
+      if (/api[_-]?key|401|403|authentication/i.test(detail)) {
+        hint = 'AI API key is missing or invalid — check ANTHROPIC_API_KEY (or OPENAI_API_KEY) on the API server.'
+      } else if (/insufficient[_-]?quota|quota|rate.?limit|429/i.test(detail)) {
+        hint = 'AI provider quota or rate limit reached — check billing, quota, or choose another configured model/provider.'
+      }
+      throw new ServiceUnavailableException(hint)
+    }
   }
 
   private parseChartJson(text: string): { notes: unknown[]; sections: unknown[] } {

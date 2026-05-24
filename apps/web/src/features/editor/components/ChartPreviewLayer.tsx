@@ -5,10 +5,9 @@ import { useEditorStore } from '../../../store/editor.store'
 interface Props {
   gridWidth: number
   pxPerSecond: number
-  scrollTop: number
 }
 
-export function ChartPreviewLayer({ gridWidth, pxPerSecond, scrollTop }: Props) {
+export function ChartPreviewLayer({ gridWidth, pxPerSecond }: Props) {
   const chartPreview = useEditorStore((s) => s.chartPreview)
   if (!chartPreview) return null
 
@@ -18,7 +17,7 @@ export function ChartPreviewLayer({ gridWidth, pxPerSecond, scrollTop }: Props) 
     <>
       {chartPreview.notes.map((note, i) => {
         const x = trackToX(note.track, gridWidth)
-        const y = timeToY(note.time, pxPerSecond) - scrollTop
+        const y = timeToY(note.time, pxPerSecond)
         const cx = x + tw / 2 - 8
         const color = trackColor(note.track)
         return (

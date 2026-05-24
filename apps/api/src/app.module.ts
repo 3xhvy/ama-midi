@@ -21,6 +21,7 @@ import { ProjectMembersModule } from './modules/project-members/project-members.
 import { SectionsModule } from './modules/sections/sections.module'
 import { DashboardModule } from './modules/dashboard/dashboard.module'
 import { ChartsModule } from './modules/charts/charts.module'
+import { EditorCommandModule } from './modules/editor-commands/editor-command.module'
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ChartsModule } from './modules/charts/charts.module'
     VersionsModule,
     PatternsModule,
     SectionsModule,
+    EditorCommandModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

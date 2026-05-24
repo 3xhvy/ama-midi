@@ -31,6 +31,7 @@ import type {
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
 import { ChartAnalyzeService } from '../charts/chart-analyze.service'
+import { EditorCommandService } from '../editor-commands/editor-command.service'
 import {
   classifySlots,
   type IncomingSlot,
@@ -71,6 +72,7 @@ export class NoteCopyService {
     private readonly access: ProjectAccessService,
     private readonly eventEmitter: EventEmitter2,
     private readonly analyze: ChartAnalyzeService,
+    private readonly editorCommands: EditorCommandService,
   ) {}
 
   async previewCopy(
@@ -196,6 +198,25 @@ export class NoteCopyService {
       }
     })
 
+    const commandType = request.operation === 'MOVE'
+      ? ('NOTES_MOVED' as const)
+      : request.mode === 'REPEAT_INTERVAL'
+        ? ('NOTES_REPEATED' as const)
+        : ('PATTERN_PASTED' as const)
+
+    const cmd = await this.editorCommands.record({
+      songId,
+      chartId,
+      commandType,
+      userId: user.id,
+      summary: {
+        noteCount: createdEntries.length,
+        operation: request.operation,
+        mode: request.mode,
+        batchId,
+      },
+    })
+
     for (const { noteId, beforeState } of deletedBeforeStates) {
       this.eventEmitter.emit(NOTE_EVENTS.DELETED, {
         songId,
@@ -205,6 +226,7 @@ export class NoteCopyService {
         batchId,
         replacedByBatch: true,
         realtimeMode: 'batch',
+        commandId: cmd.id,
       } satisfies NoteDeletedEvent)
     }
 
@@ -217,6 +239,7 @@ export class NoteCopyService {
         batchId,
         replacesNoteId,
         realtimeMode: 'batch',
+        commandId: cmd.id,
       } satisfies NoteCreatedEvent)
     }
 

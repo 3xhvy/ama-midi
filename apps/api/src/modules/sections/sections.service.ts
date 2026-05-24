@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
+import { EditorCommandService } from '../editor-commands/editor-command.service'
 import type { AuthUser, SectionMarker } from '@ama-midi/shared'
 import { CreateSectionDto, UpdateSectionDto } from './dto/section.dto'
 
@@ -11,6 +12,7 @@ export class SectionsService {
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
     private readonly access: ProjectAccessService,
+    private readonly editorCommands: EditorCommandService,
   ) {}
 
   async list(songId: string, user: AuthUser): Promise<SectionMarker[]> {
@@ -36,6 +38,12 @@ export class SectionsService {
       include: { creator: { select: { name: true } } },
     })
     const dom = this.toDomain(row)
+    await this.editorCommands.record({
+      songId,
+      commandType: 'SECTION_CREATED',
+      userId: user.id,
+      summary: { sectionId: dom.id, label: dom.label, time: dom.time },
+    })
     this.events.emit('section.created', { songId, userId: user.id, section: dom })
     return dom
   }
@@ -50,6 +58,12 @@ export class SectionsService {
       include: { creator: { select: { name: true } } },
     })
     const dom = this.toDomain(row)
+    await this.editorCommands.record({
+      songId,
+      commandType: 'SECTION_UPDATED',
+      userId: user.id,
+      summary: { sectionId: id, label: dto.label, color: dto.color },
+    })
     this.events.emit('section.updated', { songId, userId: user.id, beforeState: this.toDomain(existing), section: dom })
     return dom
   }
@@ -59,6 +73,12 @@ export class SectionsService {
     const existing = await this.prisma.sectionMarker.findUnique({ where: { id } })
     if (!existing || existing.songId !== songId) throw new NotFoundException()
     await this.prisma.sectionMarker.delete({ where: { id } })
+    await this.editorCommands.record({
+      songId,
+      commandType: 'SECTION_DELETED',
+      userId: user.id,
+      summary: { sectionId: id, label: existing.label, time: existing.time },
+    })
     this.events.emit('section.deleted', { songId, userId: user.id, beforeState: this.toDomain(existing), id })
   }
 

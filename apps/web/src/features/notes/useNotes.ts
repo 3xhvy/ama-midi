@@ -3,7 +3,8 @@ import { toast } from 'sonner'
 import { CHART_READ_ONLY_MESSAGES } from '@ama-midi/shared'
 import { useAuthStore } from '../../store/auth.store'
 import { apiClient } from '../auth/api'
-import type { Note } from '@ama-midi/shared'
+import type { Note, UndoPreview } from '@ama-midi/shared'
+import type { UndoResolution } from '../undo/undo.types'
 
 function notesKey(chartId: string, timeFrom?: number, timeTo?: number) {
   return ['notes', chartId, timeFrom, timeTo] as const
@@ -12,6 +13,25 @@ function notesKey(chartId: string, timeFrom?: number, timeTo?: number) {
 function invalidateNotes(qc: ReturnType<typeof useQueryClient>, chartId: string) {
   qc.invalidateQueries({ queryKey: ['notes', chartId] })
   qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
+}
+
+/** Predicate matching all active note queries for a chart (full + all viewport buckets). */
+function notesPredicate(chartId: string) {
+  return {
+    predicate: (q: { queryKey: unknown }) =>
+      Array.isArray(q.queryKey) &&
+      q.queryKey[0] === 'notes' &&
+      q.queryKey[1] === chartId,
+  }
+}
+
+/** Patch all cached note lists without triggering a refetch. */
+function patchNotesCache(
+  qc: ReturnType<typeof useQueryClient>,
+  chartId: string,
+  updater: (old: Note[]) => Note[],
+) {
+  qc.setQueriesData<Note[]>(notesPredicate(chartId), (old) => (old ? updater(old) : old))
 }
 
 export function useNotes(chartId: string | undefined, timeFrom?: number, timeTo?: number) {
@@ -57,8 +77,12 @@ export function useCreateNote(chartId: string | undefined) {
         method: 'POST',
         body: JSON.stringify(body),
       }),
-    onSuccess: () => {
-      if (chartId) invalidateNotes(qc, chartId)
+    onSuccess: (note: Note) => {
+      if (!chartId) return
+      patchNotesCache(qc, chartId, (old) =>
+        old.find((n) => n.id === note.id) ? old : [...old, note],
+      )
+      qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     },
     onError: (err: Error & { status?: number; body?: { message?: string; error?: string } }) => {
       if (err.status === 409) {
@@ -77,8 +101,10 @@ export function useDeleteNote(chartId: string | undefined) {
   return useMutation({
     mutationFn: (noteId: string) =>
       apiClient(token)<void>(`/charts/${chartId}/notes/${noteId}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      if (chartId) invalidateNotes(qc, chartId)
+    onSuccess: (_: void, noteId: string) => {
+      if (!chartId) return
+      patchNotesCache(qc, chartId, (old) => old.filter((n) => n.id !== noteId))
+      qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     },
     onError: (err: Error & { status?: number; body?: { message?: string; error?: string } }) => {
       toast.error(mutationErrorMessage(err, 'Failed to delete note'))
@@ -105,8 +131,10 @@ export function useUpdateNote(chartId: string | undefined) {
         method: 'PATCH',
         body: JSON.stringify(body),
       }),
-    onSuccess: () => {
-      if (chartId) invalidateNotes(qc, chartId)
+    onSuccess: (note: Note) => {
+      if (!chartId) return
+      patchNotesCache(qc, chartId, (old) => old.map((n) => (n.id === note.id ? note : n)))
+      qc.invalidateQueries({ queryKey: ['chart-analysis', chartId] })
     },
     onError: (err: Error & { status?: number; body?: { message?: string; error?: string } }) => {
       toast.error(mutationErrorMessage(err, 'Failed to update note'))
@@ -114,6 +142,7 @@ export function useUpdateNote(chartId: string | undefined) {
   })
 }
 
+/** @deprecated — kept for any callers; new undo uses useUndoPreview + useApplyUndo */
 export function useUndo(chartId: string | undefined) {
   const token = useAuthStore((s) => s.token)
   const qc = useQueryClient()
@@ -127,5 +156,35 @@ export function useUndo(chartId: string | undefined) {
       if (chartId) invalidateNotes(qc, chartId)
     },
     onError: () => toast.error('Nothing to undo'),
+  })
+}
+
+export function useUndoPreview(chartId: string | undefined) {
+  const token = useAuthStore((s) => s.token)
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient(token)<UndoPreview>(`/charts/${chartId}/commands/undo-preview`, {
+        method: 'POST',
+      }),
+  })
+}
+
+export function useApplyUndo(chartId: string | undefined) {
+  const token = useAuthStore((s) => s.token)
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ commandId, resolutions }: { commandId: string; resolutions: UndoResolution[] }) =>
+      apiClient(token)<{ id: string; commandType: string }>(`/charts/${chartId}/commands/undo`, {
+        method: 'POST',
+        body: JSON.stringify({ commandId, resolutions }),
+      }),
+    onSuccess: () => {
+      if (chartId) {
+        invalidateNotes(qc, chartId)
+        qc.invalidateQueries({ queryKey: ['events', chartId] })
+      }
+    },
   })
 }

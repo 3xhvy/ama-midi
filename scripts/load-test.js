@@ -11,7 +11,7 @@ export const options = {
 }
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:3001'
-const SONG_ID = __ENV.SONG_ID || 'test-song-id'
+const CHART_ID = __ENV.CHART_ID || 'seed-chart-0000-0000-0000-0000000000001'
 const TOKEN = __ENV.TOKEN || ''
 
 export default function () {
@@ -19,11 +19,10 @@ export default function () {
     track: Math.ceil(Math.random() * 8),
     time: parseFloat((Math.random() * 300).toFixed(1)),
     title: 'Load test note',
-    color: '#6366F1',
   })
 
   const res = http.post(
-    `${BASE_URL}/songs/${SONG_ID}/notes`,
+    `${BASE_URL}/charts/${CHART_ID}/notes`,
     payload,
     {
       headers: {

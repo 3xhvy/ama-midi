@@ -3,6 +3,7 @@ import { PrismaClient } from '../generated/prisma/client'
 const prisma = new PrismaClient()
 
 const SEED_SONG_ID = 'seed-song-00000000-0000-0000-0000-000000000001'
+const SEED_CHART_ID = 'seed-chart-0000-0000-0000-0000000000001'
 const SEED_USER_ID = 'seed-user-00000000-0000-0000-0000-000000000001'
 const SEED_PROJECT_ID = 'seed-proj-00000000-0000-0000-0000-000000000001'
 
@@ -42,10 +43,22 @@ async function main() {
     },
   })
 
-  await prisma.note.deleteMany({ where: { songId: SEED_SONG_ID } })
+  await prisma.songChart.upsert({
+    where: { id: SEED_CHART_ID },
+    update: {},
+    create: {
+      id: SEED_CHART_ID,
+      songId: SEED_SONG_ID,
+      name: 'Main',
+      speedMultiplier: 1.0,
+    },
+  })
+
+  await prisma.note.deleteMany({ where: { chartId: SEED_CHART_ID } })
 
   const positions = new Set<string>()
   const notes: Array<{
+    chartId: string
     songId: string
     track: number
     time: number
@@ -61,6 +74,7 @@ async function main() {
     if (!positions.has(key) && time <= 300) {
       positions.add(key)
       notes.push({
+        chartId: SEED_CHART_ID,
         songId: SEED_SONG_ID,
         track,
         time,
@@ -78,7 +92,10 @@ async function main() {
     console.log(`Inserted ${Math.min(i + BATCH, notes.length)} / ${notes.length}`)
   }
 
-  console.log(`Seed complete. Song ID: ${SEED_SONG_ID}`)
+  console.log(`Seed complete.`)
+  console.log(`  Song ID:  ${SEED_SONG_ID}`)
+  console.log(`  Chart ID: ${SEED_CHART_ID}`)
+  console.log(`  Use CHART_ID=${SEED_CHART_ID} for the k6 load test.`)
 }
 
 main()
