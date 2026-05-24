@@ -10,7 +10,9 @@ import {
 } from '@nestjs/websockets'
 import { Server, Socket } from 'socket.io'
 import { JwtService } from '@nestjs/jwt'
+import { EventEmitter2 } from '@nestjs/event-emitter'
 import { PrismaService } from '../prisma/prisma.service'
+import { ProjectAccessService } from '../project-access/project-access.service'
 import { CursorService } from './cursor.service'
 import { createAdapter } from '@socket.io/redis-adapter'
 import Redis from 'ioredis'
@@ -25,9 +27,11 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   @WebSocketServer() server!: Server
 
   constructor(
-    private readonly jwtService:    JwtService,
-    private readonly prisma:        PrismaService,
-    private readonly cursorService: CursorService,
+    private readonly jwtService:      JwtService,
+    private readonly prisma:          PrismaService,
+    private readonly cursorService:   CursorService,
+    private readonly projectAccess:   ProjectAccessService,
+    private readonly eventEmitter:    EventEmitter2,
   ) {}
 
   async afterInit(server: Server) {
@@ -99,21 +103,33 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
         user: { select: { id: true, name: true, avatarUrl: true, email: true, role: true, title: true, department: true } },
       },
     })
-    const users = sessions.map((s) => ({
-      id:         s.user.id,
-      name:       s.user.name,
-      avatarUrl:  s.user.avatarUrl,
-      email:      s.user.email,
-      role:       s.user.role,
-      title:      s.user.title,
-      department: s.user.department,
-    }))
+    const users = Array.from(
+      new Map(
+        sessions.map((s) => [
+          s.user.id,
+          {
+            id:         s.user.id,
+            name:       s.user.name,
+            avatarUrl:  s.user.avatarUrl,
+            email:      s.user.email,
+            role:       s.user.role,
+            title:      s.user.title,
+            department: s.user.department,
+          },
+        ]),
+      ).values(),
+    )
 
     client.to(`song:${data.songId}`).emit('user-joined', client.data.user)
     client.emit('presence-list', users)
 
-    const cursors = await this.cursorService.getCursors(data.songId)
-    client.emit('cursor-snapshot', { cursors })
+    try {
+      const cursors = await this.cursorService.getCursors(data.songId)
+      client.emit('cursor-snapshot', { cursors })
+    } catch (err) {
+      console.error('[RealtimeGateway] getCursors failed, sending empty snapshot', err)
+      client.emit('cursor-snapshot', { cursors: [] })
+    }
   }
 
   @SubscribeMessage('join-project')
@@ -174,7 +190,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       track:  data.track,
       time:   data.time,
     }
-    await this.cursorService.setCursor(data.songId, client.data.user.id, cursorData)
+    // Fire-and-forget Redis write — don't block broadcast on persistence latency
+    this.cursorService.setCursor(data.songId, client.data.user.id, cursorData)
+      .catch(err => console.error('[RealtimeGateway] setCursor failed', err))
     client.to(`song:${data.songId}`).emit('cursor-moved', cursorData)
   }
 
@@ -184,8 +202,32 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     @MessageBody() data: { songId: string },
   ) {
     if (!client.data.user) return
-    await this.cursorService.deleteCursor(data.songId, client.data.user.id)
+    this.cursorService.deleteCursor(data.songId, client.data.user.id)
+      .catch(err => console.error('[RealtimeGateway] deleteCursor failed', err))
     client.to(`song:${data.songId}`).emit('cursor-hidden', { userId: client.data.user.id })
+  }
+
+  @SubscribeMessage('chart-switch')
+  async handleChartSwitch(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { songId: string; chartId: string; chartName: string },
+  ) {
+    if (!client.data.user || !data.songId || !data.chartId) return
+    await this.projectAccess.assertCanViewSong(data.songId, client.data.user)
+    client.to(`song:${data.songId}`).emit('chart-switched', {
+      actor: {
+        id: client.data.user.id,
+        name: client.data.user.name,
+        avatarUrl: client.data.user.avatarUrl ?? null,
+      },
+      data: { chartId: data.chartId, chartName: data.chartName },
+    })
+    this.eventEmitter.emit('chart.switched', {
+      songId: data.songId,
+      chartId: data.chartId,
+      chartName: data.chartName,
+      userId: client.data.user.id,
+    })
   }
 
   broadcastToSong(songId: string, event: string, data: unknown) {

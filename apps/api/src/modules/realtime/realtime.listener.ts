@@ -1,38 +1,68 @@
 import { Injectable } from '@nestjs/common'
 import { OnEvent } from '@nestjs/event-emitter'
 import { RealtimeGateway } from './realtime.gateway'
+import { PrismaService } from '../prisma/prisma.service'
 import { NOTE_EVENTS } from '@ama-midi/shared'
 import type {
   NoteCreatedEvent,
   NoteUpdatedEvent,
   NoteDeletedEvent,
   NotesBatchAppliedPayload,
+  ActivityActor,
+  RealtimeActivityPayload,
 } from '@ama-midi/shared'
 
 @Injectable()
 export class RealtimeListener {
-  constructor(private readonly gateway: RealtimeGateway) {}
+  constructor(
+    private readonly gateway: RealtimeGateway,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  private actorCache = new Map<string, ActivityActor>()
+
+  private async resolveActor(userId: string): Promise<ActivityActor> {
+    const cached = this.actorCache.get(userId)
+    if (cached) return cached
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, avatarUrl: true },
+    })
+    const actor = user
+      ? { id: user.id, name: user.name, avatarUrl: user.avatarUrl }
+      : { id: userId, name: 'Someone', avatarUrl: null }
+    this.actorCache.set(userId, actor)
+    return actor
+  }
+
+  private async wrap<T>(userId: string, data: T): Promise<RealtimeActivityPayload<T>> {
+    return { actor: await this.resolveActor(userId), data }
+  }
 
   @OnEvent(NOTE_EVENTS.CREATED)
-  onNoteCreated(event: NoteCreatedEvent) {
+  async onNoteCreated(event: NoteCreatedEvent) {
     if (event.realtimeMode === 'batch') return
-    this.gateway.broadcastToSong(event.songId, 'note-created', event.afterState)
+    this.gateway.broadcastToSong(event.songId, 'note-created', await this.wrap(event.userId, event.afterState))
   }
 
   @OnEvent(NOTE_EVENTS.UPDATED)
-  onNoteUpdated({ songId, afterState }: NoteUpdatedEvent) {
-    this.gateway.broadcastToSong(songId, 'note-updated', afterState)
+  async onNoteUpdated({ songId, userId, afterState }: NoteUpdatedEvent) {
+    this.gateway.broadcastToSong(songId, 'note-updated', await this.wrap(userId, afterState))
   }
 
   @OnEvent(NOTE_EVENTS.DELETED)
-  onNoteDeleted(event: NoteDeletedEvent) {
+  async onNoteDeleted(event: NoteDeletedEvent) {
     if (event.realtimeMode === 'batch') return
-    this.gateway.broadcastToSong(event.songId, 'note-deleted', { noteId: event.noteId })
+    this.gateway.broadcastToSong(
+      event.songId,
+      'note-deleted',
+      await this.wrap(event.userId, { noteId: event.noteId, beforeState: event.beforeState }),
+    )
   }
 
   @OnEvent(NOTE_EVENTS.BATCH_APPLIED)
-  onNotesBatchApplied(payload: NotesBatchAppliedPayload) {
-    this.gateway.broadcastToSong(payload.songId, 'notes-batch-applied', payload)
+  async onNotesBatchApplied(payload: NotesBatchAppliedPayload) {
+    this.gateway.broadcastToSong(payload.songId, 'notes-batch-applied', await this.wrap(payload.actorId, payload))
   }
 
   @OnEvent('project.member.updated')
