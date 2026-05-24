@@ -9,9 +9,9 @@ Replace the fragmented AI editor UX (dropdown menu, separate modals, toast-only 
 1. **One modal, many flows** — Single `AiAssistantModal` with internal navigation: picker → configure → processing → result.
 2. **Toolbar AI button** — Clicking **AI** opens the modal on the feature picker. The current dropdown and separate `AiGenerateChartModal` / `AiScaleChartModal` are removed.
 3. **Improve pattern** replaces **Continue pattern** — Multi-select bar deep-links into the Improve flow (skips picker). Inside Improve, user chooses **Extend** or **Refine** before running.
-4. **Progress in the modal** — No toast-only loading for AI runs. A vertical step tree shows current phase until preview/suggestions are ready.
+4. **Progress in the modal** — No toast-only loading for AI runs. A vertical step tree is driven by **server-sent progress events** (SSE) as each phase completes on the backend.
 5. **Preview models unchanged** — Generate and Scale still use `ChartPreviewState` + `ChartPreviewBar`. Fill track and Improve still use ghost suggestions on the grid via `AiSuggestions`.
-6. **Backend scope** — Extend `suggestNotes` with global context and a new `refine_pattern` mode. Generate and Scale endpoints unchanged (already chart-aware).
+6. **Backend scope** — Extend `suggestNotes` with global context and a new `refine_pattern` mode. Add streaming variants for all four AI actions (generate, scale, suggest). Non-streaming POST endpoints may remain for backward compatibility but the modal uses streaming only.
 
 ## Entry Points
 
@@ -142,17 +142,131 @@ Vertical list with states: `pending` | `active` | `done` | `error`.
 4. Validate placements
 5. Ready — view on chart
 
-### Progress timing
+### Progress timing — server-driven SSE
 
-Version 1 uses **client-orchestrated steps** around a single API call:
+Version 1 uses **real streaming progress** from the API. The modal does not simulate steps on a timer.
 
-- Steps 1–2 advance immediately when the request starts (reflect server-side work conceptually).
-- Step 3 stays **active** until the HTTP response returns.
-- Steps 4–5 advance on response; then transition to result state.
+Each AI run opens a **POST** request that returns `Content-Type: text/event-stream`. The server emits one SSE `data:` line per event as work advances. The final event is either `result` (success) or `error`, then the stream closes.
 
-No SSE or streaming in v1. Step labels set user expectations during the 2–15s LLM wait.
+**Why POST + fetch (not `EventSource`)** — JWT auth lives in the `Authorization` header; `EventSource` cannot set custom headers. The web client uses `fetch` + `ReadableStream` to parse SSE lines (same pattern as many NestJS streaming APIs).
 
-On error, mark current step `error`, show message + **Try again** / **Back**.
+**Why not token streaming** — Progress events reflect **pipeline phases** (load data, analyze, call LLM, normalize). LLM output remains non-streaming through `LLMAdapter.complete()` in v1; the “Generate with AI” step stays active until the full model response returns. Token-level streaming can be added later inside that step without changing the modal UI.
+
+On error, the server emits `{ type: 'error', ... }`, marks the active step failed if applicable, and closes the stream. The modal shows **Try again** / **Back**.
+
+Closing the modal **aborts** the fetch (`AbortController`) so the client stops reading; the server may still finish the LLM call but the client ignores late events via `runId`.
+
+## Streaming API
+
+### Unified stream endpoint
+
+One entry point keeps auth, CORS, and client parsing in one place:
+
+```
+POST /songs/:songId/ai/stream
+Authorization: Bearer …
+Content-Type: application/json
+Accept: text/event-stream
+```
+
+Request body:
+
+```ts
+type AiStreamRequest =
+  | { action: 'generate-chart'; description: string; snapMode: SnapMode; targetTier?: SongDifficulty }
+  | { action: 'scale-chart'; chartId: string; targetTier: SongDifficulty; instruction?: string; snapMode: SnapMode }
+  | { action: 'suggest-notes'; chartId: string; mode: SuggestNotesMode; playheadTime: number; snapMode: SnapMode; targetTrack?: number; selectedNotes?: Array<{ track: number; time: number }>; instruction?: string }
+```
+
+Each variant reuses existing DTO validation rules from `GenerateChartDto`, `ScaleChartDto`, and `SuggestNotesDto`.
+
+### Event protocol
+
+Shared types in `packages/shared`:
+
+```ts
+export type AiStreamStepStatus = 'active' | 'done' | 'error'
+
+export type AiStreamEvent =
+  | { type: 'run'; runId: string; action: AiStreamRequest['action'] }
+  | { type: 'step'; runId: string; stepId: string; label: string; status: AiStreamStepStatus; detail?: string }
+  | { type: 'result'; runId: string; action: 'generate-chart'; payload: GenerateChartResponse }
+  | { type: 'result'; runId: string; action: 'scale-chart'; payload: GenerateChartResponse }
+  | { type: 'result'; runId: string; action: 'suggest-notes'; payload: SuggestNotesResponse }
+  | { type: 'error'; runId: string; message: string; stepId?: string; code?: string }
+```
+
+Wire format (standard SSE):
+
+```
+data: {"type":"run","runId":"…","action":"scale-chart"}
+
+data: {"type":"step","runId":"…","stepId":"load_chart","label":"Load chart & analysis","status":"active"}
+
+data: {"type":"step","runId":"…","stepId":"load_chart","label":"Load chart & analysis","status":"done"}
+
+…
+
+data: {"type":"result","runId":"…","action":"scale-chart","payload":{"notes":[…],"sections":[…]}}
+
+```
+
+Controller sets:
+
+- `Content-Type: text/event-stream`
+- `Cache-Control: no-cache`
+- `Connection: keep-alive`
+- Flush after each `data:` line (`res.flush()` where available)
+
+### Step catalogs (server emits these `stepId`s)
+
+**`generate-chart`**
+
+| stepId | Label |
+|---|---|
+| `prepare` | Prepare request |
+| `generate` | Generate with AI |
+| `normalize` | Normalize chart |
+| `ready` | Ready to preview |
+
+**`scale-chart`**
+
+| stepId | Label |
+|---|---|
+| `load_chart` | Load chart & analysis |
+| `build_prompt` | Build scale prompt |
+| `generate` | Generate with AI |
+| `normalize` | Normalize chart |
+| `ready` | Ready to preview |
+
+**`suggest-notes`** (fill track, improve extend, improve refine)
+
+| stepId | Label |
+|---|---|
+| `load_context` | Load chart context |
+| `analyze` | Analyze sections & density |
+| `generate` | Generate suggestions |
+| `validate` | Validate placements |
+| `ready` | Ready — view on chart |
+
+Services accept an optional progress callback:
+
+```ts
+type AiProgressEmitter = (event: Omit<AiStreamStepEvent, 'runId'>) => void
+
+// Example inside scaleChart:
+onProgress?.({ type: 'step', stepId: 'load_chart', label: '…', status: 'active' })
+// … prisma fetches …
+onProgress?.({ type: 'step', stepId: 'load_chart', label: '…', status: 'done' })
+```
+
+`AiController.streamAi()` validates body, generates `runId`, wraps the matching service call, emits events, sends `result`, closes stream. Errors map to `{ type: 'error' }` without throwing after headers are sent (catch inside stream handler).
+
+### NestJS implementation notes
+
+- Use `@Res({ passthrough: false })` or manual `Response` write for the stream route; do not return JSON from the same handler.
+- Keep existing `POST generate-chart`, `scale-chart`, `suggest-notes` for tests/scripts; modal uses `/ai/stream` only.
+- Jest tests for stream handler: collect parsed events from a mock `Response` write mock and assert step order + final result.
 
 ## Result States
 
@@ -227,8 +341,8 @@ apps/web/src/features/editor/components/ai-assistant/
     ScaleDifficultyFlow.tsx
     FillTrackFlow.tsx
     ImprovePatternFlow.tsx   # sub-mode + configure
-  ai-assistant.types.ts      # AiFeature, AiPhase, ProgressStep
-  useAiAssistantRun.ts       # shared hook: run API + advance steps
+  ai-assistant.types.ts      # AiFeature, AiPhase, ProgressStep, AiStreamEvent
+  useAiStreamRun.ts          # fetch SSE parser + AbortController + step state
 ```
 
 **State placement**
@@ -256,16 +370,30 @@ apps/web/src/features/editor/components/ai-assistant/
 ## Data Flow
 
 ```
-User picks feature → configure form → useAiAssistantRun.start()
-  → advance steps 1–2 (immediate)
-  → POST /songs/:id/generate-chart | scale-chart | suggest-notes
-  → advance steps 4–5
-  → branch:
-      generate/scale → setChartPreview → close modal
-      fill/improve   → setAiSuggestions → show result step → Done → close
+User picks feature → configure form → useAiStreamRun.start(body)
+  → POST /songs/:id/ai/stream (Accept: text/event-stream)
+  → for each SSE event:
+      run   → store runId
+      step  → update AiProgressTree (active / done / error)
+      result→ apply payload (chartPreview | aiSuggestions) → result screen
+      error → mark step, show Try again
+  → AbortController on modal close / cancel
 ```
 
-`suggest-notes` body includes new optional `instruction?: string` (max 2000) for fill and improve flows.
+`suggest-notes` stream body includes optional `instruction?: string` (max 2000) for fill and improve flows.
+
+### Web stream client
+
+`useAiStreamRun` responsibilities:
+
+1. Build `AiStreamRequest` from active flow + form values.
+2. `fetch(url, { method: 'POST', headers: { Authorization, Accept: 'text/event-stream' }, body, signal })`.
+3. Read `response.body` with `TextDecoder`, buffer incomplete lines, parse `data: ` JSON payloads.
+4. Maintain `steps: Record<stepId, AiStreamStepStatus>` for `AiProgressTree`.
+5. Ignore events whose `runId` ≠ current run (stale stream guard).
+6. On `result`, resolve promise with typed payload; on `error`, reject with message.
+
+Add `streamAi()` helper beside `apiClient` in `apps/web/src/features/auth/api.ts` (or dedicated `ai-stream.ts`) — do not reuse JSON-only `apiClient` for SSE bodies.
 
 ## Error Handling
 
@@ -275,15 +403,19 @@ User picks feature → configure form → useAiAssistantRun.start()
 | 400 validation | Inline error on form |
 | Empty suggestions | Result step: “No suggestions — try different instruction” + Back |
 | 409 on accept (ghost) | Existing toast on individual accept |
-| Network / 5xx | Progress tree error state + Try again |
+| Network / stream parse error | Progress tree error + Try again |
+| Stream ends without `result` | Treat as error (“Connection closed early”) |
+| 403 before stream opens | JSON error response (non-SSE) → toast + close |
 
-Disable primary buttons while `processing`. Closing modal during processing cancels UI state only (request may still complete; ignore stale response via run id).
+Disable primary buttons while `processing`. Closing modal aborts the in-flight stream (`AbortController`).
 
 ## Testing
 
 **API**
 
-- `suggestNotes` includes section + segment lines in prompt when data exists (mock prisma + fake LLM).
+- Stream handler emits steps in order and terminates with `result` for each action (mock LLM + mock `Response`).
+- Validation errors before stream start return normal HTTP 400 JSON (no SSE body).
+- `suggestNotes` includes section + segment lines in prompt when data exists.
 - `refine_pattern` rejects <2 selected notes.
 - Refine post-process allows replacement at selected times.
 
@@ -291,22 +423,26 @@ Disable primary buttons while `processing`. Closing modal during processing canc
 
 - Picker disables Scale when noteCount=0.
 - Deep-link from multi-select opens Improve without picker.
-- Progress tree advances through done on mocked fast API.
-- Generate flow still sets chartPreview.
+- `useAiStreamRun` parses multi-event SSE fixture and updates tree states.
+- Aborting fetch clears processing state without applying stale `result`.
+- Generate flow still sets chartPreview from stream `result` event.
 
 ## Out of Scope (v1)
 
-- Server-sent progress events / streaming
+- LLM token streaming inside the “Generate with AI” step (phase streaming only)
 - Region-only scale or generate
 - Saving AI output as a new chart variant
 - Improve pattern without selection (picker-only entry requires selection)
 - Replacing `ChartPreviewBar` with in-modal apply
+- WebSocket-based progress (SSE over POST is sufficient)
 
 ## Migration Checklist
 
-1. Add backend global context + `refine_pattern` + optional `instruction` on suggest DTO.
-2. Build `AiAssistantModal` shell + picker + progress tree.
-3. Port generate/scale forms into flows.
-4. Port fill track + improve flows; wire `AiSuggestions` to store.
-5. Replace toolbar + multi-select entry points; delete old modals/menu.
-6. Update tour copy and tests.
+1. Add shared `AiStreamEvent` types + step ID constants.
+2. Add `POST /songs/:songId/ai/stream` controller + progress emitters in `AiService` / `AiChartService`.
+3. Add backend global context + `refine_pattern` + optional `instruction` on suggest DTO.
+4. Add `useAiStreamRun` + SSE fetch helper on web.
+5. Build `AiAssistantModal` shell + picker + `AiProgressTree` wired to stream events.
+6. Port generate/scale/fill/improve forms into flows (all use stream endpoint).
+7. Replace toolbar + multi-select entry points; delete old modals/menu.
+8. Update tour copy and tests (stream fixtures for API + web).
