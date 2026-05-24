@@ -9,7 +9,7 @@ export interface PresenceUser {
   id:          string
   name:        string
   avatarUrl?:  string
-  email:       string
+  email?:      string
   title?:      string | null
   department?: string | null
 }
@@ -31,7 +31,6 @@ export function useSocket(songId: string, chartId?: string, projectId?: string) 
   const token       = useAuthStore(s => s.token)
   const socketRef   = useRef<Socket | null>(null)
 
-  // Stale cursor cleanup every second
   useEffect(() => {
     const id = setInterval(() => {
       setCursors(prev => {
@@ -52,8 +51,9 @@ export function useSocket(songId: string, chartId?: string, projectId?: string) 
     const WS_URL =
       import.meta.env.VITE_WS_URL ??
       (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001')
+
     const socket: Socket = io(WS_URL, {
-      auth: { token },
+      auth:       { token },
       transports: ['websocket'],
     })
     socketRef.current = socket
@@ -67,16 +67,16 @@ export function useSocket(songId: string, chartId?: string, projectId?: string) 
     socket.on('disconnect', () => {
       setIsConnected(false)
       toast.loading('Connection lost — reconnecting...', {
-        id: 'ws-disconnect',
-        duration: Infinity,
+        id:        'ws-disconnect',
+        duration:  Infinity,
         className: 'ama-toast ama-toast--connecting',
       })
     })
 
     socket.on('connect_error', () => {
       toast.loading('Connection lost — reconnecting...', {
-        id: 'ws-disconnect',
-        duration: Infinity,
+        id:        'ws-disconnect',
+        duration:  Infinity,
         className: 'ama-toast ama-toast--connecting',
       })
     })
@@ -107,10 +107,27 @@ export function useSocket(songId: string, chartId?: string, projectId?: string) 
       })
     })
 
+    socket.on('cursor-snapshot', ({ cursors: snapshot }: { cursors: Omit<CursorData, 'lastSeen'>[] }) => {
+      const now = Date.now()
+      setCursors(() => {
+        const map = new Map<string, CursorData>()
+        snapshot.forEach(c => map.set(c.userId, { ...c, lastSeen: now }))
+        return map
+      })
+    })
+
     socket.on('cursor-moved', (data: Omit<CursorData, 'lastSeen'>) => {
       setCursors(prev => {
         const next = new Map(prev)
         next.set(data.userId, { ...data, lastSeen: Date.now() })
+        return next
+      })
+    })
+
+    socket.on('cursor-hidden', ({ userId }: { userId: string }) => {
+      setCursors(prev => {
+        const next = new Map(prev)
+        next.delete(userId)
         return next
       })
     })
@@ -154,24 +171,18 @@ export function useSocket(songId: string, chartId?: string, projectId?: string) 
         { queryKey: ['notes', batchChartId], exact: false },
         (old) => {
           if (!old) return payload.created
-          const deleted = new Set(payload.deletedIds)
-          const createdById = new Map(payload.created.map((note) => [note.id, note]))
-          const kept = old.filter((note) => !deleted.has(note.id) && !createdById.has(note.id))
+          const deleted      = new Set(payload.deletedIds)
+          const createdById  = new Map(payload.created.map((note) => [note.id, note]))
+          const kept         = old.filter((note) => !deleted.has(note.id) && !createdById.has(note.id))
           return [...kept, ...payload.created]
         },
       )
       queryClient.invalidateQueries({ queryKey: ['validation', songId] })
     })
 
-    socket.on('section-created', () => {
-      queryClient.invalidateQueries({ queryKey: ['sections', songId] })
-    })
-    socket.on('section-updated', () => {
-      queryClient.invalidateQueries({ queryKey: ['sections', songId] })
-    })
-    socket.on('section-deleted', () => {
-      queryClient.invalidateQueries({ queryKey: ['sections', songId] })
-    })
+    socket.on('section-created', () => queryClient.invalidateQueries({ queryKey: ['sections', songId] }))
+    socket.on('section-updated', () => queryClient.invalidateQueries({ queryKey: ['sections', songId] }))
+    socket.on('section-deleted', () => queryClient.invalidateQueries({ queryKey: ['sections', songId] }))
 
     if (projectId) {
       socket.on('project.member.updated', () => {
@@ -197,5 +208,9 @@ export function useSocket(songId: string, chartId?: string, projectId?: string) 
     socketRef.current?.emit('cursor-move', { songId, track, time })
   }
 
-  return { presenceList, isConnected, cursors, emitCursorMove }
+  function emitCursorHide() {
+    socketRef.current?.emit('cursor-hide', { songId })
+  }
+
+  return { presenceList, isConnected, cursors, emitCursorMove, emitCursorHide }
 }
