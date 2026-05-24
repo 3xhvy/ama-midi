@@ -99,6 +99,7 @@ model User {
   songs          Song[]
   notes          Note[]
   noteEvents     NoteEvent[]
+  editorEvents   EditorEvent[]
   editorSessions EditorSession[]
   sectionMarkers SectionMarker[]
   patterns       NotePattern[]
@@ -187,6 +188,7 @@ model Song {
   charts           SongChart[]
   notes            Note[]
   noteEvents       NoteEvent[]
+  editorEvents     EditorEvent[]
   versions         SongVersion[]
   sessions         EditorSession[]
   outboxEvents     OutboxEvent[]
@@ -373,4 +375,30 @@ model NotePattern {
   song    Song? @relation(fields: [songId], references: [id], onDelete: SetNull)
 
   @@map("note_patterns")
+}
+
+model EditorEvent {
+  id              String   @id @default(uuid())
+  songId          String
+  chartId         String?
+  entityType      String
+  entityId        String?
+  eventType       String
+  userId          String
+  beforeState     Json?
+  afterState      Json?
+  batchId         String?  @db.Uuid
+  replacesEventId String?  @db.Uuid
+  undoneByEventId String?  @db.Uuid
+  undoable        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([songId, createdAt])
+  @@index([chartId, createdAt])
+  @@index([batchId])
+  @@index([userId, createdAt])
+  @@map("editor_events")
 }
