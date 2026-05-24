@@ -36,7 +36,7 @@ export class SectionsService {
       include: { creator: { select: { name: true } } },
     })
     const dom = this.toDomain(row)
-    this.events.emit('section.created', { songId, section: dom })
+    this.events.emit('section.created', { songId, userId: user.id, section: dom })
     return dom
   }
 
@@ -50,7 +50,7 @@ export class SectionsService {
       include: { creator: { select: { name: true } } },
     })
     const dom = this.toDomain(row)
-    this.events.emit('section.updated', { songId, section: dom })
+    this.events.emit('section.updated', { songId, userId: user.id, beforeState: this.toDomain(existing), section: dom })
     return dom
   }
 
@@ -59,7 +59,7 @@ export class SectionsService {
     const existing = await this.prisma.sectionMarker.findUnique({ where: { id } })
     if (!existing || existing.songId !== songId) throw new NotFoundException()
     await this.prisma.sectionMarker.delete({ where: { id } })
-    this.events.emit('section.deleted', { songId, id })
+    this.events.emit('section.deleted', { songId, userId: user.id, beforeState: this.toDomain(existing), id })
   }
 
   private toDomain = (row: any): SectionMarker => ({

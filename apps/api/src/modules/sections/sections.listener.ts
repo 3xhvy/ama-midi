@@ -8,17 +8,17 @@ export class SectionsListener {
   constructor(private readonly realtime: RealtimeGateway) {}
 
   @OnEvent('section.created')
-  handleCreated({ songId, section }: { songId: string; section: SectionMarker }) {
-    this.realtime.broadcastToSong(songId, 'section-created', section)
+  handleCreated(payload: { songId: string; userId: string; section: SectionMarker }) {
+    this.realtime.broadcastToSong(payload.songId, 'section-created', payload.section)
   }
 
   @OnEvent('section.updated')
-  handleUpdated({ songId, section }: { songId: string; section: SectionMarker }) {
-    this.realtime.broadcastToSong(songId, 'section-updated', section)
+  handleUpdated(payload: { songId: string; userId: string; beforeState: SectionMarker; section: SectionMarker }) {
+    this.realtime.broadcastToSong(payload.songId, 'section-updated', payload.section)
   }
 
   @OnEvent('section.deleted')
-  handleDeleted({ songId, id }: { songId: string; id: string }) {
-    this.realtime.broadcastToSong(songId, 'section-deleted', { id })
+  handleDeleted(payload: { songId: string; userId: string; beforeState: SectionMarker; id: string }) {
+    this.realtime.broadcastToSong(payload.songId, 'section-deleted', { id: payload.id, beforeState: payload.beforeState })
   }
 }

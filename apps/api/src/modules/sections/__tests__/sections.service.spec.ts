@@ -67,7 +67,27 @@ describe('SectionsService', () => {
 
     await service.create(mockUser, 'song1', { time: 0, label: 'Intro', color: '#6C63FF' })
 
-    expect(mockEmitter.emit).toHaveBeenCalledWith('section.created', expect.objectContaining({ songId: 'song1' }))
+    expect(mockEmitter.emit).toHaveBeenCalledWith('section.created', {
+      songId: 'song1',
+      userId: 'user1',
+      section: expect.objectContaining({ id: expect.any(String) }),
+    })
+  })
+
+  it('update emits section.updated event with beforeState', async () => {
+    const existing = { id: 'section-1', songId: 'song1', time: 0, label: 'Old', color: '#6C63FF', createdAt: new Date() }
+    const updated = { id: 'section-1', songId: 'song1', time: 0, label: 'New', color: '#6C63FF', createdAt: new Date() }
+    mockPrisma.sectionMarker.findUnique.mockResolvedValue(existing)
+    mockPrisma.sectionMarker.update.mockResolvedValue(updated)
+
+    await service.update('song1', 'section-1', { label: 'New', color: '#6C63FF' }, mockUser)
+
+    expect(mockEmitter.emit).toHaveBeenCalledWith('section.updated', {
+      songId: 'song1',
+      userId: 'user1',
+      beforeState: expect.objectContaining({ id: 'section-1' }),
+      section: expect.objectContaining({ id: 'section-1' }),
+    })
   })
 
   it('delete emits section.deleted event', async () => {
@@ -77,6 +97,11 @@ describe('SectionsService', () => {
 
     await service.delete('song1', 's1', mockUser)
 
-    expect(mockEmitter.emit).toHaveBeenCalledWith('section.deleted', expect.objectContaining({ songId: 'song1' }))
+    expect(mockEmitter.emit).toHaveBeenCalledWith('section.deleted', {
+      songId: 'song1',
+      userId: 'user1',
+      beforeState: expect.objectContaining({ id: 's1' }),
+      id: 's1',
+    })
   })
 })
