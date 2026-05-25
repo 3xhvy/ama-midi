@@ -105,4 +105,23 @@ describe('buildTapPlacementPreview', () => {
     expect(preview.summary.totalNotes).toBe(2)
     expect(preview.summary.creatableNotes).toBe(1)
   })
+
+  it('conflicts when tap lands inside an existing hold span', () => {
+    const draft = [{ track: 1, time: 2.0 }]
+    const existing = [{
+      ...makeNote(1, 0),
+      noteType: 'HOLD' as const,
+      duration: 5,
+    }]
+    const preview = buildTapPlacementPreview({
+      songId: 'song1',
+      draftNotes: draft,
+      existingNotes: existing,
+      offset: 0,
+    })
+    expect(preview.creatable).toHaveLength(0)
+    expect(preview.conflicts).toHaveLength(1)
+    expect(preview.conflicts[0].time).toBe(2.0)
+    expect(preview.conflicts[0].existingNote.id).toBe(existing[0].id)
+  })
 })

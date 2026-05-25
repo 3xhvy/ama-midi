@@ -75,7 +75,7 @@ export function EditorPage() {
     toggleLeftPanel, toggleRightPanel,
     setLeftCollapsed, setRightCollapsed,
     playheadTime, openAiAssistant,
-    selectedNoteIds, clearSelection, focusNote,
+    selectedNoteIds, clearSelection, focusNote, selectNotes,
     activeTrack,
     activeChartId,
     setActiveChartId,
@@ -170,7 +170,7 @@ export function EditorPage() {
 
   function handleTapSetupStart({ loopRange: range, draftNotes }: TapSetupResult) {
     setLoopRange(range)
-    setTapMode({ loopRange: range, draftNotes })
+    setTapMode({ loopRange: range, draftNotes, phase: 'recording' })
     setTapSetupOpen(false)
     setTapRangePick(false)
     setPlaying(true)
@@ -335,6 +335,13 @@ export function EditorPage() {
     onToggleShortcuts: () => setShowShortcuts((v) => !v),
     onToggleLeftPanel:  handleToggleLeft,
     onToggleRightPanel: handleToggleRight,
+    onSelectAll: () => {
+      if (allNotes.length === 0) {
+        clearSelection()
+        return
+      }
+      selectNotes(allNotes.map((n) => n.id))
+    },
   })
 
   const trackDensities = useMemo(() => computeTrackDensity(allNotes), [allNotes])

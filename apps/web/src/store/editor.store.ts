@@ -12,9 +12,12 @@ export interface DraftTapNote {
   duration?: number  // HOLD notes only
 }
 
+export type TapSessionPhase = 'recording' | 'review' | 'apply'
+
 export interface TapModeState {
   loopRange: LoopRange  // locked at session start
   draftNotes: DraftTapNote[]
+  phase: TapSessionPhase
 }
 
 export type AiAssistantFeature =
@@ -46,6 +49,10 @@ export interface ChartPreviewState {
   }>
   sections?: Array<{ time: number; label: string; color?: string }>
   replaceExisting: boolean
+  createAsNewChart?: boolean
+  useReferenceChart?: boolean
+  previewOnClearGrid?: boolean
+  suggestedChartName?: string
   placement: ChartApplyPreview | null
 }
 
@@ -79,6 +86,7 @@ interface EditorStore {
   focusNote:            (id: string | null) => void
   toggleNoteSelection:  (id: string) => void
   addNoteSelection:     (ids: string[]) => void
+  selectNotes:          (ids: string[]) => void
   clearSelection:       () => void
   setRightPanelTab:     (tab: RightPanelTab) => void
   toggleLeftPanel:     () => void
@@ -99,6 +107,8 @@ interface EditorStore {
   clearChartPreview:   () => void
   setLoopRange:        (range: LoopRange | null) => void
   setTapMode:          (state: TapModeState | null) => void
+  setTapPhase:         (phase: TapSessionPhase) => void
+  resetTapDraft:       () => void
   addTapDraftNote:     (note: DraftTapNote) => void
 }
 
@@ -145,6 +155,10 @@ export const useEditorStore = create<EditorStore>((set) => ({
     ids.forEach((id) => next.add(id))
     return { selectedNoteIds: next, selectedNoteId: next.size === 1 ? [...next][0] : null }
   }),
+  selectNotes:          (ids) => set({
+    selectedNoteIds: new Set(ids),
+    selectedNoteId: ids.length === 1 ? ids[0] : null,
+  }),
   clearSelection:       () => set({ selectedNoteIds: new Set(), selectedNoteId: null }),
   setRightPanelTab:     (rightPanelTab) => set({ rightPanelTab }),
   toggleLeftPanel:     () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
@@ -171,7 +185,16 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setChartPreview:     (chartPreview) => set({ chartPreview }),
   clearChartPreview:   () => set({ chartPreview: null }),
   setLoopRange:        (loopRange) => set({ loopRange }),
-  setTapMode:          (tapMode) => set({ tapMode }),
+  setTapMode:          (tapMode) => set((s) => ({
+    tapMode,
+    loopRange: tapMode === null ? null : s.loopRange,
+  })),
+  setTapPhase:         (phase) => set((s) =>
+    s.tapMode ? { tapMode: { ...s.tapMode, phase } } : s,
+  ),
+  resetTapDraft:       () => set((s) =>
+    s.tapMode ? { tapMode: { ...s.tapMode, draftNotes: [], phase: 'recording' } } : s,
+  ),
   addTapDraftNote:     (note) => set((s) => {
     if (!s.tapMode) return s
     // Same track + snapped time → replace (loop re-taps must not stack)

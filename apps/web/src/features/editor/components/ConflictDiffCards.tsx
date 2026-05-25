@@ -74,7 +74,7 @@ export function ConflictDiffCards({ conflict, resolution, incomingLabel }: Props
   const existingLabelColor = isReplacing
     ? 'var(--modal-muted)'
     : isKeeping
-    ? 'var(--conflict-danger)'
+    ? 'var(--conflict-success)'
     : 'var(--modal-muted)'
 
   const incomingSideLabel = isKeeping

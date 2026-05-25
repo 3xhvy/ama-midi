@@ -3,7 +3,7 @@ import type { UndoConflict, UndoPreview } from '@ama-midi/shared'
 import { trackColor } from '@ama-midi/shared'
 import { formatTime } from './conflict-formatters'
 import { EditorModalOverlay, EditorModalPanel } from './EditorModal'
-import { conflictChipStyle, typePillStyle } from './conflict-theme'
+import { conflictChipStyle, conflictKeepBtnStyle, conflictKeepBulkStyle, typePillStyle } from './conflict-theme'
 import type { UndoResolution } from '../../undo/undo.types'
 
 interface Props {
@@ -166,19 +166,78 @@ export function UndoConflictModal({ preview, resolutions, onResolve, onApply, on
       <EditorModalPanel size="undo-wide" onClick={(e) => e.stopPropagation()}>
         <div className="flex-shrink-0 px-6 py-4 border-b" style={{ borderColor: 'var(--modal-border)' }}>
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0 flex-1">
               <h2 className="text-sm font-semibold" style={{ color: 'var(--modal-text)' }}>Undo — Resolve Conflicts</h2>
               <p className="text-xs mt-0.5" style={{ color: 'var(--modal-muted)' }}>
                 Restoring notes from a previous action caused conflicts.
               </p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={conflictChipStyle('red')}>
-                  {conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''}
-                </span>
-              </div>
             </div>
             <button type="button" onClick={onCancel} className="text-xl leading-none hover:opacity-60 flex-shrink-0 mt-1" style={{ color: 'var(--modal-muted)' }}>✕</button>
           </div>
+
+          {activeConflict && (
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => resolveAll('KEEP_EXISTING')}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
+                style={conflictKeepBulkStyle()}
+              >
+                Keep all existing
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveAll('REPLACE_WITH_UNDO')}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
+                style={{
+                  borderColor: 'var(--conflict-incoming-border)',
+                  color: 'var(--conflict-accent)',
+                  backgroundColor: 'var(--conflict-incoming-bg)',
+                }}
+              >
+                Restore all from undo
+              </button>
+
+              <span className="flex-1 min-w-4" />
+
+              <button
+                type="button"
+                disabled={activeIndex === 0}
+                onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
+                className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30"
+                style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
+              >← Prev</button>
+              <span className="text-xs tabular-nums" style={{ color: 'var(--modal-muted)' }}>{activeIndex + 1} of {conflicts.length}</span>
+              <button
+                type="button"
+                disabled={activeIndex === conflicts.length - 1 || !activeResolved}
+                onClick={() => setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))}
+                className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30"
+                style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
+                title={!activeResolved ? 'Choose Keep or Restore before continuing' : undefined}
+              >Next →</button>
+              <button
+                type="button"
+                onClick={() => resolveAndAdvance(activeConflict.conflictId, 'KEEP_EXISTING')}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={conflictKeepBtnStyle(resolutions[activeConflict.conflictId] === 'KEEP_EXISTING')}
+              >
+                {resolutions[activeConflict.conflictId] === 'KEEP_EXISTING' ? '✓ ' : ''}Keep existing
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveAndAdvance(activeConflict.conflictId, 'REPLACE_WITH_UNDO')}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={
+                  resolutions[activeConflict.conflictId] === 'REPLACE_WITH_UNDO'
+                    ? { backgroundColor: 'var(--conflict-incoming-bg)', borderColor: 'var(--conflict-incoming-border)', color: 'var(--conflict-accent)' }
+                    : { backgroundColor: 'var(--modal-input-bg)', borderColor: 'var(--modal-border)', color: 'var(--modal-muted)' }
+                }
+              >
+                {resolutions[activeConflict.conflictId] === 'REPLACE_WITH_UNDO' ? '✓ ' : ''}Restore from undo
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-row flex-1 overflow-hidden">
@@ -202,61 +261,14 @@ export function UndoConflictModal({ preview, resolutions, onResolve, onApply, on
           </div>
 
           <div className="flex-1 flex flex-col overflow-y-auto p-5 gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: trackColor(activeConflict.track) }} />
-                <span className="text-sm font-semibold" style={{ color: 'var(--modal-text)' }}>
-                  Track {activeConflict.track} · {formatTime(activeConflict.time)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={activeIndex === 0}
-                  onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
-                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30"
-                  style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
-                >← Prev</button>
-                <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>{activeIndex + 1} of {conflicts.length}</span>
-                <button
-                  type="button"
-                  disabled={activeIndex === conflicts.length - 1 || !activeResolved}
-                  onClick={() => setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))}
-                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30"
-                  style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
-                  title={!activeResolved ? 'Choose Keep or Restore before continuing' : undefined}
-                >Next →</button>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: trackColor(activeConflict.track) }} />
+              <span className="text-sm font-semibold whitespace-nowrap" style={{ color: 'var(--modal-text)' }}>
+                Track {activeConflict.track} · {formatTime(activeConflict.time)}
+              </span>
             </div>
 
             <UndoDiffCards conflict={activeConflict} resolution={resolutions[activeConflict.conflictId]} />
-
-            <div className="flex gap-3 mt-auto">
-              <button
-                type="button"
-                onClick={() => resolveAndAdvance(activeConflict.conflictId, 'KEEP_EXISTING')}
-                className="flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors"
-                style={
-                  resolutions[activeConflict.conflictId] === 'KEEP_EXISTING'
-                    ? { backgroundColor: 'var(--conflict-keep-bg)', borderColor: 'var(--conflict-success)', color: 'var(--conflict-success)' }
-                    : { backgroundColor: 'var(--modal-input-bg)', borderColor: 'var(--modal-border)', color: 'var(--modal-muted)' }
-                }
-              >
-                {resolutions[activeConflict.conflictId] === 'KEEP_EXISTING' ? '✓ ' : ''}Keep Existing
-              </button>
-              <button
-                type="button"
-                onClick={() => resolveAndAdvance(activeConflict.conflictId, 'REPLACE_WITH_UNDO')}
-                className="flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors"
-                style={
-                  resolutions[activeConflict.conflictId] === 'REPLACE_WITH_UNDO'
-                    ? { backgroundColor: 'var(--conflict-incoming-bg)', borderColor: 'var(--conflict-accent)', color: 'var(--conflict-accent)' }
-                    : { backgroundColor: 'var(--modal-input-bg)', borderColor: 'var(--modal-border)', color: 'var(--modal-muted)' }
-                }
-              >
-                {resolutions[activeConflict.conflictId] === 'REPLACE_WITH_UNDO' ? '✓ ' : ''}Restore from Undo
-              </button>
-            </div>
           </div>
         </div>
 
@@ -268,34 +280,6 @@ export function UndoConflictModal({ preview, resolutions, onResolve, onApply, on
             <span>K = Keep &nbsp;·&nbsp; R = Restore &nbsp;·&nbsp; ← → Navigate</span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {conflicts.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => resolveAll('KEEP_EXISTING')}
-                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors hover:opacity-90"
-                  style={{
-                    borderColor: 'var(--conflict-keep-border)',
-                    color: 'var(--conflict-success)',
-                    backgroundColor: 'var(--conflict-keep-bg)',
-                  }}
-                >
-                  Keep all existing
-                </button>
-                <button
-                  type="button"
-                  onClick={() => resolveAll('REPLACE_WITH_UNDO')}
-                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors hover:opacity-90"
-                  style={{
-                    borderColor: 'var(--conflict-incoming-border)',
-                    color: 'var(--conflict-accent)',
-                    backgroundColor: 'var(--conflict-incoming-bg)',
-                  }}
-                >
-                  Restore all from undo
-                </button>
-              </>
-            )}
             <button type="button" onClick={onCancel} className="rounded-xl border px-4 py-2 text-sm" style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)' }}>
               Cancel
             </button>

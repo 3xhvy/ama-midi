@@ -11,6 +11,7 @@ interface Options {
   onToggleShortcuts?:   () => void
   onToggleLeftPanel?:   () => void
   onToggleRightPanel?:  () => void
+  onSelectAll?:         () => void
 }
 
 function isTypingTarget(target: EventTarget | null) {
@@ -23,7 +24,7 @@ function isTypingTarget(target: EventTarget | null) {
 
 export function useKeyboardShortcuts({
   canEdit, onUndo, onDeleteNote, onEditNote, onJumpToStart, onToggleShortcuts,
-  onToggleLeftPanel, onToggleRightPanel,
+  onToggleLeftPanel, onToggleRightPanel, onSelectAll,
 }: Options) {
   const { selectedNoteId, setZoom, setPlaying } = useEditorStore()
 
@@ -45,12 +46,17 @@ export function useKeyboardShortcuts({
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNoteId && canEdit) {
         e.preventDefault(); onDeleteNote()
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        onSelectAll?.()
+        return
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && canEdit) {
         e.preventDefault(); onUndo()
       }
       if ((e.key === 'j' || e.key === 'J') && onJumpToStart) {
         const { tapMode, isPlaying } = useEditorStore.getState()
-        if (tapMode && isPlaying) return
+        if (tapMode?.phase === 'recording' && isPlaying) return
         e.preventDefault(); onJumpToStart()
       }
       if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
@@ -65,5 +71,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [canEdit, selectedNoteId, setZoom, setPlaying, onUndo, onDeleteNote, onEditNote, onJumpToStart, onToggleShortcuts, onToggleLeftPanel, onToggleRightPanel])
+  }, [canEdit, selectedNoteId, setZoom, setPlaying, onUndo, onDeleteNote, onEditNote, onJumpToStart, onToggleShortcuts, onToggleLeftPanel, onToggleRightPanel, onSelectAll])
 }

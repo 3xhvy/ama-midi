@@ -21,9 +21,21 @@ export function ChartPreviewLayer({ gridWidth, pxPerSecond }: Props) {
     (chartPreview.placement?.conflicts ?? []).map((c) => `${c.track}:${c.time}`),
   )
 
+  const actionableKeys =
+    chartPreview.replaceExisting || chartPreview.createAsNewChart || !chartPreview.placement
+      ? null
+      : new Set([
+          ...chartPreview.placement.creatable.map((c) => `${c.track}:${c.time}`),
+          ...chartPreview.placement.conflicts.map((c) => `${c.track}:${c.time}`),
+        ])
+
+  const notesToRender = actionableKeys
+    ? chartPreview.notes.filter((note) => actionableKeys.has(`${note.track}:${note.time}`))
+    : chartPreview.notes
+
   return (
     <>
-      {chartPreview.notes.map((note, i) => {
+      {notesToRender.map((note, i) => {
         const x = trackToX(note.track, gridWidth)
         const y = timeToY(note.time, pxPerSecond)
         const cx = x + tw / 2

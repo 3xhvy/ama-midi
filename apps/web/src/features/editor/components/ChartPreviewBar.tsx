@@ -6,10 +6,13 @@ import { Button } from '../../../components/ui'
 import { useAuthStore } from '../../../store/auth.store'
 import { useEditorStore } from '../../../store/editor.store'
 import { apiClient } from '../../auth/api'
+import { useCharts, useCreateChart } from '../../charts/useCharts'
 import { ConflictReviewModal } from './ConflictReviewModal'
 import { applyMergeWithResolutions, mergeApplyToast } from './chart-merge-apply'
 import { confirmReplaceEntireChart } from './chart-replace-warning'
 import { chartApplyPreviewToPlacement, buildConflictResolutionPayload, mergeResolutions } from './placement-preview'
+import { CreateAiChartModal } from './CreateAiChartModal'
+import { nextAiChartName } from './ai-chart-name'
 
 interface Props {
   songId: string
@@ -21,7 +24,10 @@ type ConflictResolutionState = Record<string, ConflictAction>
 export function ChartPreviewBar({ songId, chartId }: Props) {
   const token = useAuthStore((s) => s.token)
   const qc = useQueryClient()
-  const { chartPreview, setChartPreview, clearChartPreview } = useEditorStore()
+  const { chartPreview, setChartPreview, clearChartPreview, setActiveChartId } = useEditorStore()
+  const { data: charts = [] } = useCharts(songId)
+  const createChart = useCreateChart(songId)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [applying, setApplying] = useState(false)
   const [showConflicts, setShowConflicts] = useState(false)
   const [resolutions, setResolutions] = useState<ConflictResolutionState>({})
@@ -29,7 +35,15 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
 
   if (!chartPreview || !chartId) return null
 
-  const { notes, sections, replaceExisting, placement } = chartPreview
+  const {
+    notes,
+    sections,
+    replaceExisting,
+    createAsNewChart,
+    previewOnClearGrid,
+    suggestedChartName,
+    placement,
+  } = chartPreview
   const createCount = placement?.summary.creatableNotes ?? notes.length
   const conflictCount = placement?.summary.conflictCount ?? 0
 
@@ -51,12 +65,29 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
     setShowConflicts(true)
   }
 
-  async function handleApplySuccess(result: ApplyChartResponse) {
+  async function handleApplySuccess(result: ApplyChartResponse, appliedChartId: string) {
     clearChartPreview()
     resetConflictState()
-    await qc.invalidateQueries({ queryKey: ['notes', chartId] })
+    await qc.invalidateQueries({ queryKey: ['notes', appliedChartId] })
     await qc.invalidateQueries({ queryKey: ['sections', songId] })
+    await qc.invalidateQueries({ queryKey: ['charts', songId] })
     toast.success(mergeApplyToast(result))
+  }
+
+  async function applyReplaceToChart(targetChartId: string) {
+    const result = await apiClient(token)<ApplyChartResponse>(
+      `/songs/${songId}/apply-chart`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          chartId: targetChartId,
+          notes,
+          sections,
+          replaceExisting: true,
+        }),
+      },
+    )
+    return result
   }
 
   function handle409(err: { body?: unknown }, currentResolutions: ConflictResolutionState) {
@@ -73,25 +104,31 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
     return true
   }
 
+  async function acceptCreateNewChart(chartName: string) {
+    setApplying(true)
+    const toastId = toast.loading('Creating chart…')
+    try {
+      const newChart = await createChart.mutateAsync({ name: chartName })
+      const result = await applyReplaceToChart(newChart.id)
+      setActiveChartId(newChart.id)
+      setShowCreateModal(false)
+      await handleApplySuccess(result, newChart.id)
+    } catch {
+      toast.error('Failed to create chart')
+    } finally {
+      setApplying(false)
+      toast.dismiss(toastId)
+    }
+  }
+
   async function acceptReplace() {
     if (!confirmReplaceEntireChart()) return
 
     setApplying(true)
     const toastId = toast.loading('Applying chart…')
     try {
-      const result = await apiClient(token)<ApplyChartResponse>(
-        `/songs/${songId}/apply-chart`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            chartId,
-            notes,
-            sections,
-            replaceExisting: true,
-          }),
-        },
-      )
-      await handleApplySuccess(result)
+      const result = await applyReplaceToChart(chartId)
+      await handleApplySuccess(result, chartId)
     } catch {
       toast.error('Failed to apply chart')
     } finally {
@@ -117,7 +154,7 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
           }),
         },
       )
-      await handleApplySuccess(result)
+      await handleApplySuccess(result, chartId!)
     } catch (err: unknown) {
       if (
         typeof err === 'object' &&
@@ -156,7 +193,7 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
         placement,
         currentResolutions,
       )
-      await handleApplySuccess(result)
+      await handleApplySuccess(result, chartId!)
     } catch (err: unknown) {
       if (
         typeof err === 'object' &&
@@ -179,12 +216,16 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
 
   const primaryLabel = applying
     ? 'Applying…'
-    : replaceExisting
-      ? 'Replace chart →'
-      : `Apply ${createCount} notes →`
+    : createAsNewChart
+      ? 'Create new chart →'
+      : replaceExisting
+        ? 'Replace chart →'
+        : `Apply ${createCount} notes →`
 
   function handlePrimaryClick() {
-    if (replaceExisting) {
+    if (createAsNewChart) {
+      setShowCreateModal(true)
+    } else if (replaceExisting) {
       void acceptReplace()
     } else if (placement && conflictCount > 0) {
       openConflictReview()
@@ -201,7 +242,11 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
           <span className="ml-2 text-chrome-muted">
             {notes.length} notes
             {(sections?.length ?? 0) > 0 ? ` · ${sections?.length} sections` : ''}
-            {replaceExisting
+            {createAsNewChart
+              ? previewOnClearGrid
+                ? ' · preview on empty grid · will create new chart'
+                : ' · will create new chart'
+              : replaceExisting
               ? ' · will replace existing'
               : placement
                 ? ` · ${placement.summary.creatableNotes} creatable · ${placement.summary.conflictCount} conflicts`
@@ -217,6 +262,17 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
           </Button>
         </div>
       </div>
+
+      {createAsNewChart && (
+        <CreateAiChartModal
+          open={showCreateModal}
+          suggestedName={suggestedChartName ?? nextAiChartName(charts)}
+          charts={charts}
+          applying={applying}
+          onConfirm={(name) => void acceptCreateNewChart(name)}
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
 
       {showConflicts && placement && (
         <ConflictReviewModal

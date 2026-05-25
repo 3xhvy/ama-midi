@@ -7,7 +7,7 @@ import { ConflictDiffCards } from './ConflictDiffCards'
 import { ConflictContextStrip } from './ConflictContextStrip'
 import { EditorModalOverlay, EditorModalPanel } from './EditorModal'
 import { formatTime } from './conflict-formatters'
-import { conflictChipStyle } from './conflict-theme'
+import { conflictChipStyle, conflictKeepBtnStyle, conflictKeepBulkStyle, conflictReplaceBtnStyle, conflictReplaceBulkStyle } from './conflict-theme'
 
 interface Props {
   preview:                  PlacementPreview
@@ -106,24 +106,13 @@ export function ConflictReviewModal({
       <EditorModalPanel size="wide" onClick={(e) => e.stopPropagation()}>
         <div className="flex-shrink-0 px-6 py-4 border-b" style={{ borderColor: 'var(--modal-border)' }}>
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0 flex-1">
               <h2 className="text-sm font-semibold" style={{ color: 'var(--modal-text)' }}>
                 {title}
               </h2>
               <p className="text-xs mt-0.5" style={{ color: 'var(--modal-muted)' }}>
                 {subtitle}
               </p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={conflictChipStyle('emerald')}>
-                  {preview.summary.creatableNotes} will be created
-                </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={conflictChipStyle('red')}>
-                  {preview.summary.conflictCount} conflicts
-                </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={conflictChipStyle('amber')}>
-                  {preview.summary.affectedExistingNotes} notes affected
-                </span>
-              </div>
             </div>
             <button
               type="button"
@@ -134,6 +123,72 @@ export function ConflictReviewModal({
               ✕
             </button>
           </div>
+
+          {hasConflicts && activeConflict && (
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => resolveAll('KEEP_EXISTING')}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
+                style={conflictKeepBulkStyle()}
+              >
+                Keep all existing
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveAll('REPLACE_WITH_PATTERN')}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
+                style={conflictReplaceBulkStyle()}
+              >
+                Apply all {incomingLabel}
+              </button>
+
+              <span className="flex-1 min-w-4" />
+
+              <button
+                type="button"
+                disabled={activeIndex === 0}
+                onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
+                className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30 transition-colors"
+                style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => { if (activeIndex !== 0) e.currentTarget.style.backgroundColor = 'var(--conflict-list-hover)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+              >
+                ← Prev
+              </button>
+              <span className="text-xs tabular-nums" style={{ color: 'var(--modal-muted)' }}>
+                {activeIndex + 1} of {conflicts.length}
+              </span>
+              <button
+                type="button"
+                disabled={activeIndex === conflicts.length - 1 || !activeResolved}
+                onClick={() => setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))}
+                className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30 transition-colors"
+                style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => { if (activeIndex !== conflicts.length - 1 && activeResolved) e.currentTarget.style.backgroundColor = 'var(--conflict-list-hover)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                title={!activeResolved ? 'Choose Keep or Replace before continuing' : undefined}
+              >
+                Next →
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveAndAdvance(activeConflict.conflictId, 'KEEP_EXISTING')}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={conflictKeepBtnStyle(resolutions[activeConflict.conflictId] === 'KEEP_EXISTING')}
+              >
+                {resolutions[activeConflict.conflictId] === 'KEEP_EXISTING' ? '✓ ' : ''}Keep existing
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveAndAdvance(activeConflict.conflictId, 'REPLACE_WITH_PATTERN')}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={conflictReplaceBtnStyle(resolutions[activeConflict.conflictId] === 'REPLACE_WITH_PATTERN')}
+              >
+                {resolutions[activeConflict.conflictId] === 'REPLACE_WITH_PATTERN' ? '✕ ' : ''}{replaceButtonLabel}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-row flex-1 overflow-hidden">
@@ -194,44 +249,14 @@ export function ConflictReviewModal({
               </div>
             )}
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: trackColor(activeConflict.track) }}
-                />
-                <span className="text-sm font-semibold" style={{ color: 'var(--modal-text)' }}>
-                  Track {activeConflict.track} · {formatTime(activeConflict.time)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={activeIndex === 0}
-                  onClick={() => setActiveIndex(i => Math.max(0, i - 1))}
-                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30 transition-colors"
-                  style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => { if (activeIndex !== 0) e.currentTarget.style.backgroundColor = 'var(--conflict-list-hover)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                >
-                  ← Prev
-                </button>
-                <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>
-                  {activeIndex + 1} of {conflicts.length}
-                </span>
-                <button
-                  type="button"
-                  disabled={activeIndex === conflicts.length - 1 || !activeResolved}
-                  onClick={() => setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))}
-                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30 transition-colors"
-                  style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => { if (activeIndex !== conflicts.length - 1 && activeResolved) e.currentTarget.style.backgroundColor = 'var(--conflict-list-hover)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                  title={!activeResolved ? 'Choose Keep or Replace before continuing' : undefined}
-                >
-                  Next →
-                </button>
-              </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: trackColor(activeConflict.track) }}
+              />
+              <span className="text-sm font-semibold whitespace-nowrap" style={{ color: 'var(--modal-text)' }}>
+                Track {activeConflict.track} · {formatTime(activeConflict.time)}
+              </span>
             </div>
 
             <ConflictDiffCards
@@ -241,49 +266,6 @@ export function ConflictReviewModal({
             />
 
             <ConflictContextStrip conflict={activeConflict} preview={preview} />
-
-            <div className="flex gap-3 mt-auto">
-              <button
-                type="button"
-                onClick={() => resolveAndAdvance(activeConflict.conflictId, 'KEEP_EXISTING')}
-                className="flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors"
-                style={
-                  resolutions[activeConflict.conflictId] === 'KEEP_EXISTING'
-                    ? {
-                        backgroundColor: 'var(--conflict-incoming-bg)',
-                        borderColor: 'var(--conflict-incoming-border)',
-                        color: 'var(--conflict-accent)',
-                      }
-                    : {
-                        backgroundColor: 'var(--modal-input-bg)',
-                        borderColor: 'var(--modal-border)',
-                        color: 'var(--modal-muted)',
-                      }
-                }
-              >
-                {resolutions[activeConflict.conflictId] === 'KEEP_EXISTING' ? '✓ ' : ''}Keep Existing
-              </button>
-              <button
-                type="button"
-                onClick={() => resolveAndAdvance(activeConflict.conflictId, 'REPLACE_WITH_PATTERN')}
-                className="flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors"
-                style={
-                  resolutions[activeConflict.conflictId] === 'REPLACE_WITH_PATTERN'
-                    ? {
-                        backgroundColor: 'var(--conflict-keep-bg)',
-                        borderColor: 'var(--conflict-keep-border)',
-                        color: 'var(--conflict-danger)',
-                      }
-                    : {
-                        backgroundColor: 'var(--modal-input-bg)',
-                        borderColor: 'var(--modal-border)',
-                        color: 'var(--modal-muted)',
-                      }
-                }
-              >
-                {resolutions[activeConflict.conflictId] === 'REPLACE_WITH_PATTERN' ? '✕ ' : ''}{replaceButtonLabel}
-              </button>
-            </div>
           </div>
           </>
           )}
@@ -300,34 +282,6 @@ export function ConflictReviewModal({
             Create <strong style={{ color: 'var(--modal-text)' }}>{createCount}</strong> · Replace <strong style={{ color: 'var(--modal-text)' }}>{replaceCount}</strong> · Skip <strong style={{ color: 'var(--modal-text)' }}>{skipCount}</strong>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {hasConflicts && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => resolveAll('KEEP_EXISTING')}
-                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors hover:opacity-90"
-                  style={{
-                    borderColor: 'var(--conflict-incoming-border)',
-                    color: 'var(--conflict-accent)',
-                    backgroundColor: 'var(--conflict-incoming-bg)',
-                  }}
-                >
-                  Keep all existing
-                </button>
-                <button
-                  type="button"
-                  onClick={() => resolveAll('REPLACE_WITH_PATTERN')}
-                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors hover:opacity-90"
-                  style={{
-                    borderColor: 'var(--conflict-keep-border)',
-                    color: 'var(--conflict-danger)',
-                    backgroundColor: 'var(--conflict-keep-bg)',
-                  }}
-                >
-                  Apply all {incomingLabel}
-                </button>
-              </>
-            )}
             <button
               type="button"
               onClick={onCancel}

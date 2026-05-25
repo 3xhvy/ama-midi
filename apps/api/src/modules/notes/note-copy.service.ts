@@ -37,6 +37,7 @@ import {
   type IncomingSlot,
   type ExistingSlotRow,
 } from './note-slot-preview'
+import { findOverlapping, type NoteSlot } from '@ama-midi/shared'
 
 const MIN_NOTE_IDS = 2
 const MAX_NOTE_IDS = 500
@@ -176,7 +177,34 @@ export class NoteCopyService {
         })
       }
 
+      const affectedTracks = [...new Set(notesToCreate.map((slot) => slot.track))]
+      const deletedIdSet = new Set(deletedIds)
+      const activeExisting: NoteSlot[] = affectedTracks.length === 0
+        ? []
+        : (await tx.note.findMany({
+            where: { chartId, deletedAt: null, track: { in: affectedTracks } },
+          }))
+            .filter((row) => !deletedIdSet.has(row.id))
+            .map((row) => ({
+              track: row.track,
+              time: row.time,
+              noteType: row.noteType,
+              duration: row.duration,
+            }))
+
+      const pendingCreates: NoteSlot[] = []
+
       for (const slot of notesToCreate) {
+        const candidate: NoteSlot = {
+          track: slot.track,
+          time: slot.time,
+          noteType: slot.noteType,
+          duration: slot.duration ?? null,
+        }
+        if (findOverlapping(candidate, [...activeExisting, ...pendingCreates])) {
+          throw new ConflictException({ error: 'POSITION_TAKEN' })
+        }
+
         const createdRow = await tx.note.create({
           data: {
             chartId,
@@ -195,6 +223,7 @@ export class NoteCopyService {
           note: this.toDomainNote(createdRow),
           replacesNoteId: slot.replacesNoteId,
         })
+        pendingCreates.push(candidate)
       }
     })
 

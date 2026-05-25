@@ -6,9 +6,13 @@ function computeNextTime(
   delta: number,
   loopRange: { start: number; end: number } | null,
   timeMax: number,
-): { time: number; stop: boolean } {
+  tapRecording = false,
+): { time: number; stop: boolean; tapReview?: boolean } {
   const next = current + delta
   if (loopRange && next >= loopRange.end) {
+    if (tapRecording) {
+      return { time: loopRange.end, stop: true, tapReview: true }
+    }
     return { time: loopRange.start, stop: false }
   }
   if (next >= timeMax) {
@@ -28,6 +32,14 @@ describe('computeNextTime', () => {
 
   it('loops back to start when playhead reaches loopRange.end', () => {
     expect(computeNextTime(7.9, 0.15, { start: 4, end: 8 }, 300)).toEqual({ time: 4, stop: false })
+  })
+
+  it('stops at loop end during tap recording', () => {
+    expect(computeNextTime(7.9, 0.15, { start: 4, end: 8 }, 300, true)).toEqual({
+      time: 8,
+      stop: true,
+      tapReview: true,
+    })
   })
 
   it('does not loop when playhead is before loopRange.end', () => {

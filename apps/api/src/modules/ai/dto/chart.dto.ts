@@ -9,6 +9,14 @@ export class GenerateChartDto {
   @IsBoolean()
   replaceExisting!: boolean
 
+  @IsOptional()
+  @IsBoolean()
+  createAsNewChart?: boolean
+
+  @IsOptional()
+  @IsBoolean()
+  useReferenceChart?: boolean
+
   @IsString()
   @MaxLength(2000)
   description!: string

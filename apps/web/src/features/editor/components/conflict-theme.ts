@@ -21,3 +21,45 @@ export function conflictChipStyle(variant: 'emerald' | 'red' | 'amber'): CSSProp
     color: `var(--conflict-chip-${variant}-text)`,
   }
 }
+
+const CONFLICT_BTN_IDLE: CSSProperties = {
+  backgroundColor: 'var(--modal-input-bg)',
+  borderColor: 'var(--modal-border)',
+  color: 'var(--modal-muted)',
+}
+
+export function conflictKeepBtnStyle(active: boolean): CSSProperties {
+  return active
+    ? {
+        backgroundColor: 'var(--conflict-keep-bg)',
+        borderColor: 'var(--conflict-keep-border)',
+        color: 'var(--conflict-success)',
+      }
+    : CONFLICT_BTN_IDLE
+}
+
+export function conflictReplaceBtnStyle(active: boolean): CSSProperties {
+  return active
+    ? {
+        backgroundColor: 'var(--conflict-replace-bg)',
+        borderColor: 'var(--conflict-replace-border)',
+        color: 'var(--conflict-danger)',
+      }
+    : CONFLICT_BTN_IDLE
+}
+
+export function conflictKeepBulkStyle(): CSSProperties {
+  return {
+    backgroundColor: 'var(--conflict-keep-bg)',
+    borderColor: 'var(--conflict-keep-border)',
+    color: 'var(--conflict-success)',
+  }
+}
+
+export function conflictReplaceBulkStyle(): CSSProperties {
+  return {
+    backgroundColor: 'var(--conflict-replace-bg)',
+    borderColor: 'var(--conflict-replace-border)',
+    color: 'var(--conflict-danger)',
+  }
+}

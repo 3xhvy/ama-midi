@@ -62,7 +62,7 @@ export function ConflictContextStrip({ conflict, preview }: Props) {
             className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center text-[7px] font-bold"
             style={{
               borderColor: 'var(--conflict-danger)',
-              backgroundColor: 'var(--conflict-keep-bg)',
+              backgroundColor: 'var(--conflict-replace-bg)',
               color: 'var(--conflict-danger)',
             }}
           >

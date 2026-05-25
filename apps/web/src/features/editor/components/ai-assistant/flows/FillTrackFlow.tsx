@@ -15,6 +15,7 @@ import {
   AiFlowPrimaryButton,
   AiFlowTextarea,
 } from '../AiFlowChrome'
+import { AiPromptTemplateChips } from '../AiPromptTemplateChips'
 
 export function FillTrackFlow({
   songId,
@@ -114,6 +115,13 @@ export function FillTrackFlow({
             })}
           </div>
         </div>
+
+        <AiPromptTemplateChips
+          flow="fill-track"
+          value={instruction}
+          onChange={setInstruction}
+          disabled={processing}
+        />
 
         <AiFlowTextarea
           value={instruction}

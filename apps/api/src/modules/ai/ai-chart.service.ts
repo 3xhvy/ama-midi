@@ -19,6 +19,7 @@ import {
   TRACK_MAX,
   TRACK_MIN,
   snapTime,
+  findOverlapping,
   type AiChartContext,
   type ApplyChartResponse,
   type AuthUser,
@@ -43,6 +44,8 @@ import { AI_STREAM_STEPS, type AiProgressEmitter, runStep, emitDetail } from './
 import { ChartContextService } from './chart-context.service'
 import { ChartApplyPreviewService } from './chart-apply-preview.service'
 import { buildGeneratePrompt, serializeChartContextForPrompt, CHART_NOTE_TYPE_INSTRUCTIONS, CHART_JSON_EXAMPLE } from './chart-context.prompt'
+import { assertNoFinalCreateOverlaps } from '../notes/note-slot-preview'
+import type { NoteSlot } from '../notes/note-overlap'
 import type { ApplyChartDto, GenerateChartDto, PreviewChartDto } from './dto/chart.dto'
 
 const MAX_GENERATED_NOTES = 150
@@ -101,6 +104,8 @@ export class AiChartService {
         targetCount,
         targetTier: body.targetTier,
         replaceExisting: body.replaceExisting,
+        createAsNewChart: body.createAsNewChart,
+        useReferenceChart: body.useReferenceChart,
       })
     })
 
@@ -287,26 +292,29 @@ export class AiChartService {
     let skippedCount = 0
 
     await this.prisma.$transaction(async (tx) => {
-      const occupied = new Set<string>()
-      const current = await tx.note.findMany({
+      const activeExisting: NoteSlot[] = await tx.note.findMany({
         where: { chartId, deletedAt: null },
-        select: { track: true, time: true },
+        select: { track: true, time: true, noteType: true, duration: true },
       })
-      for (const n of current) occupied.add(this.slotKey(n.track, n.time))
+      const pendingCreates: NoteSlot[] = []
 
       for (const draft of body.notes) {
         const track = draft.track
         const time = Math.round(draft.time * 10) / 10
         const noteType = draft.noteType ?? 'TAP'
-        const key = this.slotKey(track, time)
+        const duration = noteType === 'HOLD' ? draft.duration ?? null : null
 
         if (track < TRACK_MIN || track > TRACK_MAX) { skippedCount++; continue }
         if (time < TIME_MIN || time > TIME_MAX) { skippedCount++; continue }
         if (!NOTE_TYPES.has(noteType)) { skippedCount++; continue }
         if (noteType === 'HOLD' && (draft.duration == null || draft.duration <= 0)) { skippedCount++; continue }
-        if (occupied.has(key)) { skippedCount++; continue }
 
-        occupied.add(key)
+        const candidate: NoteSlot = { track, time, noteType, duration }
+        if (findOverlapping(candidate, [...activeExisting, ...pendingCreates])) {
+          skippedCount++
+          continue
+        }
+        pendingCreates.push(candidate)
 
         try {
           const row = await this.createChartNote(tx, songId, chartId, user.id, draft)
@@ -415,29 +423,59 @@ export class AiChartService {
 
       skippedCount -= deletedIds.length
 
-      for (const slot of classified.creatable) {
-        const row = await this.createChartNote(tx, songId, chartId, user.id, {
-          track: slot.track,
-          time: slot.time,
-          noteType: slot.noteType,
-          duration: slot.duration,
-          title: slot.title,
-        })
-        if (row) createdEntries.push({ note: row })
-      }
-
+      const notesToCreate: Array<{
+        track: number
+        time: number
+        noteType: string
+        duration?: number
+        title: string
+        replacesNoteId?: string
+      }> = classified.creatable.map((slot) => ({
+        track: slot.track,
+        time: slot.time,
+        noteType: slot.noteType,
+        duration: slot.duration,
+        title: slot.title,
+      }))
       for (const conflict of classified.conflicts) {
         if (resolutionMap.get(conflict.conflictId) !== 'REPLACE_WITH_PATTERN') continue
-
-        const row = await this.createChartNote(tx, songId, chartId, user.id, {
+        notesToCreate.push({
           track: conflict.track,
           time: conflict.time,
           noteType: conflict.incomingNote.noteType,
           duration: conflict.incomingNote.duration,
           title: conflict.incomingNote.title,
+          replacesNoteId: conflict.conflictId,
+        })
+      }
+
+      const affectedTracks = [...new Set(notesToCreate.map((slot) => slot.track))]
+      const deletedIdSet = new Set(deletedIds)
+      const activeExisting: NoteSlot[] = affectedTracks.length === 0
+        ? []
+        : (await tx.note.findMany({
+            where: { chartId, deletedAt: null, track: { in: affectedTracks } },
+          }))
+            .filter((row) => !deletedIdSet.has(row.id))
+            .map((row) => ({
+              track: row.track,
+              time: row.time,
+              noteType: row.noteType,
+              duration: row.duration,
+            }))
+
+      assertNoFinalCreateOverlaps(notesToCreate, activeExisting)
+
+      for (const slot of notesToCreate) {
+        const row = await this.createChartNote(tx, songId, chartId, user.id, {
+          track: slot.track,
+          time: slot.time,
+          noteType: slot.noteType as GeneratedChartNote['noteType'],
+          duration: slot.duration,
+          title: slot.title,
         })
         if (row) {
-          createdEntries.push({ note: row, replacesNoteId: conflict.conflictId })
+          createdEntries.push({ note: row, replacesNoteId: slot.replacesNoteId })
         }
       }
 
@@ -666,7 +704,7 @@ export class AiChartService {
     snapMode: SnapMode,
     bpm: number,
   ): GeneratedChartNote[] {
-    const seen = new Set<string>()
+    const accepted: Array<{ track: number; time: number; noteType: string; duration: number | null }> = []
     const out: GeneratedChartNote[] = []
 
     for (const item of raw) {
@@ -696,9 +734,14 @@ export class AiChartService {
         duration = undefined
       }
 
-      const key = this.slotKey(track, time)
-      if (seen.has(key)) continue
-      seen.add(key)
+      const candidate = {
+        track,
+        time,
+        noteType,
+        duration: noteType === 'HOLD' ? duration ?? null : null,
+      }
+      if (findOverlapping(candidate, accepted)) continue
+      accepted.push(candidate)
 
       out.push({
         track,

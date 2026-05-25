@@ -262,6 +262,8 @@ export interface GenerateChartRequest {
   description: string
   snapMode: SnapMode
   replaceExisting: boolean
+  createAsNewChart?: boolean
+  useReferenceChart?: boolean
   targetTier?: SongDifficulty
 }
 

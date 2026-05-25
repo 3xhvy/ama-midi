@@ -18,6 +18,7 @@ import {
   AiFlowSelect,
   AiFlowTextarea,
 } from '../AiFlowChrome'
+import { AiPromptTemplateChips } from '../AiPromptTemplateChips'
 
 export function ScaleDifficultyFlow({
   song,
@@ -108,6 +109,13 @@ export function ScaleDifficultyFlow({
             ))}
           </AiFlowSelect>
         </div>
+
+        <AiPromptTemplateChips
+          flow="scale-chart"
+          value={instruction}
+          onChange={setInstruction}
+          disabled={processing}
+        />
 
         <AiFlowTextarea
           value={instruction}

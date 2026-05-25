@@ -25,11 +25,13 @@ Composers already have MIDI editors. The missing piece is a **shared context lay
 
 This framing drove three hard requirements:
 
-| Property | Why it's non-negotiable |
-|---|---|
-| **Data integrity** | Two notes at the same (track, time) is a corruption, not a conflict to merge. Must be enforced atomically at the DB layer. |
-| **Real-time sync** | A game developer reads the note data as authoritative. No eventual consistency — changes must propagate within ~1 second. |
-| **Performance at scale** | 10,000 notes on a song is realistic for a polished game soundtrack. The editor must stay usable. |
+
+| Property                 | Why it's non-negotiable                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| **Data integrity**       | Two notes at the same (track, time) is a corruption, not a conflict to merge. Must be enforced atomically at the DB layer. |
+| **Real-time sync**       | A game developer reads the note data as authoritative. No eventual consistency — changes must propagate within ~1 second.  |
+| **Performance at scale** | 10,000 notes on a song is realistic for a polished game soundtrack. The editor must stay usable.                           |
+
 
 ---
 
@@ -56,23 +58,11 @@ Before writing a line of code, I mapped four distinct actors. The insight: **the
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Why Each Role Got Specific UX
-
-**Composer** — Fast Mode as default (click → note appears, no dialog). A form interrupts creative flow. The composer knows the position from where they clicked; title and color can come later.
-
-**Game Developer** — Developer View surfaces raw identifiers and precise timestamps on hover. A developer verifying timing alignment shouldn't wade through the composer's UX to reach the data they need.
-
-**Product Owner** — Song list with mini track density visualizations on each card. They can't read a DAW, but they can see at a glance whether a song is sparse or complete.
-
-**QA** — QA View transforms the editor from a creative tool into an audit surface: boundary violations highlighted, near-duplicate positions flagged, change history visible.
-
----
-
 ## Feature Hierarchy
 
 Features are organized by delivery phase. Each tier answers the question: *who is blocked without this?*
 
-Full detail: [`docs/project/03-features.md`](docs/project/03-features.md)
+Full detail: `[docs/project/03-features.md](docs/project/03-features.md)`
 
 ```
 Cross-Cutting — Conflict Resolution
@@ -290,6 +280,8 @@ erDiagram
     }
 ```
 
+
+
 **Critical index (the heart of integrity):**
 
 ```sql
@@ -304,16 +296,18 @@ This partial unique index enforces position uniqueness atomically at the databas
 
 ## Key Capabilities
 
-| Capability | How It Works |
-|---|---|
-| **Piano Roll Editor** | 8-track × 300s vertical timeline. Notes as colored circles at precise (track, time) positions. |
-| **Fast Mode** | Click grid → note placed instantly (optimistic UI). No form interruption. |
-| **Duplicate Prevention** | `UNIQUE (song_id, track, time) WHERE deleted_at IS NULL` — atomic, race-safe. DB layer, not app layer. |
-| **Real-time Collaboration** | Socket.io rooms per song. Redis Pub/Sub fans events to all API instances. Changes visible in < 1s. |
-| **Change Ledger** | Every mutation writes an immutable `NoteEvent` with `before_state` / `after_state` JSONB. Undo = compensating event. |
+
+| Capability                  | How It Works                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Piano Roll Editor**       | 8-track × 300s vertical timeline. Notes as colored circles at precise (track, time) positions.                                 |
+| **Fast Mode**               | Click grid → note placed instantly (optimistic UI). No form interruption.                                                      |
+| **Duplicate Prevention**    | `UNIQUE (song_id, track, time) WHERE deleted_at IS NULL` — atomic, race-safe. DB layer, not app layer.                         |
+| **Real-time Collaboration** | Socket.io rooms per song. Redis Pub/Sub fans events to all API instances. Changes visible in < 1s.                             |
+| **Change Ledger**           | Every mutation writes an immutable `NoteEvent` with `before_state` / `after_state` JSONB. Undo = compensating event.           |
 | **10,000-note Performance** | Two-layer windowing: API returns the visible time window; client clamps to viewport. ~80 active DOM nodes regardless of total. |
-| **AI Note Suggester** | Last 10 notes → Claude / OpenAI / DeepSeek → 3–5 pattern-continuation suggestions → ghost overlays (accept/dismiss per note). |
-| **Role-based Access** | Admin / Composer / Developer / Viewer enforced at NestJS route guards and React UI layer simultaneously. |
+| **AI Note Suggester**       | Last 10 notes → Claude / OpenAI / DeepSeek → 3–5 pattern-continuation suggestions → ghost overlays (accept/dismiss per note).  |
+| **Role-based Access**       | Admin / Composer / Developer / Viewer enforced at NestJS route guards and React UI layer simultaneously.                       |
+
 
 ---
 
@@ -356,6 +350,8 @@ sequenceDiagram
     Grid->>Composer: Toast: "Position just taken — try nearby"
 ```
 
+
+
 ### Real-Time Collaboration (Multi-Instance)
 
 ```mermaid
@@ -381,6 +377,8 @@ sequenceDiagram
 
     note over UserB: Sees UserA's note within ~1s, no refresh
 ```
+
+
 
 ### AI Note Suggestion
 
@@ -410,21 +408,25 @@ sequenceDiagram
     API-->>Editor: Confirmed or rolled back
 ```
 
+
+
 ---
 
 ## Design Decisions & Trade-offs
 
-| Decision | Chose | Rejected | Gained | Gave Up |
-|---|---|---|---|---|
-| **Deployment** | Modular monolith | Microservices | Fast build, clean boundaries | Independent service scaling |
-| **Conflict enforcement** | DB unique constraint | App-level pre-check | Atomic race safety | Richer pre-validation messages |
-| **History model** | Event sourcing (ledger) | Git-style branching | Simple undo, full audit trail | Experimental branch versions |
-| **Note rendering** | DOM virtualization | Canvas | Browser events, accessibility | Higher raw rendering ceiling |
-| **UI feedback** | Optimistic UI | Server-wait | Instant feel, flow state | More complex rollback logic |
-| **Time resolution** | 0.1s snap | Millisecond precision | Perceptually clean constraints | Ultra-fine timing (not needed here) |
-| **State split** | TanStack Query + Zustand | Redux | Best-fit tool per concern | Single-store mental model |
-| **Auth** | Google OAuth SSO | Username/password | IT-controlled access | Google Workspace dependency |
-| **Zoom state** | Global Zustand atom | Component-local state | Fetch window & rendering always in sync | Slightly more lifted state |
+
+| Decision                 | Chose                    | Rejected              | Gained                                  | Gave Up                             |
+| ------------------------ | ------------------------ | --------------------- | --------------------------------------- | ----------------------------------- |
+| **Deployment**           | Modular monolith         | Microservices         | Fast build, clean boundaries            | Independent service scaling         |
+| **Conflict enforcement** | DB unique constraint     | App-level pre-check   | Atomic race safety                      | Richer pre-validation messages      |
+| **History model**        | Event sourcing (ledger)  | Git-style branching   | Simple undo, full audit trail           | Experimental branch versions        |
+| **Note rendering**       | DOM virtualization       | Canvas                | Browser events, accessibility           | Higher raw rendering ceiling        |
+| **UI feedback**          | Optimistic UI            | Server-wait           | Instant feel, flow state                | More complex rollback logic         |
+| **Time resolution**      | 0.1s snap                | Millisecond precision | Perceptually clean constraints          | Ultra-fine timing (not needed here) |
+| **State split**          | TanStack Query + Zustand | Redux                 | Best-fit tool per concern               | Single-store mental model           |
+| **Auth**                 | Google OAuth SSO         | Username/password     | IT-controlled access                    | Google Workspace dependency         |
+| **Zoom state**           | Global Zustand atom      | Component-local state | Fetch window & rendering always in sync | Slightly more lifted state          |
+
 
 **The three I thought hardest about:**
 
@@ -445,6 +447,7 @@ cd apps/api && pnpm test
 ```
 
 Tests read as behavioral contracts:
+
 - Time < 0 is rejected (400)
 - Time > 300 is rejected (400)
 - Track < 1 is rejected (400)
@@ -473,19 +476,23 @@ Sequential `await + await` would always produce 409 on the second call because t
 
 100 virtual users, 30 seconds, `POST /charts/:id/notes`.
 
-| Profile | Requests | p95 latency | Status |
-|---|---|---|---|
-| Smoke (1 VU, 2s pause) | 29 | 143ms | ✅ |
-| 100 VU (before fix) | 1,443 | **3.03s** | ❌ latency |
+
+| Profile                | Requests | p95 latency | Status    |
+| ---------------------- | -------- | ----------- | --------- |
+| Smoke (1 VU, 2s pause) | 29       | 143ms       | ✅         |
+| 100 VU (before fix)    | 1,443    | **3.03s**   | ❌ latency |
+
 
 **Attempt 2: Latency Drop** (100 VU, after moving chart analysis off the hot path):
 
-| Metric | Before | After |
-|---|---|---|
-| p95 latency (100 VU) | 3.03s | **37ms** |
-| Average latency (100 VU) | 2.05s | 13ms |
-| Throughput | ~45 req/s | ~880 req/s |
-| 500 errors | 0% | 0% |
+
+| Metric                   | Before    | After      |
+| ------------------------ | --------- | ---------- |
+| p95 latency (100 VU)     | 3.03s     | **37ms**   |
+| Average latency (100 VU) | 2.05s     | 13ms       |
+| Throughput               | ~45 req/s | ~880 req/s |
+| 500 errors               | 0%        | 0%         |
+
 
 Root cause: every note create was awaiting a full chart re-analysis (loading all 10,000 notes, running scoring, rewriting segments). Moved to debounced background job → 80× latency drop. Full narrative in [k6 Test Report](docs/project/12-k6-test-report.md).
 
@@ -497,31 +504,33 @@ Written in order — problem first, then decisions, then implementation. Each fi
 
 > **For graders:** Start with [00 · Use Case Coverage](docs/project/00-usecase-coverage.md) — it maps every requirement from the brief against what was built, with status symbols (✅ delivered, 🔼 extended, 🔁 delivered differently, ⏳ phased, ❌ cut with rationale) and the full grading category coverage table.
 
-| Doc | What It Covers |
-|---|---|
-| [**00 · Use Case Coverage**](docs/project/00-usecase-coverage.md) | **Required vs delivered — every use case, every actor, every grading category. Start here.** |
-| [01 · Problem & Vision](docs/project/01-problem-and-vision.md) | Why the workflow problem exists and what makes it technically hard. |
-| [02 · Actors & Use Cases](docs/project/02-actors-and-use-cases.md) | The four roles and the UX decisions made for each. |
-| [03 · Feature Hierarchy](docs/project/03-features.md) | P0/P1/Phase 2–7 priorities and what was cut and why. |
-| [04 · Design Thinking](docs/project/04-design-thinking.md) | Six architecture decisions — opposing argument first, then the choice. |
-| [05 · Architecture](docs/project/05-architecture.md) | Stack, modules, data model, realtime topology. |
-| [06 · Workflows](docs/project/06-workflows.md) | Note create (happy + conflict), collaboration, AI suggester. |
-| [07 · Trade-offs](docs/project/07-trade-offs.md) | What was gained and given up per decision. |
-| [08 · Project Structure](docs/project/08-project-structure.md) | Monorepo layout and boundary rationale. |
-| [09 · Deploy Pipeline](docs/project/09-deploy.md) | VPS deploy via Docker, Nginx, GitHub Actions. |
-| [10 · Performance & Correctness Testing](docs/project/10-performance-testing.md) | Conflict, boundary, load, 10k UI, collaboration checks. |
-| [11 · Load Testing (k6)](docs/project/11-load-testing.md) | How to reproduce the load test — seed, probe, smoke, full 100 VU. |
-| [12 · k6 Test Report](docs/project/12-k6-test-report.md) | First attempt (3.03s p95), root cause, fix, second attempt (37ms p95). |
-| [13 · Retrospective](docs/project/13-retrospective.md) | What I'd do differently and why the problem is genuinely hard. |
-| [Realtime Architecture](docs/project/Realtime.md) | Redis role, WebSocket room model, cursor TTL, internal event bus. |
-| **Feature Implementations** | |
-| [Note CRUD & Duplicate Prevention](docs/project/features/F01-note-crud-duplicate-prevention.md) | DB constraint design, race condition proof, API error mapping. |
-| [Change History & Ledger](docs/project/features/F02-change-history-ledger.md) | Event sourcing model, before/after JSONB, undo via compensating event. |
-| [Optimistic UI](docs/project/features/F03-optimistic-ui.md) | Ghost note pattern, rollback path, toast language design. |
-| [10,000-Note Performance](docs/project/features/F04-performance-10k-notes.md) | DOM virtualization, chunked API fetch, zoom as single source of truth. |
-| [AI Note Suggester](docs/project/features/F05-ai-note-suggester.md) | Multi-provider pattern, ghost overlay UX, conflict handling on accept. |
-| [Role-Based Access Control](docs/project/features/F06-role-based-access.md) | Guard layer, UI enforcement, permission matrix. |
-| [Tap to Rhythm](docs/project/features/F07-tap-to-rhythm.md) | Loop recording, home-row keymap, draft apply, save as pattern, conflict preview. |
+
+| Doc                                                                                             | What It Covers                                                                               |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **[00 · Use Case Coverage](docs/project/00-usecase-coverage.md)**                               | **Required vs delivered — every use case, every actor, every grading category. Start here.** |
+| [01 · Problem & Vision](docs/project/01-problem-and-vision.md)                                  | Why the workflow problem exists and what makes it technically hard.                          |
+| [02 · Actors & Use Cases](docs/project/02-actors-and-use-cases.md)                              | The four roles and the UX decisions made for each.                                           |
+| [03 · Feature Hierarchy](docs/project/03-features.md)                                           | P0/P1/Phase 2–7 priorities and what was cut and why.                                         |
+| [04 · Design Thinking](docs/project/04-design-thinking.md)                                      | Six architecture decisions — opposing argument first, then the choice.                       |
+| [05 · Architecture](docs/project/05-architecture.md)                                            | Stack, modules, data model, realtime topology.                                               |
+| [06 · Workflows](docs/project/06-workflows.md)                                                  | Note create (happy + conflict), collaboration, AI suggester.                                 |
+| [07 · Trade-offs](docs/project/07-trade-offs.md)                                                | What was gained and given up per decision.                                                   |
+| [08 · Project Structure](docs/project/08-project-structure.md)                                  | Monorepo layout and boundary rationale.                                                      |
+| [09 · Deploy Pipeline](docs/project/09-deploy.md)                                               | VPS deploy via Docker, Nginx, GitHub Actions.                                                |
+| [10 · Performance & Correctness Testing](docs/project/10-performance-testing.md)                | Conflict, boundary, load, 10k UI, collaboration checks.                                      |
+| [11 · Load Testing (k6)](docs/project/11-load-testing.md)                                       | How to reproduce the load test — seed, probe, smoke, full 100 VU.                            |
+| [12 · k6 Test Report](docs/project/12-k6-test-report.md)                                        | First attempt (3.03s p95), root cause, fix, second attempt (37ms p95).                       |
+| [13 · Retrospective](docs/project/13-retrospective.md)                                          | What I'd do differently and why the problem is genuinely hard.                               |
+| [Realtime Architecture](docs/project/Realtime.md)                                               | Redis role, WebSocket room model, cursor TTL, internal event bus.                            |
+| **Feature Implementations**                                                                     |                                                                                              |
+| [Note CRUD & Duplicate Prevention](docs/project/features/F01-note-crud-duplicate-prevention.md) | DB constraint design, race condition proof, API error mapping.                               |
+| [Change History & Ledger](docs/project/features/F02-change-history-ledger.md)                   | Event sourcing model, before/after JSONB, undo via compensating event.                       |
+| [Optimistic UI](docs/project/features/F03-optimistic-ui.md)                                     | Ghost note pattern, rollback path, toast language design.                                    |
+| [10,000-Note Performance](docs/project/features/F04-performance-10k-notes.md)                   | DOM virtualization, chunked API fetch, zoom as single source of truth.                       |
+| [AI Note Suggester](docs/project/features/F05-ai-note-suggester.md)                             | Multi-provider pattern, ghost overlay UX, conflict handling on accept.                       |
+| [Role-Based Access Control](docs/project/features/F06-role-based-access.md)                     | Guard layer, UI enforcement, permission matrix.                                              |
+| [Tap to Rhythm](docs/project/features/F07-tap-to-rhythm.md)                                     | Loop recording, home-row keymap, draft apply, save as pattern, conflict preview.             |
+
 
 ---
 
@@ -560,19 +569,21 @@ curl http://localhost:3001/health
 
 ## Environment Variables
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `JWT_SECRET` | Min 32 chars — `openssl rand -hex 32` |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `GOOGLE_CALLBACK_URL` | OAuth redirect URI |
-| `AI_PROVIDER` | `anthropic` \| `openai` \| `deepseek` |
-| `ANTHROPIC_API_KEY` | Required when `AI_PROVIDER=anthropic` |
-| `OPENAI_API_KEY` | Required when `AI_PROVIDER=openai` |
-| `DEEPSEEK_API_KEY` | Required when `AI_PROVIDER=deepseek` |
-| `FRONTEND_URL` | CORS and OAuth redirect validation |
+
+| Variable               | Purpose                               |
+| ---------------------- | ------------------------------------- |
+| `DATABASE_URL`         | PostgreSQL connection string          |
+| `REDIS_URL`            | Redis connection string               |
+| `JWT_SECRET`           | Min 32 chars — `openssl rand -hex 32` |
+| `GOOGLE_CLIENT_ID`     | Google OAuth client ID                |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret            |
+| `GOOGLE_CALLBACK_URL`  | OAuth redirect URI                    |
+| `AI_PROVIDER`          | `anthropic` | `openai` | `deepseek`   |
+| `ANTHROPIC_API_KEY`    | Required when `AI_PROVIDER=anthropic` |
+| `OPENAI_API_KEY`       | Required when `AI_PROVIDER=openai`    |
+| `DEEPSEEK_API_KEY`     | Required when `AI_PROVIDER=deepseek`  |
+| `FRONTEND_URL`         | CORS and OAuth redirect validation    |
+
 
 ---
 

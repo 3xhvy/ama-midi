@@ -1,4 +1,5 @@
 import type { Note, NoteType } from '@ama-midi/shared'
+import { findOverlapping } from '@ama-midi/shared'
 import type {
   PlacementPreview,
   PlacementCreatableSlot,
@@ -15,6 +16,14 @@ interface BuildPreviewOptions {
   offset:        number  // seconds to add to each draft note time
 }
 
+type ExistingSlot = {
+  id: string
+  track: number
+  time: number
+  noteType: string
+  duration: number | null
+}
+
 function noteTypeFor(draft: DraftTapNote): NoteType {
   return draft.duration != null && draft.duration > 0 ? 'HOLD' : 'TAP'
 }
@@ -28,13 +37,28 @@ export function buildTapPlacementPreview({
   const creatable: PlacementCreatableSlot[] = []
   const conflicts: PlacementConflict[]      = []
   const claimedSlots = new Set<string>()
+  const existingById = new Map(existingNotes.map((note) => [note.id, note]))
+  const existingSlots: ExistingSlot[] = existingNotes.map((note) => ({
+    id: note.id,
+    track: note.track,
+    time: note.time,
+    noteType: note.noteType,
+    duration: note.duration ?? null,
+  }))
 
   draftNotes.forEach((draft, index) => {
     const time     = Math.round((draft.time + offset) * 100) / 100
     const slotKey  = `${draft.track}:${time}`
     const noteType = noteTypeFor(draft)
-    const existing = existingNotes.find(
-      (n) => n.track === draft.track && n.time === time,
+    const candidate = {
+      track: draft.track,
+      time,
+      noteType,
+      duration: draft.duration ?? null,
+    }
+    const overlap = findOverlapping(
+      candidate,
+      existingSlots.filter((slot) => slot.track === draft.track),
     )
 
     const incoming: PlacementIncomingNote = {
@@ -46,7 +70,10 @@ export function buildTapPlacementPreview({
       duration:    draft.duration,
     }
 
-    if (existing) {
+    if (overlap) {
+      const existing = existingById.get(overlap.id)
+      if (!existing) return
+
       const existingNote: PlacementExistingNote = {
         id:               existing.id,
         title:            existing.title,
@@ -61,7 +88,7 @@ export function buildTapPlacementPreview({
         createdAt:        existing.createdAt,
       }
       conflicts.push({
-        conflictId:   `tap-${index}-${draft.track}-${time}`,
+        conflictId:   existing.id,
         sourceIndex:  index,
         sourceNoteId: `tap-draft-${index}`,
         track:        draft.track,
@@ -93,7 +120,7 @@ export function buildTapPlacementPreview({
       totalNotes:            draftNotes.length,
       creatableNotes:        creatable.length,
       conflictCount:         conflicts.length,
-      affectedExistingNotes: conflicts.length,
+      affectedExistingNotes: new Set(conflicts.map((c) => c.conflictId)).size,
     },
     creatable,
     conflicts,

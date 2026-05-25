@@ -3,7 +3,7 @@ import { useEditorStore } from '../../../store/editor.store'
 import { TIME_MAX } from '@ama-midi/shared'
 
 export function usePlayback() {
-  const { isPlaying, setPlayheadTime, setPlaying } = useEditorStore()
+  const { isPlaying, setPlayheadTime, setPlaying, setTapPhase } = useEditorStore()
   const rafRef      = useRef<number | null>(null)
   const lastTimeRef = useRef<number | null>(null)
 
@@ -42,7 +42,15 @@ export function usePlayback() {
       const next      = current + delta
 
       if (loopRange && next >= loopRange.end) {
-        // Force-close any in-flight tap keys at loop boundary (useTapInput listens to this)
+        const tapMode = state.tapMode
+        if (tapMode?.phase === 'recording') {
+          // End of tap pass — pause and prompt to apply or re-record
+          setPlayheadTime(loopRange.end)
+          setPlaying(false)
+          setTapPhase('review')
+          return
+        }
+        // Normal loop playback (non-tap)
         setPlayheadTime(loopRange.start)
         rafRef.current = requestAnimationFrame(tick)
         return
@@ -67,5 +75,5 @@ export function usePlayback() {
         lastTimeRef.current = null
       }
     }
-  }, [isPlaying, setPlayheadTime, setPlaying])
+  }, [isPlaying, setPlayheadTime, setPlaying, setTapPhase])
 }

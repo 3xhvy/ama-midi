@@ -18,8 +18,9 @@ export function TapModeHelpModal({ open, onClose }: Props) {
           <ol className="text-sm text-canvas-muted space-y-2 list-decimal list-inside">
             <li>Open <strong className="text-canvas-text">Tools → Tap to Rhythm</strong> and set the loop range (inputs or Shift+drag on the time axis).</li>
             <li>Choose <strong className="text-canvas-text">Start fresh</strong> or include existing notes in the range as a draft.</li>
-            <li>Press <strong className="text-canvas-text">Start session</strong> — playback loops within the range.</li>
-            <li>Tap keys on the home row while the loop plays:</li>
+            <li>Press <strong className="text-canvas-text">Start session</strong> — playback runs through the loop range once.</li>
+            <li>When the playhead reaches the end, choose <strong className="text-canvas-text">Continue to apply</strong> or <strong className="text-canvas-text">Re-record</strong>.</li>
+            <li>Tap keys on the home row while playback runs:</li>
           </ol>
 
           <div className="font-mono text-sm bg-canvas-surface border border-canvas-border rounded px-3 py-2">

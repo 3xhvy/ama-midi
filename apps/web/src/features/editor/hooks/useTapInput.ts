@@ -56,7 +56,7 @@ export function useTapInput({ bpm }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!tapMode || !isPlaying) return
+    if (!tapMode || tapMode.phase !== 'recording' || !isPlaying) return
 
     function onKeyDown(e: KeyboardEvent) {
       if (!isTapKey(e.key)) return

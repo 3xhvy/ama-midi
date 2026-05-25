@@ -74,7 +74,7 @@ describe('ChartApplyPreviewService', () => {
     service = module.get(ChartApplyPreviewService)
   })
 
-  it('classifies creatable vs conflict for merge mode', async () => {
+  it('skips echoed existing notes and classifies only new or conflicting slots', async () => {
     prisma.note.findMany.mockResolvedValue([
       {
         id: 'existing-1',
@@ -96,21 +96,54 @@ describe('ChartApplyPreviewService', () => {
       { track: 2, time: 1, noteType: 'TAP' },
     ], false)
 
+    expect(preview.summary.conflictCount).toBe(0)
+    expect(preview.summary.creatableNotes).toBe(1)
+    expect(preview.conflicts).toHaveLength(0)
+    expect(preview.creatable[0]).toMatchObject({ track: 2, time: 1 })
+    expect(preview.previewVersion).toBe('2026-01-01T00:00:00.000Z:1')
+  })
+
+  it('drops overlapping generated notes instead of failing preview', async () => {
+    const preview = await service.buildPreview('song-1', 'chart-1', [
+      { track: 1, time: 10, noteType: 'HOLD', duration: 2 },
+      { track: 1, time: 11, noteType: 'TAP' },
+      { track: 2, time: 12, noteType: 'TAP' },
+    ], false)
+
+    expect(preview.summary.creatableNotes).toBe(2)
+    expect(preview.creatable.map((slot) => slot.track)).toEqual([1, 2])
+    expect(preview.conflicts).toHaveLength(0)
+  })
+
+  it('classifies real conflicts when incoming differs from existing at same slot', async () => {
+    prisma.note.findMany.mockResolvedValue([
+      {
+        id: 'existing-1',
+        songId: 'song-1',
+        track: 1,
+        time: 0,
+        title: 'Existing Tap',
+        description: 'desc',
+        noteType: 'TAP',
+        duration: null,
+        createdBy: 'user-2',
+        createdAt: new Date('2026-05-20T10:00:00.000Z'),
+        creator: { name: 'Other Composer', avatarUrl: null },
+      },
+    ])
+
+    const preview = await service.buildPreview('song-1', 'chart-1', [
+      { track: 1, time: 0, noteType: 'HOLD', duration: 1.2 },
+      { track: 2, time: 1, noteType: 'TAP' },
+    ], false)
+
     expect(preview.summary.conflictCount).toBe(1)
     expect(preview.summary.creatableNotes).toBe(1)
     expect(preview.conflicts[0]).toMatchObject({
       conflictId: 'existing-1',
       track: 1,
       time: 0,
-      existingNote: {
-        id: 'existing-1',
-        title: 'Existing Tap',
-        creatorName: 'Other Composer',
-        creatorAvatarUrl: 'https://avatar.test/a.png',
-      },
     })
-    expect(preview.creatable[0]).toMatchObject({ track: 2, time: 1 })
-    expect(preview.previewVersion).toBe('2026-01-01T00:00:00.000Z:1')
   })
 
   it('returns all incoming notes as creatable when replaceExisting is true', async () => {
@@ -223,7 +256,7 @@ describe('AiChartService applyChart merge resolutions', () => {
     )
 
     const preview = await chartApplyPreview.buildPreview('song-1', 'chart-1', [
-      { track: 1, time: 0, noteType: 'TAP', title: 'Incoming conflict' },
+      { track: 1, time: 0, noteType: 'HOLD', duration: 1.2, title: 'Incoming conflict' },
       { track: 2, time: 1, noteType: 'TAP', title: 'Incoming creatable' },
     ], false)
 
@@ -232,7 +265,7 @@ describe('AiChartService applyChart merge resolutions', () => {
       replaceExisting: false,
       previewVersion: preview.previewVersion,
       notes: [
-        { track: 1, time: 0, noteType: 'TAP', title: 'Incoming conflict' },
+        { track: 1, time: 0, noteType: 'HOLD', duration: 1.2, title: 'Incoming conflict' },
         { track: 2, time: 1, noteType: 'TAP', title: 'Incoming creatable' },
       ],
       resolutions: [
@@ -288,14 +321,14 @@ describe('AiChartService applyChart merge resolutions', () => {
     )
 
     const preview = await chartApplyPreview.buildPreview('song-1', 'chart-1', [
-      { track: 1, time: 0, noteType: 'TAP', title: 'Replacement' },
+      { track: 1, time: 0, noteType: 'HOLD', duration: 1.0, title: 'Replacement' },
     ], false)
 
     const result = await service.applyChart('song-1', mockUser, {
       chartId: 'chart-1',
       replaceExisting: false,
       previewVersion: preview.previewVersion,
-      notes: [{ track: 1, time: 0, noteType: 'TAP', title: 'Replacement' }],
+      notes: [{ track: 1, time: 0, noteType: 'HOLD', duration: 1.0, title: 'Replacement' }],
       resolutions: [{ conflictId: 'existing-1', action: 'REPLACE_WITH_PATTERN' }],
     })
 
@@ -323,5 +356,126 @@ describe('AiChartService applyChart merge resolutions', () => {
         resolutions: [],
       }),
     ).rejects.toThrow(ConflictException)
+  })
+
+  it('simple merge skips an incoming tap inside an existing hold span', async () => {
+    prisma.note.findMany.mockResolvedValue([
+      {
+        id: 'hold-1',
+        chartId: 'chart-1',
+        songId: 'song-1',
+        track: 1,
+        time: 10,
+        title: 'Existing Hold',
+        description: '',
+        noteType: 'HOLD',
+        duration: 3,
+        createdBy: 'user-2',
+        createdAt: new Date('2026-05-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-05-20T10:00:00.000Z'),
+        creator: { name: 'Other' },
+      },
+    ])
+    prisma.note.create.mockResolvedValue({
+      id: 'created-1',
+      chartId: 'chart-1',
+      songId: 'song-1',
+      track: 2,
+      time: 12,
+      title: 'AI Chart',
+      description: '',
+      noteType: 'TAP',
+      duration: null,
+      createdBy: mockUser.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      creator: { name: 'Test User' },
+    })
+
+    const result = await service.applyChart('song-1', mockUser, {
+      chartId: 'chart-1',
+      replaceExisting: false,
+      notes: [
+        { track: 1, time: 11, noteType: 'TAP', title: 'Inside hold' },
+        { track: 2, time: 12, noteType: 'TAP', title: 'Open slot' },
+      ],
+    })
+
+    expect(prisma.note.create).toHaveBeenCalledTimes(1)
+    expect(prisma.note.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ track: 2, time: 12 }),
+    }))
+    expect(result).toMatchObject({
+      createdCount: 1,
+      skippedCount: 1,
+      replacedCount: 0,
+    })
+  })
+
+  it('merge resolutions reject replacement notes that overlap another remaining hold', async () => {
+    const replacedTap = {
+      id: 'tap-1',
+      chartId: 'chart-1',
+      songId: 'song-1',
+      track: 1,
+      time: 10,
+      title: 'Existing Tap',
+      description: '',
+      noteType: 'TAP',
+      duration: null,
+      createdBy: 'user-2',
+      createdAt: new Date('2026-05-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-05-20T10:00:00.000Z'),
+      creator: { name: 'Other' },
+    }
+    const remainingHold = {
+      id: 'hold-1',
+      chartId: 'chart-1',
+      songId: 'song-1',
+      track: 1,
+      time: 10.5,
+      title: 'Remaining Hold',
+      description: '',
+      noteType: 'HOLD',
+      duration: 2,
+      createdBy: 'user-2',
+      createdAt: new Date('2026-05-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-05-20T10:00:00.000Z'),
+      creator: { name: 'Other' },
+    }
+
+    prisma.note.findMany.mockResolvedValue([replacedTap, remainingHold])
+    prisma.note.findFirst.mockResolvedValue(replacedTap)
+    prisma.note.create.mockResolvedValue({
+      id: 'created-1',
+      chartId: 'chart-1',
+      songId: 'song-1',
+      track: 1,
+      time: 10,
+      title: 'AI Chart',
+      description: '',
+      noteType: 'HOLD',
+      duration: 1.5,
+      createdBy: mockUser.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      creator: { name: 'Test User' },
+    })
+
+    const preview = await chartApplyPreview.buildPreview('song-1', 'chart-1', [
+      { track: 1, time: 10, noteType: 'HOLD', duration: 1.5, title: 'Replacement' },
+    ], false)
+
+    await expect(
+      service.applyChart('song-1', mockUser, {
+        chartId: 'chart-1',
+        replaceExisting: false,
+        previewVersion: preview.previewVersion,
+        notes: [{ track: 1, time: 10, noteType: 'HOLD', duration: 1.5, title: 'Replacement' }],
+        resolutions: [{ conflictId: 'tap-1', action: 'REPLACE_WITH_PATTERN' }],
+      }),
+    ).rejects.toThrow(ConflictException)
+
+    expect(prisma.note.create).not.toHaveBeenCalled()
   })
 })

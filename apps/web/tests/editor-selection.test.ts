@@ -15,6 +15,18 @@ test('focusing a note keeps the current multi-selection intact', () => {
   assert.equal(state.selectedNoteId, 'note-b')
 })
 
+test('selectNotes replaces the current selection', () => {
+  const store = useEditorStore.getState()
+
+  store.clearSelection()
+  store.toggleNoteSelection('note-a')
+  store.selectNotes(['note-x', 'note-y', 'note-z'])
+
+  const state = useEditorStore.getState()
+  assert.deepEqual([...state.selectedNoteIds].sort(), ['note-x', 'note-y', 'note-z'])
+  assert.equal(state.selectedNoteId, null)
+})
+
 test('adding a group of note ids preserves existing selected notes', () => {
   const store = useEditorStore.getState()
 

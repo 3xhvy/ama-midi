@@ -5,6 +5,10 @@ describe('note-overlap', () => {
     expect(noteEnd({ time: 2, noteType: 'HOLD', duration: 1.5 })).toBe(3.5)
   })
 
+  it('treats lowercase hold type as a span', () => {
+    expect(noteEnd({ time: 2, noteType: 'hold', duration: 1.5 })).toBe(3.5)
+  })
+
   it('detects HOLD overlapping TAP inside its span', () => {
     const hold = { time: 4, noteType: 'HOLD', duration: 2 }
     const tap = { time: 5, noteType: 'TAP', duration: null }

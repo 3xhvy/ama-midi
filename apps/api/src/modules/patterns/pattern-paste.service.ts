@@ -12,7 +12,7 @@ import { ProjectAccessService } from '../project-access/project-access.service'
 import { EditorCommandService } from '../editor-commands/editor-command.service'
 import { ChartAnalyzeService } from '../charts/chart-analyze.service'
 import { classifySlots } from '../notes/note-slot-preview'
-import type { NoteSlot } from '../notes/note-overlap'
+import { findOverlapping, type NoteSlot } from '@ama-midi/shared'
 import { NOTE_EVENTS, TIME_MAX, TIME_MIN, TRACK_MAX, TRACK_MIN } from '@ama-midi/shared'
 import type {
   AuthUser,
@@ -143,7 +143,34 @@ export class PatternPasteService {
         })
       }
 
+      const affectedTracks = [...new Set(notesToCreate.map((slot) => slot.track))]
+      const deletedIdSet = new Set(deletedIds)
+      const activeExisting: NoteSlot[] = affectedTracks.length === 0
+        ? []
+        : (await tx.note.findMany({
+            where: { chartId, deletedAt: null, track: { in: affectedTracks } },
+          }))
+            .filter((row) => !deletedIdSet.has(row.id))
+            .map((row) => ({
+              track: row.track,
+              time: row.time,
+              noteType: row.noteType,
+              duration: row.duration,
+            }))
+
+      const pendingCreates: NoteSlot[] = []
+
       for (const slot of notesToCreate) {
+        const candidate: NoteSlot = {
+          track: slot.track,
+          time: slot.time,
+          noteType: slot.noteType,
+          duration: slot.duration ?? null,
+        }
+        if (findOverlapping(candidate, [...activeExisting, ...pendingCreates])) {
+          throw new ConflictException({ error: 'POSITION_TAKEN' })
+        }
+
         const pn = pattern.notes[slot.patternNoteIndex]
         const createdRow = await tx.note.create({
           data: {
@@ -163,6 +190,7 @@ export class PatternPasteService {
           note: this.toDomainNote(createdRow),
           replacesNoteId: slot.replacesNoteId,
         })
+        pendingCreates.push(candidate)
       }
     })
 

@@ -103,7 +103,7 @@ export function TransportBar({
         {formatTime(playheadTime)}
       </span>
 
-      {tapMode && (
+      {tapMode?.phase === 'recording' && (
         <button
           type="button"
           onClick={() => setPlaying(false)}

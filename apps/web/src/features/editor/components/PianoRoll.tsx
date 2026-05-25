@@ -23,6 +23,7 @@ import { SectionCreatePopover } from './SectionCreatePopover'
 import { DifficultyOverlay } from './DifficultyOverlay'
 import { TapModeOverlay } from './TapModeOverlay'
 import { TapApplyModal }  from './TapApplyModal'
+import { TapPassCompleteModal } from './TapPassCompleteModal'
 import { useTapInput }    from '../hooks/useTapInput'
 import { useSections } from '../../sections/useSections'
 import { useThrottle } from '../../../hooks/useThrottle'
@@ -91,7 +92,8 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
 
   const { pxPerSecond, validationRingsEnabled, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
           selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack, setPlayheadTime, setPlaying,
-          tapMode, setTapMode, loopRange, setLoopRange } = useEditorStore()
+          tapMode, setTapMode, setTapPhase, resetTapDraft, loopRange, setLoopRange, chartPreview } = useEditorStore()
+  const previewOnClearGrid = chartPreview?.previewOnClearGrid === true
   pxPerSecondRef.current = pxPerSecond
 
   // Ctrl/Cmd + scroll wheel to zoom
@@ -150,16 +152,20 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
 
   const { inFlightTracks, inFlightVersion } = useTapInput({ bpm })
 
-  // After playback stops with no draft notes, exit tap mode
+  // After manual stop during recording with no draft notes, exit tap mode
   useEffect(() => {
     if (isPlaying) return
     queueMicrotask(() => {
       const { tapMode: tm, isPlaying: playing } = useEditorStore.getState()
-      if (playing || !tm || tm.draftNotes.length > 0) return
-      setTapMode(null)
-      toast.info('No notes recorded')
+      if (playing || !tm || tm.phase !== 'recording') return
+      if (tm.draftNotes.length > 0) {
+        setTapPhase('apply')
+      } else {
+        setTapMode(null)
+        toast.info('No notes recorded')
+      }
     })
-  }, [isPlaying, tapMode?.draftNotes.length, setTapMode])
+  }, [isPlaying, tapMode?.draftNotes.length, tapMode?.phase, setTapMode, setTapPhase])
 
   // Cancel tap session when the active chart changes mid-session
   useEffect(() => {
@@ -424,7 +430,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
         onNoteSelected?.(null)
       }
       if (e.key === 'Escape' && !popup) {
-        if (tapMode && isPlaying) {
+        if (tapMode?.phase === 'recording' && isPlaying) {
           setPlaying(false)
           return
         }
@@ -438,7 +444,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
 
   const NOTE_RADIUS_PX = 10 // half-height of a note circle, prevents edge-clipping
   const visibleRange = getVisibleTimeRange(scrollTop, viewportHeight, pxPerSecond)
-  const visibleNotes = notes.filter((n) => {
+  const visibleNotes = previewOnClearGrid ? [] : notes.filter((n) => {
     if (mutedTracks.has(n.track)) return false
     if (tapMode) {
       const { start, end } = tapMode.loopRange
@@ -559,7 +565,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
                 }}
               />
 
-              {heatmapEnabled && (
+              {heatmapEnabled && !previewOnClearGrid && (
                 <DifficultyOverlay
                   notes={notes}
                   bpm={bpm}
@@ -570,7 +576,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
                 />
               )}
 
-            <SectionMarkers sections={sections} pxPerSecond={pxPerSecond} />
+            {!previewOnClearGrid && <SectionMarkers sections={sections} pxPerSecond={pxPerSecond} />}
 
             {cursors && cursors.size > 0 && (
               <CollaboratorCursors
@@ -660,7 +666,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
               </div>
             )}
 
-            {effectiveCanEdit && chartId && (
+            {effectiveCanEdit && chartId && !previewOnClearGrid && (
               <AiSuggestions songId={songId} chartId={chartId} gridWidth={layoutGridWidth} pxPerSecond={pxPerSecond} notes={notes} />
             )}
             {effectiveCanEdit && (
@@ -698,7 +704,20 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
         />
       )}
 
-      {!isPlaying && tapMode && tapMode.draftNotes.length > 0 && chartId && (
+      {!isPlaying && tapMode?.phase === 'review' && (
+        <TapPassCompleteModal
+          noteCount={tapMode.draftNotes.length}
+          onReRecord={() => {
+            resetTapDraft()
+            setPlayheadTime(tapMode.loopRange.start)
+            setPlaying(true)
+          }}
+          onContinue={() => setTapPhase('apply')}
+          onDiscard={() => setTapMode(null)}
+        />
+      )}
+
+      {!isPlaying && tapMode?.phase === 'apply' && tapMode.draftNotes.length > 0 && chartId && (
         <TapApplyModal
           tapMode={tapMode}
           songId={songId}

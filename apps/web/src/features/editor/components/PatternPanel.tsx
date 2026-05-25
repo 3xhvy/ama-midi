@@ -145,6 +145,10 @@ export function PatternPanel({ songId, chartId, isLoading = false }: Props) {
             toast.warning('Paste changed while you were reviewing. Review the updated conflicts.')
             return
           }
+          if (err?.status === 409 && err?.body?.error === 'POSITION_TAKEN') {
+            toast.error('Position already taken — a note overlaps an existing hold')
+            return
+          }
           toast.error('Could not apply pattern paste')
         },
       },

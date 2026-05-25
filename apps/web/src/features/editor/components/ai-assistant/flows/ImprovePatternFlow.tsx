@@ -16,6 +16,7 @@ import {
   AiFlowPrimaryButton,
   AiFlowTextarea,
 } from '../AiFlowChrome'
+import { AiPromptTemplateChips } from '../AiPromptTemplateChips'
 
 type ImproveSubMode = 'extend' | 'refine'
 
@@ -172,6 +173,13 @@ export function ImprovePatternFlow({
             Change
           </button>
         </p>
+        <AiPromptTemplateChips
+          flow="improve-pattern"
+          improveSubMode={subMode}
+          value={instruction}
+          onChange={setInstruction}
+          disabled={processing}
+        />
         <AiFlowTextarea
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}

@@ -19,7 +19,12 @@ import {
   type PlacementCreatableSlot,
 } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
-import { classifySlots, type IncomingSlot } from '../notes/note-slot-preview'
+import {
+  classifySlots,
+  filterInternalOverlaps,
+  filterUnchangedEchoes,
+  type IncomingSlot,
+} from '../notes/note-slot-preview'
 import type { NoteSlot } from '../notes/note-overlap'
 import { ChartContextService } from './chart-context.service'
 
@@ -143,7 +148,10 @@ export class ChartApplyPreviewService {
     }))
 
     const existingById = new Map(existingRows.map((row) => [row.id, row]))
-    const classified = classifySlots(incoming, existingSlots, new Set(), 0)
+    const actionable = filterInternalOverlaps(
+      filterUnchangedEchoes(incoming, existingSlots),
+    )
+    const classified = classifySlots(actionable, existingSlots, new Set(), 0)
 
     if (classified.internalCollision) {
       throw new UnprocessableEntityException('Generated chart notes collide at the same track and time')

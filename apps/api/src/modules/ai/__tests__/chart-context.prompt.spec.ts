@@ -41,6 +41,7 @@ function makeCtx(noteCount: number): AiChartContext {
 }
 
 const OCC_LABEL = 'Occupied slots (never duplicate track+time):'
+const REF_LABEL = 'Reference chart notes (include in your full output when they fit the brief):'
 
 describe('serializeChartContextForPrompt', () => {
   it('truncates notes but preserves full occupied list (250 notes, maxNotes 200)', () => {
@@ -97,8 +98,9 @@ describe('buildGeneratePrompt', () => {
       ].join(' '),
     )
 
-    expect(base.user).toContain('Complement the chart')
-    expect(base.user).toContain('Never duplicate an occupied')
+    expect(base.user).toContain('ONLY new notes')
+    expect(base.user).toContain('Never place a note on an occupied')
+    expect(base.user).not.toContain('full merged chart')
 
     const rep = buildGeneratePrompt({
       ctx,
@@ -109,7 +111,7 @@ describe('buildGeneratePrompt', () => {
     })
 
     expect(rep.user).toContain('Complete replacement')
-    expect(rep.user).not.toContain('Complement the chart')
+    expect(rep.user).not.toContain('ONLY new notes')
     expect(rep.user).not.toContain('Target difficulty tier hint')
     const withTier = buildGeneratePrompt({
       ctx,
@@ -120,5 +122,43 @@ describe('buildGeneratePrompt', () => {
       replaceExisting: true,
     })
     expect(withTier.user).toContain('BRUTAL')
+  })
+
+  it('asks for a full chart and includes reference notes when creating a new chart from reference', () => {
+    const ctx = makeCtx(3)
+    const prompt = buildGeneratePrompt({
+      ctx,
+      description: 'Harder doubles in chorus',
+      snapHint: '0.05s steps',
+      targetCount: 120,
+      replaceExisting: false,
+      createAsNewChart: true,
+      useReferenceChart: true,
+    })
+
+    expect(prompt.user).toContain('New chart from reference')
+    expect(prompt.user).toContain('FULL chart timeline')
+    expect(prompt.user).toContain('include its notes in your output')
+    expect(prompt.user).toContain(REF_LABEL)
+    expect(prompt.user).not.toContain('ONLY new notes')
+    expect(prompt.user).not.toContain(OCC_LABEL)
+  })
+
+  it('omits reference notes when creating a new chart without reference', () => {
+    const ctx = makeCtx(3)
+    const prompt = buildGeneratePrompt({
+      ctx,
+      description: 'Fresh chiptune chart',
+      snapHint: '0.05s steps',
+      targetCount: 90,
+      replaceExisting: true,
+      createAsNewChart: true,
+      useReferenceChart: false,
+    })
+
+    expect(prompt.user).toContain('Complete replacement')
+    expect(prompt.user).not.toContain('Current notes (chronological)')
+    expect(prompt.user).not.toContain(OCC_LABEL)
+    expect(prompt.user).not.toContain(REF_LABEL)
   })
 })

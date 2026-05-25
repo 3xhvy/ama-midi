@@ -94,6 +94,43 @@ describe('PatternPasteService', () => {
       expect(preview.creatable).toHaveLength(2)
     })
 
+    it('detects conflict when pasted tap falls inside an existing hold span', async () => {
+      prisma.note.findMany.mockResolvedValue([
+        {
+          id: 'hold-1',
+          songId: 'song-1',
+          track: 1,
+          time: 10,
+          title: 'Hold',
+          description: '',
+          noteType: 'HOLD',
+          duration: 5,
+          createdBy: 'user-2',
+          createdAt: new Date('2026-05-20T10:00:00.000Z'),
+          updatedAt: new Date('2026-05-20T10:00:00.000Z'),
+          creator: { name: 'Other Composer', avatarUrl: null },
+        },
+      ])
+      prisma.notePattern.findUnique.mockResolvedValue({
+        ...patternRow,
+        notes: [{ track: 1, timeOffset: 2, noteType: 'TAP' }],
+      })
+
+      const preview = await service.previewPaste(
+        'pattern-1',
+        { songId: 'song-1', chartId: 'chart-1', startTime: 10 },
+        mockUser,
+      )
+
+      expect(preview.summary.conflictCount).toBe(1)
+      expect(preview.summary.creatableNotes).toBe(0)
+      expect(preview.conflicts[0]).toMatchObject({
+        conflictId: 'hold-1',
+        track: 1,
+        time: 12,
+      })
+    })
+
     it('returns conflict details including existing note creator fields', async () => {
       prisma.note.findMany.mockResolvedValue([
         {

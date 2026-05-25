@@ -151,7 +151,7 @@ export function TapSetupModal({
                 <span key={t} className="mr-2">T{t}:{k}</span>
               ))}
             </p>
-            <p>Short press = tap · hold ≥0.15s = hold note · loop repeats automatically</p>
+            <p>Short press = tap · hold ≥0.15s = hold note · playback stops at end of range</p>
           </div>
 
           <div className="flex gap-2 justify-end">

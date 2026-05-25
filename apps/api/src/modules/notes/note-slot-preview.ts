@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common'
 import type { NoteType } from '@ama-midi/shared'
 import { findOverlapping, notesOverlap, type NoteSlot } from './note-overlap'
 
@@ -50,22 +51,73 @@ export interface ClassifySlotsResult {
   internalCollision: boolean
 }
 
+/** Incoming note that repeats an existing note at the same slot (LLM echo) — not a merge conflict. */
+export function isUnchangedEcho(
+  incoming: Pick<IncomingSlot, 'track' | 'time' | 'noteType' | 'duration'>,
+  existing: Pick<ExistingSlotRow, 'track' | 'time' | 'noteType' | 'duration'>,
+): boolean {
+  if (incoming.track !== existing.track || incoming.time !== existing.time) return false
+
+  const inType = incoming.noteType.toUpperCase()
+  const exType = existing.noteType.toUpperCase()
+
+  if (inType === 'TAP' && exType === 'TAP') return true
+
+  if (inType === 'HOLD' && exType === 'HOLD') {
+    const inDur = Math.round((incoming.duration ?? 0) * 10) / 10
+    const exDur = Math.round((existing.duration ?? 0) * 10) / 10
+    return inDur === exDur
+  }
+
+  return false
+}
+
+export function filterUnchangedEchoes(
+  incoming: IncomingSlot[],
+  existingRows: ExistingSlotRow[],
+): IncomingSlot[] {
+  if (existingRows.length === 0) return incoming
+
+  const byStartKey = new Map<string, ExistingSlotRow>()
+  for (const row of existingRows) {
+    byStartKey.set(`${row.track}:${row.time}`, row)
+  }
+
+  return incoming.filter((slot) => {
+    const existing = byStartKey.get(`${slot.track}:${slot.time}`)
+    if (!existing) return true
+    return !isUnchangedEcho(slot, existing)
+  })
+}
+
+function toNoteSlot(slot: Pick<IncomingSlot, 'track' | 'time' | 'noteType' | 'duration'>): NoteSlot {
+  return {
+    track: slot.track,
+    time: slot.time,
+    noteType: slot.noteType,
+    duration: slot.duration ?? null,
+  }
+}
+
+/** Drop later incoming notes that overlap an earlier one on the same track (LLM duplicates / hold+tap). */
+export function filterInternalOverlaps(slots: IncomingSlot[]): IncomingSlot[] {
+  const accepted: NoteSlot[] = []
+  const out: IncomingSlot[] = []
+
+  for (const slot of slots) {
+    const candidate = toNoteSlot(slot)
+    if (findOverlapping(candidate, accepted)) continue
+    accepted.push(candidate)
+    out.push(slot)
+  }
+
+  return out
+}
+
 export function detectInternalCollision(slots: IncomingSlot[]): boolean {
   for (let i = 0; i < slots.length; i++) {
     for (let j = i + 1; j < slots.length; j++) {
-      const a: NoteSlot = {
-        track: slots[i].track,
-        time: slots[i].time,
-        noteType: slots[i].noteType,
-        duration: slots[i].duration ?? null,
-      }
-      const b: NoteSlot = {
-        track: slots[j].track,
-        time: slots[j].time,
-        noteType: slots[j].noteType,
-        duration: slots[j].duration ?? null,
-      }
-      if (notesOverlap(a, b)) return true
+      if (notesOverlap(toNoteSlot(slots[i]), toNoteSlot(slots[j]))) return true
     }
   }
   return false
@@ -127,4 +179,19 @@ export function classifySlots(
   }
 
   return { creatable, conflicts, internalCollision: false }
+}
+
+export function assertNoFinalCreateOverlaps(
+  slots: Array<Pick<IncomingSlot, 'track' | 'time' | 'noteType' | 'duration'>>,
+  activeExisting: NoteSlot[],
+): void {
+  const pendingCreates: NoteSlot[] = []
+
+  for (const slot of slots) {
+    const candidate = toNoteSlot(slot)
+    if (findOverlapping(candidate, [...activeExisting, ...pendingCreates])) {
+      throw new ConflictException({ error: 'POSITION_TAKEN' })
+    }
+    pendingCreates.push(candidate)
+  }
 }

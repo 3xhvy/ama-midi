@@ -23,6 +23,9 @@ import {
   AiFlowTextarea,
 } from '../AiFlowChrome'
 import { confirmReplaceEntireChart } from '../../chart-replace-warning'
+import { suggestAiChartName } from '../../ai-chart-name'
+import { useCharts } from '../../../../charts/useCharts'
+import { AiPromptTemplateChips } from '../AiPromptTemplateChips'
 
 export function GenerateChartFlow({
   songId,
@@ -35,14 +38,23 @@ export function GenerateChartFlow({
 }: AiFlowBaseProps) {
   const token = useAuthStore((s) => s.token)
   const { snapMode, setChartPreview, closeAiAssistant } = useEditorStore()
+  const { data: charts = [] } = useCharts(songId)
   const [description, setDescription] = useState('')
   const [targetTier, setTargetTier] = useState<SongDifficulty | ''>('')
+  const [createAsNewChart, setCreateAsNewChart] = useState(true)
+  const [useReferenceChart, setUseReferenceChart] = useState(true)
   const [replaceExisting, setReplaceExisting] = useState(false)
   const { start, processing } = streamRun
+
+  function handleCreateAsNewChartChange(checked: boolean) {
+    setCreateAsNewChart(checked)
+    if (checked) setReplaceExisting(false)
+  }
 
   function handleReplaceExistingChange(checked: boolean) {
     if (checked && !confirmReplaceEntireChart(noteCount)) return
     setReplaceExisting(checked)
+    if (checked) setCreateAsNewChart(false)
   }
 
   async function handleSubmit() {
@@ -56,12 +68,18 @@ export function GenerateChartFlow({
       return
     }
 
+    const aiReplaceExisting = createAsNewChart
+      ? !useReferenceChart
+      : replaceExisting
+
     onPhaseChange('processing')
     try {
       const result = await start({
         action: 'generate-chart',
         chartId,
-        replaceExisting,
+        replaceExisting: aiReplaceExisting,
+        createAsNewChart,
+        useReferenceChart: createAsNewChart ? useReferenceChart : undefined,
         description: brief,
         snapMode,
         ...(targetTier ? { targetTier } : {}),
@@ -79,15 +97,25 @@ export function GenerateChartFlow({
         return
       }
 
-      const preview = await apiClient(token)<ChartApplyPreview>(
-        `/songs/${songId}/charts/${chartId}/preview-chart`,
-        { method: 'POST', body: JSON.stringify({ notes, replaceExisting }) },
-      )
+      let placement: ChartApplyPreview | null = null
+      if (!createAsNewChart && !replaceExisting) {
+        placement = await apiClient(token)<ChartApplyPreview>(
+          `/songs/${songId}/charts/${chartId}/preview-chart`,
+          { method: 'POST', body: JSON.stringify({ notes, replaceExisting: false }) },
+        )
+      }
+
       setChartPreview({
         notes,
         sections,
-        replaceExisting,
-        placement: replaceExisting ? null : preview,
+        replaceExisting: createAsNewChart || replaceExisting,
+        createAsNewChart,
+        useReferenceChart: createAsNewChart ? useReferenceChart : undefined,
+        previewOnClearGrid: createAsNewChart && useReferenceChart,
+        suggestedChartName: createAsNewChart
+          ? suggestAiChartName(sections, brief, charts)
+          : undefined,
+        placement,
       })
       toast.success('Chart preview ready — apply from the bar above when ready')
       closeAiAssistant()
@@ -124,6 +152,13 @@ export function GenerateChartFlow({
           </AiFlowSelect>
         </div>
 
+        <AiPromptTemplateChips
+          flow="generate-chart"
+          value={description}
+          onChange={setDescription}
+          disabled={processing}
+        />
+
         <AiFlowTextarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -133,7 +168,25 @@ export function GenerateChartFlow({
           disabled={processing}
         />
 
-        {noteCount > 0 && (
+        <AiFlowCheckbox
+          checked={createAsNewChart}
+          onChange={handleCreateAsNewChartChange}
+          disabled={processing}
+          title="Create as new chart"
+          description="Applies the preview to a new chart and leaves the current chart unchanged."
+        />
+
+        {createAsNewChart && (
+          <AiFlowCheckbox
+            checked={useReferenceChart}
+            onChange={setUseReferenceChart}
+            disabled={processing}
+            title="Use current chart as reference"
+            description="AI reads this chart for style and density. Preview shows only the generated notes on an empty grid."
+          />
+        )}
+
+        {!createAsNewChart && noteCount > 0 && (
           <>
             <AiFlowCheckbox
               checked={replaceExisting}
