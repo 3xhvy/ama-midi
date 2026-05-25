@@ -34,8 +34,7 @@
 Add this file:
 
 ```tsx
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { DifficultyHelpModal } from './DifficultyHelpModal'
 
@@ -47,62 +46,61 @@ describe('DifficultyHelpModal', () => {
   it('opens as a difficulty guide with tier cards', () => {
     renderModal()
 
-    expect(screen.getByRole('heading', { name: 'Difficulty Guide' })).toBeInTheDocument()
-    expect(screen.getByText(/Learn what each tier means/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Difficulty Guide' })).toBeTruthy()
+    expect(screen.getByText(/Learn what each tier means/i)).toBeTruthy()
 
-    expect(screen.getByText('Easy')).toBeInTheDocument()
-    expect(screen.getByText('0-2.9')).toBeInTheDocument()
-    expect(screen.getByText('Light taps, no doubles, simple rhythm')).toBeInTheDocument()
+    expect(screen.getByText('Easy')).toBeTruthy()
+    expect(screen.getByText('0-2.9')).toBeTruthy()
+    expect(screen.getByText('Light taps, no doubles, simple rhythm')).toBeTruthy()
 
-    expect(screen.getByText('Master')).toBeInTheDocument()
-    expect(screen.getByText('18+')).toBeInTheDocument()
-    expect(screen.getByText('Peak density, wide jumps, advanced patterns')).toBeInTheDocument()
+    expect(screen.getByText('Master')).toBeTruthy()
+    expect(screen.getByText('18+')).toBeTruthy()
+    expect(screen.getByText('Peak density, wide jumps, advanced patterns')).toBeTruthy()
   })
 
   it('shows review badges and quick fix cards', () => {
     renderModal()
 
-    expect(screen.getByText('Ready')).toBeInTheDocument()
-    expect(screen.getByText('No warnings')).toBeInTheDocument()
-    expect(screen.getByText('Needs Review')).toBeInTheDocument()
-    expect(screen.getByText('WARN or INFO items exist')).toBeInTheDocument()
-    expect(screen.getByText('Blocked')).toBeInTheDocument()
-    expect(screen.getByText('Cannot be approved until ERROR items are fixed')).toBeInTheDocument()
+    expect(screen.getByText('Ready')).toBeTruthy()
+    expect(screen.getByText('No warnings')).toBeTruthy()
+    expect(screen.getAllByText('Needs Review').length).toBeGreaterThan(0)
+    expect(screen.getByText('WARN or INFO items exist')).toBeTruthy()
+    expect(screen.getByText('Blocked')).toBeTruthy()
+    expect(screen.getByText('Cannot be approved until ERROR items are fixed')).toBeTruthy()
 
-    expect(screen.getByText('Fix Your Score')).toBeInTheDocument()
-    expect(screen.getByText('Density')).toBeInTheDocument()
-    expect(screen.getByText('Spread bursts across more time')).toBeInTheDocument()
-    expect(screen.getByText('Doubles/triples')).toBeInTheDocument()
-    expect(screen.getByText('Stagger or remove stacked notes')).toBeInTheDocument()
+    expect(screen.getByText('Fix Your Score')).toBeTruthy()
+    expect(screen.getByText('Density')).toBeTruthy()
+    expect(screen.getByText('Spread bursts across more time')).toBeTruthy()
+    expect(screen.getByText('Doubles/triples')).toBeTruthy()
+    expect(screen.getByText('Stagger or remove stacked notes')).toBeTruthy()
   })
 
   it('groups warning codes by review outcome with readable fixes', () => {
     renderModal()
 
-    expect(screen.getByRole('heading', { name: 'Blocking' })).toBeInTheDocument()
-    expect(screen.getByText('Even out the hardest section')).toBeInTheDocument()
-    expect(screen.getByText('DIFFICULTY_SPIKE')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Blocking' })).toBeTruthy()
+    expect(screen.getByText('Even out the hardest section')).toBeTruthy()
+    expect(screen.getAllByText('DIFFICULTY_SPIKE').length).toBeGreaterThan(0)
 
-    expect(screen.getByRole('heading', { name: 'Needs Review' })).toBeInTheDocument()
-    expect(screen.getByText('Snap notes closer to the beat grid')).toBeInTheDocument()
-    expect(screen.getByText('EXCESSIVE_OFFBEAT')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Needs Review' })).toBeTruthy()
+    expect(screen.getByText('Snap notes closer to the beat grid')).toBeTruthy()
+    expect(screen.getByText('EXCESSIVE_OFFBEAT')).toBeTruthy()
 
-    expect(screen.getByRole('heading', { name: 'Info' })).toBeInTheDocument()
-    expect(screen.getByText('Fill the gap or trim the song')).toBeInTheDocument()
-    expect(screen.getByText('EMPTY_SECTION')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Info' })).toBeTruthy()
+    expect(screen.getByText('Fill the gap or trim the song')).toBeTruthy()
+    expect(screen.getByText('EMPTY_SECTION')).toBeTruthy()
   })
 
-  it('keeps exact tier limits collapsed until requested', async () => {
-    const user = userEvent.setup()
+  it('keeps exact tier limits collapsed until requested', () => {
     renderModal()
 
-    expect(screen.queryByText('NPS warn')).not.toBeInTheDocument()
+    expect(screen.queryByText('NPS warn')).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: /Advanced Limits/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Advanced Limits/i }))
 
-    expect(screen.getByText('NPS warn')).toBeInTheDocument()
-    expect(screen.getByText('Max doubles/10s')).toBeInTheDocument()
-    expect(screen.getByText('Triples are not allowed on Easy/Normal.')).toBeInTheDocument()
+    expect(screen.getByText('NPS warn')).toBeTruthy()
+    expect(screen.getByText('Max doubles/10s')).toBeTruthy()
+    expect(screen.getByText(/Triples are not allowed on Easy\/Normal/)).toBeTruthy()
   })
 })
 ```
