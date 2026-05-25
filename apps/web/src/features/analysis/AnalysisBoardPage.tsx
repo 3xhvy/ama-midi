@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { SongDifficultyEnum } from '@ama-midi/shared'
@@ -16,6 +16,7 @@ import { SectionTimeline } from './SectionTimeline'
 import { SiblingCharts } from './SiblingCharts'
 import { StatCards } from './StatCards'
 import { WarningsTable } from './WarningsTable'
+import { DifficultyHelpModal } from './DifficultyHelpModal'
 
 export function AnalysisBoardPage() {
   const { projectId, songId, chartId } = useParams<{
@@ -51,6 +52,8 @@ export function AnalysisBoardPage() {
 
   if (!projectId || !songId || !chartId) return null
 
+  const [helpOpen, setHelpOpen] = useState(false)
+
   const loading = songLoading || chartLoading || analysisLoading
 
   function jumpToEditor(timeMs: number) {
@@ -81,6 +84,14 @@ export function AnalysisBoardPage() {
                   {SongDifficultyEnum.label(chart.computedDifficulty)}
                 </Badge>
                 <span className="text-sm text-shell-muted">{chart.speedMultiplier.toFixed(1)}×</span>
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen(true)}
+                  className="rounded-full px-1.5 py-0.5 text-[11px] text-shell-muted hover:text-primary hover:bg-shell-bg"
+                  title="How difficulty works"
+                >
+                  ?
+                </button>
               </>
             )}
           </div>
@@ -156,6 +167,7 @@ export function AnalysisBoardPage() {
           />
         </div>
       )}
+      <DifficultyHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </AppShell>
   )
 }
