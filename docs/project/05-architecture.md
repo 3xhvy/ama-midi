@@ -14,7 +14,7 @@
 | **TanStack Query** | Server state management with cache + background refetch. Notes in each time window are cached by query key — revisited windows don't reload. |
 | **Zustand** | Lightweight client state for editor mode, selected note, zoom level, presence. Zoom is a single Zustand atom — the entire rendering and fetch pipeline reads from it. |
 | **Socket.io-client** | WebSocket connection with automatic reconnection. Merges real-time events into TanStack Query cache. |
-| **@tanstack/virtual** | Y-axis virtualization for the note list. ~80 DOM nodes regardless of 10,000 total notes. |
+| **@tanstack/virtual** | Installed; not yet wired. Current rendering uses a client-side `visibleNotes.filter()` inside `PianoRoll.tsx` — DOM count equals notes in the 20s API bucket that pass the viewport filter. |
 | **TailwindCSS** | Dark-mode studio UI. Utility classes avoid CSS specificity conflicts in a component-heavy editor. |
 | **Vite** | Fast dev server HMR; optimized production builds with code splitting. |
 

@@ -78,8 +78,6 @@ export function GenerateChartFlow({
         action: 'generate-chart',
         chartId,
         replaceExisting: aiReplaceExisting,
-        createAsNewChart,
-        useReferenceChart: createAsNewChart ? useReferenceChart : undefined,
         description: brief,
         snapMode,
         ...(targetTier ? { targetTier } : {}),

@@ -96,7 +96,7 @@ P1 — Collaboration & Integrity (All four actors together)
 ├─ Undo via compensating event (+ conflict modal when slots changed)
 ├─ Snap-to-grid (0.1s, beat, half-beat)
 ├─ Viewport zoom (1× / 2× / 4× / 8×)
-├─ 10,000-note rendering (Y-axis DOM virtualization, ~80 active nodes)
+├─ 10,000-note rendering (20s API bucket + client viewport filter; @tanstack/virtual installed, not yet wired)
 ├─ Chunked API fetch (visible time window + prefetch)
 ├─ Rate limiting (30 creates/min per user)
 ├─ CSRF + security hardening (Helmet, throttling, validation pipe)
@@ -195,7 +195,7 @@ Explicitly out of scope
 │  apps/web (React 18 + Vite + TypeScript)          Vercel           │
 │  ├─ TanStack Query — server state, cached by time window           │
 │  ├─ Zustand        — editor mode, zoom, selection (client state)   │
-│  ├─ @tanstack/virtual — Y-axis note virtualization (~80 DOM nodes) │
+│  ├─ @tanstack/virtual — installed; client filter in PianoRoll (not yet wired) │
 │  └─ Socket.io-client — WS connection, merges events → TQ cache     │
 └────────────────────────────────────────────────────────────────────┘
                              │  HTTPS + WSS
@@ -304,7 +304,7 @@ This partial unique index enforces position uniqueness atomically at the databas
 | **Duplicate Prevention**    | `UNIQUE (song_id, track, time) WHERE deleted_at IS NULL` — atomic, race-safe. DB layer, not app layer.                         |
 | **Real-time Collaboration** | Socket.io rooms per song. Redis Pub/Sub fans events to all API instances. Changes visible in < 1s.                             |
 | **Change Ledger**           | Every mutation writes an immutable `NoteEvent` with `before_state` / `after_state` JSONB. Undo = compensating event.           |
-| **10,000-note Performance** | Two-layer windowing: API returns the visible time window; client clamps to viewport. ~80 active DOM nodes regardless of total. |
+| **10,000-note Performance** | Two-layer windowing: API returns a 20s bucket snapped to the scroll position; client filters to the visible viewport. DOM node count equals notes in the filtered window — `@tanstack/virtual` is installed but not yet wired. |
 | **AI Note Suggester**       | Last 10 notes → Claude / OpenAI / DeepSeek → 3–5 pattern-continuation suggestions → ghost overlays (accept/dismiss per note).  |
 | **Role-based Access**       | Admin / Composer / Developer / Viewer enforced at NestJS route guards and React UI layer simultaneously.                       |
 

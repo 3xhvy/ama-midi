@@ -6,7 +6,9 @@
 
 ## What This Feature Does
 
-AMA-MIDI renders up to 10,000 notes on a single song without degrading scrolling, zooming, or interaction responsiveness. This is achieved through a two-layer windowing strategy: the API serves only the visible time window (server-side), and the client renders only the notes within the scroll viewport (client-side). The DOM node count stays near-constant (~80 active nodes) regardless of total note count.
+AMA-MIDI renders up to 10,000 notes on a single song without degrading scrolling, zooming, or interaction responsiveness. This is achieved through a two-layer windowing strategy: the API serves only a fixed 20-second bucket snapped to the scroll position (server-side), and the client filters that bucket to notes visible in the current viewport (client-side). DOM node count equals the number of notes that pass the viewport filter — not a fixed ~80.
+
+**Gap:** `@tanstack/virtual` is installed but not yet wired into `PianoRoll.tsx`. The second layer is a `.filter()` call, not a virtualizer. For low-density charts this is adequate; for dense rhythm charts (80 notes/s) a 20s bucket can still mount 1,000+ DOM nodes.
 
 ---
 
@@ -29,27 +31,30 @@ Total notes in song: 10,000
         │
         ▼
 ┌────────────────────────────────────────┐
-│  Layer 1: API time-window fetch        │
+│  Layer 1: API time-bucket fetch        │
 │                                        │
 │  Client sends: ?timeFrom=X&timeTo=Y    │
-│  API returns: only notes in [X, Y]     │
-│  Typical result: ~200-500 notes        │
+│  Bucket size: 20s fixed                │
+│  Buffer: 5s ahead + behind viewport    │
+│  Typical result: varies by density     │
+│  (dense chart 80 notes/s → ~1,600)    │
 └────────────────────────────────────────┘
         │
         ▼
 ┌────────────────────────────────────────┐
-│  Layer 2: DOM virtualization           │
+│  Layer 2: Client viewport filter       │
 │                                        │
-│  @tanstack/virtual calculates          │
-│  which of those ~500 notes are         │
-│  within the visible scroll viewport    │
-│  Result: ~80 active DOM nodes          │
+│  visibleNotes.filter() in PianoRoll    │
+│  Drops notes outside scroll viewport  │
+│  DOM count = notes passing filter      │
+│  (@tanstack/virtual installed, not     │
+│   yet wired — planned next step)       │
 └────────────────────────────────────────┘
         │
         ▼
-    Browser renders ~80 nodes
-    Scroll is smooth
-    Interaction is responsive
+    Browser renders filtered notes as DOM
+    Scroll is smooth at typical density
+    Dense sections may need virtualizer
 ```
 
 ---
@@ -59,22 +64,27 @@ Total notes in song: 10,000
 ### How the Time Window Is Calculated
 
 ```typescript
-// apps/web/src/features/editor/hooks/useNotes.ts
+// apps/web/src/features/editor/engine/viewport-calculator.ts
 
-const PX_PER_SECOND_BASE = 3   // at 1× zoom
+const PREFETCH_BUFFER = 5        // seconds ahead + behind viewport
+const QUERY_BUCKET_SECONDS = 20  // snap fetch range to 20s boundaries
 
-function getTimeWindow(scrollTop: number, viewportHeight: number, zoom: number) {
-  const pxPerSecond = PX_PER_SECOND_BASE * zoom
-  const timeFrom = scrollTop / pxPerSecond
-  const timeTo = timeFrom + viewportHeight / pxPerSecond
-
-  // Prefetch buffer: load 10s ahead and behind the viewport
+export function getPrefetchTimeRange(
+  scrollTop: number,
+  viewportHeight: number,
+  pxPerSecond: number,
+): { timeFrom: number; timeTo: number } {
+  const visible = getVisibleTimeRange(scrollTop, viewportHeight, pxPerSecond)
+  const timeFrom = Math.floor((visible.timeFrom - PREFETCH_BUFFER) / QUERY_BUCKET_SECONDS) * QUERY_BUCKET_SECONDS
+  const timeTo = Math.ceil((visible.timeTo + PREFETCH_BUFFER) / QUERY_BUCKET_SECONDS) * QUERY_BUCKET_SECONDS
   return {
-    timeFrom: Math.max(0, timeFrom - 10),
-    timeTo: Math.min(300, timeTo + 10),
+    timeFrom: Math.max(0, timeFrom),
+    timeTo: Math.min(TIME_MAX, timeTo),
   }
 }
 ```
+
+At 4× zoom (12 px/s), a 600px viewport shows 50s. With the 5s buffer and 20s snapping, the fetch covers a ~60–80s window. At 1× zoom (3 px/s) the same viewport shows 200s — the bucket covers 0–220s, meaning nearly the full timeline is fetched in one query.
 
 At 1× zoom (3 px/s), a 600px viewport shows 200 seconds of content. At 4× zoom (12 px/s), a 600px viewport shows 50 seconds. The zoom level drives the time window size — this is why zoom must be a global Zustand atom, not component-local state.
 
@@ -112,54 +122,45 @@ As the user scrolls, new time windows are fetched. Previously visited windows ar
 
 ---
 
-## Layer 2: DOM Virtualization
+## Layer 2: Client Viewport Filter
 
 ```mermaid
 flowchart TB
     A["Song has 10,000 notes (all in DB)"]
-    B["API returns ~300 notes in visible time window"]
-    C["@tanstack/virtual: calculate visible rows"]
-    D["React renders ~80 note components"]
+    B["API returns notes in 20s bucket (~0–1600 notes depending on density)"]
+    C["visibleNotes.filter() in PianoRoll.tsx"]
+    D["React renders filtered notes as NoteCircle DOM elements"]
     E["User scrolls down"]
-    F["Virtualizer: unmount top notes, mount new notes entering viewport"]
-    G["DOM stays at ~80 nodes throughout"]
+    F["Scroll event → new bucket key → useNotes refetch or cache hit"]
+    G["visibleNotes re-filtered for new scroll position"]
 
     A --> B --> C --> D --> E --> F --> G
     G --> E
 ```
 
-### Virtualizer Setup
+### Actual Client Filter (PianoRoll.tsx)
 
 ```typescript
-// apps/web/src/features/editor/NoteList.tsx
+// apps/web/src/features/editor/components/PianoRoll.tsx
 
-const virtualizer = useVirtualizer({
-  count: notes.length,
-  getScrollElement: () => scrollRef.current,
-  estimateSize: () => NOTE_HEIGHT_PX,
-  overscan: 5,  // render 5 extra items outside viewport for smooth scrolling
+const { timeFrom, timeTo } = getPrefetchTimeRange(scrollTop, viewportHeight, pxPerSecond)
+const { data: notes = [], isLoading } = useNotes(chartId, timeFrom, timeTo)
+
+// Client-side viewport clamp
+const visibleNotes = previewOnClearGrid ? [] : notes.filter((n) => {
+  // ... muted/tap filters ...
+  return noteEnd >= visibleRange.timeFrom - pad && n.time <= visibleRange.timeTo + pad
 })
 
-return (
-  <div ref={scrollRef} style={{ height: VIEWPORT_HEIGHT, overflowY: 'scroll' }}>
-    {/* Total height spacer — tells browser how tall the full list would be */}
-    <div style={{ height: virtualizer.getTotalSize() }}>
-      {virtualizer.getVirtualItems().map((virtualItem) => {
-        const note = notes[virtualItem.index]
-        return (
-          <NoteCircle
-            key={note.id}
-            note={note}
-            style={{ transform: `translateY(${virtualItem.start}px)` }}
-          />
-        )
-      })}
-    </div>
-  </div>
-)
+// Plain map — no virtualizer
+{visibleNotes.map((note) => (
+  <NoteCircle key={note.id} note={note} ... />
+))}
 ```
 
-Only the items in `virtualizer.getVirtualItems()` are mounted as React components. The total list height is preserved via the spacer `div` so the scrollbar behaves correctly.
+`@tanstack/virtual` is installed in `package.json` but not imported. DOM node count equals `visibleNotes.length` — for low-density charts this is fine; for dense rhythm sections it can reach 1,000+ nodes.
+
+**Next step:** wire `useVirtualizer` inside `PianoRoll.tsx` to replace the `.map()` with `virtualizer.getVirtualItems()`. Plans/architecture for this are tracked in `docs/superpowers/plans/`.
 
 ---
 
@@ -175,42 +176,22 @@ Canvas renders everything as bitmap pixels. Performance ceiling is much higher �
 
 For an interaction-heavy piano roll where users click individual notes, hover for tooltips, select, drag, and use keyboard shortcuts, losing the browser's event model is a large cost.
 
-DOM virtualization at ~80 nodes is well within browser comfort zone. Canvas is the correct escalation if profiling shows DOM virtualization is insufficient — but it is not the right starting point.
+DOM rendering with client-side filtering is well within browser comfort zone for typical chart densities. Wiring `@tanstack/virtual` bounds the DOM count for dense sections. Canvas is the correct escalation if profiling shows even the virtualizer is insufficient — but it is not the right starting point.
 
 ---
 
 ## Zoom-Aware Coordinate Engine
 
-All pixel ↔ (track, time) conversions go through a single module. No inline math scattered across components.
+All pixel ↔ (track, time) conversions go through `apps/web/src/features/editor/engine/viewport-calculator.ts` and related engine helpers. No inline math scattered across components.
 
-```typescript
-// apps/web/src/features/editor/engine/CoordinateEngine.ts
+Key functions:
+- `getVisibleTimeRange(scrollTop, viewportHeight, pxPerSecond)` — current viewport in seconds
+- `getPrefetchTimeRange(scrollTop, viewportHeight, pxPerSecond)` — 20s-snapped bucket with 5s buffer
+- `getTotalHeight(pxPerSecond)` — total scrollable height (TIME_MAX × pxPerSecond)
 
-class CoordinateEngine {
-  private readonly colWidth: number
-  private readonly pxPerSecond: number
+`pxPerSecond` is derived from zoom (`PX_PER_SECOND_BASE × zoom`) and stored in Zustand so all consumers — fetch hook, grid renderer, note positioning — read the same value.
 
-  constructor(private zoom: number) {
-    this.colWidth = TOTAL_WIDTH / TRACK_COUNT           // 8 tracks
-    this.pxPerSecond = PX_PER_SECOND_BASE * zoom        // zoom-aware
-  }
-
-  toTrackTime(x: number, y: number, scrollTop: number): { track: number; time: number } {
-    const track = Math.floor(x / this.colWidth) + 1
-    const rawTime = (y + scrollTop) / this.pxPerSecond
-    const time = Math.round(rawTime * 10) / 10          // snap to 0.1s
-    return { track: clamp(track, 1, 8), time: clamp(time, 0, 300) }
-  }
-
-  toPixels(track: number, time: number, scrollTop: number): { x: number; y: number } {
-    const x = (track - 1) * this.colWidth + this.colWidth / 2
-    const y = time * this.pxPerSecond - scrollTop
-    return { x, y }
-  }
-}
-```
-
-**Invariant:** No component performs `(x, y) → (track, time)` or `(track, time) → (x, y)` conversions directly. All conversions go through `CoordinateEngine`. This makes zoom changes safe — update `zoom`, recreate the engine, all consumers recalculate correctly.
+**Invariant:** No component derives `pxPerSecond` independently. All consumers read it from the shared Zustand atom. This keeps fetch window and rendered positions in sync across zoom changes.
 
 ---
 
@@ -218,10 +199,8 @@ class CoordinateEngine {
 
 | Metric | Target | Actual |
 |---|---|---|
-| Active DOM nodes at 10k notes | < 200 | ~80 |
-| API fetch latency (time-window, no analysis) | < 100ms | ~15ms |
-| Scroll FPS (10k notes, 4× zoom) | > 30fps | 55–60fps |
-| Initial editor load (10k notes) | < 2s | ~800ms |
+| Active DOM nodes at 10k notes | < 200 | Varies — equals `visibleNotes.filter()` result; no virtualizer yet |
+| API fetch latency (time-window bucket, no analysis) | < 100ms | ~15ms |
 | k6 100 VU p95 (after analysis fix) | < 200ms | 37ms |
 
 ---
@@ -271,7 +250,7 @@ Result: 100 VU p95 dropped from 3.03s to 37ms. The client already had live analy
 | Decision | Trade-off |
 |---|---|
 | **Time-window chunked fetch** | Network-efficient, viewport-responsive. Cost: stale data at window boundaries; prefetch buffer mitigates. |
-| **DOM virtualization** | Maintains browser event model + accessibility. Cost: more complex than simple list render; `@tanstack/virtual` abstracts most of it. |
+| **Client viewport filter** | Maintains browser event model + accessibility. Cost: DOM count is not bounded — at high density, wiring `@tanstack/virtual` is the next step. |
 | **Background analysis** | Write path is fast. Cost: analysis board shows slightly stale data for ~2s after a burst of edits. Acceptable — the analysis board is for review, not millisecond-precise feedback. |
 | **0.1s time resolution** | Reduces total note count (fewer valid positions per track). A note at `5.0s` and `5.1s` are distinct; `5.01s` and `5.02s` collapse to the same slot. Less data to virtualize. |
 

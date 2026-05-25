@@ -123,6 +123,7 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
 
   async function acceptReplace() {
     if (!confirmReplaceEntireChart()) return
+    if (!chartId) return
 
     setApplying(true)
     const toastId = toast.loading('Applying chart…')

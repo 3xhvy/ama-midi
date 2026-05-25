@@ -49,7 +49,7 @@ packages/shared  Zero-dep shared TS types, colors, constants
 - `hooks/` — `useSocket`, `useNotes`, `useUndo`
 - `store/` — Zustand: editor mode, user presence, view mode (Composer/Developer/QA)
 - State: TanStack Query for server state, Zustand for client state
-- Piano roll renders notes via `@tanstack/virtual` (Y-axis virtualization) — only ~80 DOM nodes in view for 10,000 notes
+- Piano roll fetches notes by 20s bucket (`getPrefetchTimeRange` in `engine/viewport-calculator.ts`), then filters client-side in `PianoRoll.tsx`. `@tanstack/virtual` is installed but not yet wired — DOM count equals `visibleNotes.filter()` result.
 - Optimistic UI: note appears instantly, rolls back on 409/error with toast
 
 ### Backend (`apps/api/src/modules/`)

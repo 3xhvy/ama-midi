@@ -442,7 +442,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
     return () => window.removeEventListener('keydown', handler)
   }, [selectedNoteIds, effectiveCanEdit, deleteNote, popup, onNoteSelected, notes, clearSelection, tapMode, isPlaying, setPlaying])
 
-  const NOTE_RADIUS_PX = 10 // half-height of a note circle, prevents edge-clipping
+  const NOTE_RADIUS_PX = 10
   const visibleRange = getVisibleTimeRange(scrollTop, viewportHeight, pxPerSecond)
   const visibleNotes = previewOnClearGrid ? [] : notes.filter((n) => {
     if (mutedTracks.has(n.track)) return false
@@ -451,9 +451,22 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
       const noteEnd = n.time + (n.duration ?? 0)
       if (n.time < end && noteEnd >= start) return false
     }
-    const noteEnd = n.time + (n.duration ?? 0) // TAP: end == start; HOLD: end == start + duration
+    const noteEnd = n.time + (n.duration ?? 0)
     const pad = NOTE_RADIUS_PX / pxPerSecond
-    return noteEnd >= visibleRange.timeFrom - pad && n.time <= visibleRange.timeTo + pad
+
+    // Base visibility check
+    if (!(noteEnd >= visibleRange.timeFrom - pad && n.time <= visibleRange.timeTo + pad)) {
+      return false
+    }
+
+    // Extra filter when zoomed out: limit render window to ±5 seconds around viewport center
+    if (pxPerSecond < 5) {
+      const centerTime = visibleRange.timeFrom + (visibleRange.timeTo - visibleRange.timeFrom) / 2
+      const strictPad = 5
+      return noteEnd >= centerTime - strictPad && n.time <= centerTime + strictPad
+    }
+
+    return true
   })
 
   if (isLoading) {
