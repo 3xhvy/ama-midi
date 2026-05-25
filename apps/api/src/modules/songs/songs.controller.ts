@@ -1,13 +1,17 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req, UploadedFile, UseInterceptors, Res } from '@nestjs/common'
+import {
+  Controller, Get, Post, Patch, Delete,
+  Param, Body, UseGuards, Req,
+  UploadedFile, UseInterceptors, Res,
+  HttpException, HttpStatus,
+} from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { FileInterceptor } from '@nestjs/platform-express'
-import type { Response } from 'express'
+import type { Response, Request } from 'express'
 import { SongsService } from './songs.service'
 import { BackingTrackService } from './backing-track.service'
 import { UpdateSongDto } from './dto/update-song.dto'
 import { UpdateSongStatusDto } from './dto/update-song-status.dto'
 import { SetBackingTrackUrlDto } from './dto/set-backing-track-url.dto'
-import type { Request } from 'express'
 import type { AuthUser } from '@ama-midi/shared'
 
 @Controller('songs')
@@ -71,11 +75,11 @@ export class SongsController {
   async streamBackingTrack(
     @Param('id') id: string,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
   ) {
-    const file = await this.backingTrack.stream(id, req.user as AuthUser)
+    const { redirectUrl } = await this.backingTrack.stream(id, req.user as AuthUser)
     res.setHeader('Cache-Control', 'private, max-age=3600')
-    return file
+    res.redirect(302, redirectUrl)
   }
 
   @Delete(':id/backing-track')
@@ -86,5 +90,17 @@ export class SongsController {
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req: Request) {
     return this.songs.remove(id, req.user as AuthUser)
+  }
+
+  // ── MIDI placeholders ──────────────────────────────────────────────────────
+
+  @Post(':id/midi/import')
+  importMidi() {
+    throw new HttpException('MIDI import coming soon', HttpStatus.NOT_IMPLEMENTED)
+  }
+
+  @Get(':id/midi/export')
+  exportMidi() {
+    throw new HttpException('MIDI export coming soon', HttpStatus.NOT_IMPLEMENTED)
   }
 }
