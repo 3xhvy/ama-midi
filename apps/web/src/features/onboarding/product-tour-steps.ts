@@ -153,7 +153,7 @@ export const PRODUCT_TOUR_STEPS: TourStep[] = [
     target: 'tools-tab',
     route: (ctx) => editorRoute(ctx) ?? '/',
     prepare: (ctx) => openToolsTab(ctx),
-    message: 'Tools panel — zoom, snap, create mode, view modes, and selection tools.',
+    message: 'Tools panel — zoom, snap, create mode, validation rings, and selection tools.',
   },
   {
     phase: 'editor',
@@ -168,13 +168,6 @@ export const PRODUCT_TOUR_STEPS: TourStep[] = [
     route: (ctx) => editorRoute(ctx) ?? '/',
     prepare: (ctx) => openToolsTab(ctx),
     message: 'Create mode — Fast places notes on click; Popup opens the full note editor.',
-  },
-  {
-    phase: 'editor',
-    target: 'view-mode',
-    route: (ctx) => editorRoute(ctx) ?? '/',
-    prepare: (ctx) => openToolsTab(ctx),
-    message: 'View modes — Composer, Dev, QA, and Preview for different workflows.',
   },
   {
     phase: 'editor',

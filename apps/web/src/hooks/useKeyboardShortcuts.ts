@@ -25,7 +25,7 @@ export function useKeyboardShortcuts({
   canEdit, onUndo, onDeleteNote, onEditNote, onJumpToStart, onToggleShortcuts,
   onToggleLeftPanel, onToggleRightPanel,
 }: Options) {
-  const { viewMode, selectedNoteId, setZoom, setPlaying } = useEditorStore()
+  const { selectedNoteId, setZoom, setPlaying } = useEditorStore()
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -48,8 +48,8 @@ export function useKeyboardShortcuts({
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && canEdit) {
         e.preventDefault(); onUndo()
       }
-      if ((e.key === 'j' || e.key === 'J') && viewMode === 'qa') {
-        e.preventDefault(); onJumpToStart?.()
+      if ((e.key === 'j' || e.key === 'J') && onJumpToStart) {
+        e.preventDefault(); onJumpToStart()
       }
       if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
         onToggleShortcuts?.()
@@ -63,5 +63,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [canEdit, viewMode, selectedNoteId, setZoom, setPlaying, onUndo, onDeleteNote, onEditNote, onJumpToStart, onToggleShortcuts, onToggleLeftPanel, onToggleRightPanel])
+  }, [canEdit, selectedNoteId, setZoom, setPlaying, onUndo, onDeleteNote, onEditNote, onJumpToStart, onToggleShortcuts, onToggleLeftPanel, onToggleRightPanel])
 }
