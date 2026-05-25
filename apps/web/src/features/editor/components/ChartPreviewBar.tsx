@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
-import type { ApplyChartResponse, ChartApplyPreview, ConflictAction } from '@ama-midi/shared'
+import type { ApplyChartResponse, ChartApplyPreview, ConflictAction, GeneratedChartNote } from '@ama-midi/shared'
 import { Button } from '../../../components/ui'
 import { useAuthStore } from '../../../store/auth.store'
 import { useEditorStore } from '../../../store/editor.store'
 import { apiClient } from '../../auth/api'
 import { ConflictReviewModal } from './ConflictReviewModal'
+import { applyMergeWithResolutions, mergeApplyToast } from './chart-merge-apply'
 import { chartApplyPreviewToPlacement, mergeResolutions } from './placement-preview'
 
 interface Props {
@@ -24,6 +25,24 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
   const [showConflicts, setShowConflicts] = useState(false)
   const [resolutions, setResolutions] = useState<ConflictResolutionState>({})
   const [conflictChanged, setConflictChanged] = useState(false)
+  const autoOpenedRef = useRef(false)
+
+  useEffect(() => {
+    if (!chartPreview || !chartId) {
+      autoOpenedRef.current = false
+      return
+    }
+    if (chartPreview.replaceExisting || !chartPreview.placement) return
+    if (autoOpenedRef.current) return
+    autoOpenedRef.current = true
+    setResolutions(
+      Object.fromEntries(
+        chartPreview.placement.conflicts.map((c) => [c.conflictId, 'KEEP_EXISTING' as ConflictAction]),
+      ),
+    )
+    setConflictChanged(false)
+    setShowConflicts(true)
+  }, [chartPreview, chartId])
 
   if (!chartPreview || !chartId) return null
 
@@ -58,9 +77,7 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
     resetConflictState()
     await qc.invalidateQueries({ queryKey: ['notes', chartId] })
     await qc.invalidateQueries({ queryKey: ['sections', songId] })
-    const skipped = result.skippedCount > 0 ? ` (${result.skippedCount} skipped)` : ''
-    const replaced = result.replacedCount > 0 ? `, replaced ${result.replacedCount}` : ''
-    toast.success(`Added ${result.createdCount} notes${replaced}${skipped}`)
+    toast.success(mergeApplyToast(result))
   }
 
   function handle409(err: { body?: unknown }, currentResolutions: ConflictResolutionState) {
@@ -143,22 +160,13 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
     const toastId = toast.loading('Applying chart…')
     const currentResolutions = resolutions
     try {
-      const result = await apiClient(token)<ApplyChartResponse>(
-        `/songs/${songId}/apply-chart`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            chartId,
-            notes,
-            sections,
-            replaceExisting: false,
-            previewVersion: placement.previewVersion,
-            resolutions: placement.conflicts.map((c) => ({
-              conflictId: c.conflictId,
-              action: currentResolutions[c.conflictId] ?? 'KEEP_EXISTING',
-            })),
-          }),
-        },
+      const result = await applyMergeWithResolutions(
+        token,
+        songId,
+        chartId!,
+        notes as GeneratedChartNote[],
+        placement,
+        currentResolutions,
       )
       await handleApplySuccess(result)
     } catch (err: unknown) {
@@ -185,14 +193,16 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
     ? 'Applying…'
     : replaceExisting
       ? 'Replace chart →'
-      : placement && conflictCount > 0
-        ? `Review conflicts (${conflictCount}) →`
+      : placement
+        ? conflictCount > 0
+          ? `Review conflicts (${conflictCount}) →`
+          : 'Review & apply →'
         : `Apply ${createCount} notes →`
 
   function handlePrimaryClick() {
     if (replaceExisting) {
       void acceptReplace()
-    } else if (placement && conflictCount > 0) {
+    } else if (placement) {
       openConflictReview()
     } else {
       void acceptMerge()

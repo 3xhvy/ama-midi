@@ -1,29 +1,9 @@
 import { toast } from 'sonner'
 import type { ChartApplyPreview, NoteSuggestion } from '@ama-midi/shared'
-import { apiClient } from '../../../auth/api'
 import { useEditorStore } from '../../../../store/editor.store'
+import { suggestionsToChartNotes } from '../chart-merge-apply'
 
-export function suggestionsToChartNotes(suggestions: NoteSuggestion[]) {
-  return suggestions.map((s) => ({ track: s.track, time: s.time }))
-}
-
-export async function fetchSuggestionChartPreview(
-  token: string | null,
-  songId: string,
-  chartId: string,
-  suggestions: NoteSuggestion[],
-): Promise<ChartApplyPreview> {
-  return apiClient(token)<ChartApplyPreview>(
-    `/songs/${songId}/charts/${chartId}/preview-chart`,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        notes: suggestionsToChartNotes(suggestions),
-        replaceExisting: false,
-      }),
-    },
-  )
-}
+export { fetchSuggestionChartPreview, suggestionsToChartNotes } from '../chart-merge-apply'
 
 export function openSuggestionChartPreview(
   suggestions: NoteSuggestion[],

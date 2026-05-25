@@ -183,7 +183,6 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const viewportHeight = containerRef.current?.clientHeight ?? 600
   const { timeFrom, timeTo } = getPrefetchTimeRange(scrollTop, viewportHeight, pxPerSecond)
   const { data: notes = [], isLoading } = useNotes(chartId, timeFrom, timeTo)
-  const { data: allChartNotes = [] } = useNotes(chartId)
   const { data: sections = [] } = useSections(songId)
   const createNote = useCreateNote(chartId)
   const deleteNote = useDeleteNote(chartId)
@@ -702,27 +701,8 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
       {!isPlaying && tapMode && tapMode.draftNotes.length > 0 && chartId && (
         <TapApplyModal
           tapMode={tapMode}
-          existingNotes={allChartNotes}
           songId={songId}
-          onApply={async (notesToCreate) => {
-            const results = await Promise.allSettled(
-              notesToCreate.map((n) =>
-                createNote.mutateAsync({
-                  track:    n.track,
-                  time:     n.time,
-                  title:    '',
-                  noteType: n.duration != null ? 'HOLD' : 'TAP',
-                  duration: n.duration,
-                }),
-              ),
-            )
-            const applied = results.filter((r) => r.status === 'fulfilled').length
-            const skipped = results.length - applied
-            if (applied === 0 && skipped > 0) {
-              throw new Error('All notes skipped due to conflicts')
-            }
-            return { applied, skipped }
-          }}
+          chartId={chartId}
           onCancel={() => setTapMode(null)}
         />
       )}

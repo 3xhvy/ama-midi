@@ -83,6 +83,8 @@ export function EditorPage() {
     loopRange,
     setLoopRange,
     snapMode,
+    tapMode,
+    isPlaying,
     setTapMode,
     setPlaying,
   } = useEditorStore()
@@ -223,7 +225,7 @@ export function EditorPage() {
   usePlaybackAudio({
     notes: allNotes,
     mutedTracks,
-    enabled: !chartSoundMuted,
+    enabled: !chartSoundMuted && !(tapMode != null && isPlaying),
     volume: chartSoundVolume,
   })
 

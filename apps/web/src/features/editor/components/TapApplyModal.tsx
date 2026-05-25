@@ -1,119 +1,127 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { Note } from '@ama-midi/shared'
-import type { ConflictResolutionMap, PlacementPreview } from '@ama-midi/shared'
-import { buildTapPlacementPreview } from '../engine/tap-placement-preview'
+import { useQueryClient } from '@tanstack/react-query'
+import type { ChartApplyPreview, ConflictAction, ConflictResolutionMap } from '@ama-midi/shared'
+import { useAuthStore } from '../../../store/auth.store'
+import {
+  applyMergeWithResolutions,
+  fetchMergePreview,
+  mergeApplyToast,
+  tapDraftsToChartNotes,
+} from './chart-merge-apply'
 import { draftTapNotesToPatternNotes } from '../tap-session'
+import { chartApplyPreviewToPlacement, mergeResolutions } from './placement-preview'
 import { ConflictReviewModal } from './ConflictReviewModal'
 import { SavePatternModal } from './SavePatternModal'
 import { EditorModalOverlay, EditorModalPanel } from './EditorModal'
 import type { TapModeState } from '../../../store/editor.store'
 
 interface Props {
-  tapMode:       TapModeState
-  existingNotes: Note[]
-  songId:        string
-  onApply:       (notes: Array<{ track: number; time: number; duration?: number }>) => Promise<{ applied: number; skipped: number }>
-  onCancel:      () => void
+  tapMode:  TapModeState
+  songId:   string
+  chartId:  string
+  onCancel: () => void
 }
 
 type PlacementMode = 'exact' | 'offset'
 
-export function TapApplyModal({ tapMode, existingNotes, songId, onApply, onCancel }: Props) {
-  const [mode,        setMode]        = useState<PlacementMode>('exact')
+export function TapApplyModal({ tapMode, songId, chartId, onCancel }: Props) {
+  const token = useAuthStore((s) => s.token)
+  const qc = useQueryClient()
+  const [mode, setMode] = useState<PlacementMode>('exact')
   const [anchorInput, setAnchorInput] = useState('')
-  const [applying,    setApplying]    = useState(false)
-  const [preview,     setPreview]     = useState<PlacementPreview | null>(null)
+  const [applying, setApplying] = useState(false)
+  const [placement, setPlacement] = useState<ChartApplyPreview | null>(null)
   const [resolutions, setResolutions] = useState<ConflictResolutionMap>({})
+  const [conflictChanged, setConflictChanged] = useState(false)
   const [savePattern, setSavePattern] = useState(false)
+  const [showConflicts, setShowConflicts] = useState(false)
   const autoOpenedPreview = useRef(false)
-
-  useEffect(() => {
-    if (autoOpenedPreview.current || tapMode.draftNotes.length === 0) return
-    autoOpenedPreview.current = true
-    setPreview(
-      buildTapPlacementPreview({
-        songId,
-        draftNotes:    tapMode.draftNotes,
-        existingNotes,
-        offset:        0,
-      }),
-    )
-  }, [songId, tapMode.draftNotes, existingNotes])
 
   const offset = mode === 'exact'
     ? 0
     : Math.max(0, parseFloat(anchorInput) || 0) - tapMode.loopRange.start
 
-  function buildPreview() {
-    return buildTapPlacementPreview({
-      songId,
-      draftNotes:    tapMode.draftNotes,
-      existingNotes,
-      offset,
-    })
+  const chartNotes = tapDraftsToChartNotes(tapMode.draftNotes, offset)
+
+  async function loadPreview(nextOffset = offset) {
+    const notes = tapDraftsToChartNotes(tapMode.draftNotes, nextOffset)
+    if (notes.length === 0) return null
+    return fetchMergePreview(token, songId, chartId, notes)
   }
+
+  useEffect(() => {
+    if (autoOpenedPreview.current || tapMode.draftNotes.length === 0) return
+    autoOpenedPreview.current = true
+    void loadPreview(0).then((next) => {
+      if (!next) return
+      setPlacement(next)
+      setResolutions({})
+      setConflictChanged(false)
+      setShowConflicts(true)
+    }).catch(() => {
+      toast.error('Could not preview tap session')
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tapMode.draftNotes.length, songId, chartId])
 
   async function handleConfirm() {
-    const p = buildPreview()
-    if (p.conflicts.length > 0) {
-      setPreview(p)
-      return
-    }
-    await commitNotes(p, {})
-  }
-
-  async function handleConflictApply() {
-    if (!preview) return
-    await commitNotes(preview, resolutions)
-    setPreview(null)
-  }
-
-  async function commitNotes(p: PlacementPreview, res: ConflictResolutionMap) {
     setApplying(true)
     try {
-      const toCreate = [
-        ...p.creatable.map((c) => ({ track: c.track, time: c.time, duration: c.duration })),
-        ...p.conflicts
-          .filter((c) => res[c.conflictId] === 'REPLACE_WITH_PATTERN')
-          .map((c) => ({ track: c.track, time: c.time, duration: c.incomingNote.duration })),
-      ]
-      if (toCreate.length === 0) {
+      const next = await loadPreview()
+      if (!next) {
         toast.info('No notes to apply')
-        onCancel()
         return
       }
-      const { applied, skipped } = await onApply(toCreate)
-      if (skipped > 0) {
-        toast.success(`${applied} note${applied === 1 ? '' : 's'} applied, ${skipped} skipped (conflict)`)
-      } else {
-        toast.success(`${applied} note${applied === 1 ? '' : 's'} applied`)
-      }
-      onCancel()
-    } catch (err) {
-      if (err instanceof Error && err.message === 'All notes skipped due to conflicts') {
-        toast.error('All notes skipped — positions already taken')
-      } else {
-        toast.error('Failed to apply notes')
-      }
+      setPlacement(next)
+      setResolutions({})
+      setConflictChanged(false)
+      setShowConflicts(true)
+    } catch {
+      toast.error('Could not preview tap session')
     } finally {
       setApplying(false)
     }
   }
 
-  if (preview) {
-    return (
-      <ConflictReviewModal
-        preview={preview}
-        title="Tap Session Conflicts"
-        incomingLabel="Tapped note"
-        applyLabel="Apply tapped notes"
-        resolutions={resolutions}
-        onResolve={(id, action) => setResolutions((r) => ({ ...r, [id]: action }))}
-        onApply={handleConflictApply}
-        onCancel={() => setPreview(null)}
-      />
-    )
+  async function handleConflictApply() {
+    if (!placement) return
+
+    setApplying(true)
+    try {
+      const result = await applyMergeWithResolutions(
+        token,
+        songId,
+        chartId,
+        chartNotes,
+        placement,
+        resolutions,
+      )
+      await qc.invalidateQueries({ queryKey: ['notes', chartId] })
+      toast.success(mergeApplyToast(result))
+      onCancel()
+    } catch (err: unknown) {
+      const nextPreview = (err as { body?: { preview?: ChartApplyPreview } })?.body?.preview
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        (err as { status?: number }).status === 409 &&
+        nextPreview
+      ) {
+        setPlacement(nextPreview)
+        setResolutions(mergeResolutions(resolutions, nextPreview.conflicts))
+        setConflictChanged(true)
+        toast.warning('Chart changed while you were reviewing. Review the updated conflicts.')
+        return
+      }
+      toast.error('Could not apply tap session')
+    } finally {
+      setApplying(false)
+    }
+  }
+
+  function handleResolve(conflictId: string, action: ConflictAction) {
+    setResolutions((prev) => ({ ...prev, [conflictId]: action }))
   }
 
   const noteCount = tapMode.draftNotes.length
@@ -129,6 +137,23 @@ export function TapApplyModal({ tapMode, existingNotes, songId, onApply, onCance
         defaultName={defaultPatternName}
         onClose={() => setSavePattern(false)}
         onSaved={onCancel}
+      />
+    )
+  }
+
+  if (showConflicts && placement) {
+    return (
+      <ConflictReviewModal
+        preview={chartApplyPreviewToPlacement(placement)}
+        title="Apply Tap Session"
+        incomingLabel="Tapped note"
+        applyLabel="Apply tapped notes"
+        resolutions={resolutions}
+        onResolve={handleResolve}
+        onApply={() => void handleConflictApply()}
+        onCancel={() => setShowConflicts(false)}
+        hasConflictChanged={conflictChanged}
+        onDismissConflictBanner={() => setConflictChanged(false)}
       />
     )
   }
@@ -199,11 +224,11 @@ export function TapApplyModal({ tapMode, existingNotes, songId, onApply, onCance
               Save as pattern
             </button>
             <button
-              onClick={handleConfirm}
+              onClick={() => void handleConfirm()}
               disabled={applying || noteCount === 0}
               className="px-4 py-2 text-sm rounded bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50"
             >
-              {applying ? 'Applying…' : 'Apply to chart'}
+              {applying ? 'Loading…' : 'Review & apply'}
             </button>
           </div>
         </div>
