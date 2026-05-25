@@ -20,6 +20,7 @@ import { useApplyNoteCopy }   from '../features/editor/hooks/useNoteCopy'
 import { PatternPanel }       from '../features/editor/components/PatternPanel'
 import { SectionJumpList }    from '../features/editor/components/SectionJumpList'
 import { AnalysisSummaryPanel } from '../features/editor/components/AnalysisSummaryPanel'
+import { DifficultyHelpModal } from '../features/analysis/DifficultyHelpModal'
 import { PanelSectionHeader } from '../features/editor/components/PanelSectionHeader'
 import { analysisPanelHelp, tracksPanelHelp } from '../features/editor/components/panel-section-tooltips'
 import { BottomBarStats }     from '../features/editor/components/BottomBarStats'
@@ -58,13 +59,13 @@ import { useProject } from '../features/projects/useProjects'
 import { recordRecentProject, recordRecentSong } from '../features/navigation/recent-navigation'
 import { useValidation } from '../features/validation/useValidation'
 import { computeTrackDensity } from '../features/editor/utils/track-density'
+import { createDefaultLoopRange } from '../features/editor/tap-session'
 import type { SnapMode } from '../features/editor/engine/beat-calculator'
 
 export function EditorPage() {
   const { projectId, songId } = useParams<{ projectId?: string; songId: string }>()
   const navigate = useNavigate()
   const {
-    viewMode,
     rightPanelTab, setRightPanelTab,
     leftCollapsed, rightCollapsed,
     toggleLeftPanel, toggleRightPanel,
@@ -76,6 +77,8 @@ export function EditorPage() {
     setActiveChartId,
     setPlayheadTime,
     loopRange,
+    setLoopRange,
+    snapMode,
     setTapMode,
     setPlaying,
   } = useEditorStore()
@@ -83,15 +86,6 @@ export function EditorPage() {
   const [searchParams] = useSearchParams()
 
   const isMobile = useIsMobile()
-
-  function startTapMode() {
-    if (!loopRange) {
-      toast.error('Set a loop range first — drag the handles on the time axis')
-      return
-    }
-    setTapMode({ loopRange, draftNotes: [] })
-    setPlaying(true)
-  }
 
   function handleToggleLeft() {
     if (isMobile && leftCollapsed && !rightCollapsed) setRightCollapsed(true)
@@ -153,6 +147,17 @@ export function EditorPage() {
 
   const { canEdit, readOnlyMessage } = useSongChartAccess(songId, song)
 
+  const startTapMode = useCallback(() => {
+    const bpm = song?.bpm ?? 120
+    const range = loopRange ?? createDefaultLoopRange(playheadTime, snapMode, bpm)
+    if (!loopRange) {
+      setLoopRange(range)
+      toast.info(`Loop range set to ${range.start}s–${range.end}s — Shift+drag the time axis to adjust`)
+    }
+    setTapMode({ loopRange: range, draftNotes: [] })
+    setPlaying(true)
+  }, [loopRange, playheadTime, snapMode, song?.bpm, setLoopRange, setTapMode, setPlaying])
+
   const { data: project } = useProject(projectId)
 
   useEffect(() => {
@@ -198,6 +203,7 @@ export function EditorPage() {
   const backingTrack = useBackingTrack(songId, song, backingVolume)
 
   const [showShortcuts,       setShowShortcuts]       = useState(false)
+  const [analysisHelpOpen,    setAnalysisHelpOpen]    = useState(false)
   const [showSavePattern,     setShowSavePattern]     = useState(false)
   const [showCopyTo,          setShowCopyTo]          = useState(false)
   const [showRepeat,          setShowRepeat]          = useState(false)
@@ -215,7 +221,7 @@ export function EditorPage() {
 
   const jumpToRef = useRef<((time: number, track?: number) => void) | null>(null)
 
-  const { summary: validationSummary, data: validationData } = useValidation(songId)
+  const { summary: validationSummary, data: validationData, issues: validationIssues } = useValidation(songId)
 
   function toggleMute(track: number, alt: boolean) {
     if (alt) {
@@ -450,7 +456,11 @@ export function EditorPage() {
       {chartId && projectId && (
         <div className="border-t border-shell-border">
           <div className="px-3 py-2 border-b border-shell-border">
-            <PanelSectionHeader title="Analysis" help={analysisPanelHelp} />
+            <PanelSectionHeader
+              title="Analysis"
+              help={analysisPanelHelp}
+              onHelpClick={() => setAnalysisHelpOpen(true)}
+            />
           </div>
           {notesLoading ? (
             <div className="px-3 py-3 space-y-2">
@@ -684,6 +694,7 @@ export function EditorPage() {
             canEdit={canEdit}
             readOnlyMessage={readOnlyMessage}
             mutedTracks={mutedTracks}
+            validationIssues={validationIssues}
             onNoteSelected={handleNoteSelected}
             cursors={cursors}
             onCursorMove={emitCursorMove}
@@ -693,13 +704,8 @@ export function EditorPage() {
         </div>
       </EditorShell>
 
-      {viewMode !== 'composer' && (
-        <div className="fixed bottom-14 right-4 px-3 py-1 bg-shell-surface border border-shell-border rounded-full text-xs text-shell-muted uppercase tracking-wide z-50">
-          {viewMode} view
-        </div>
-      )}
-
       {showShortcuts && <ShortcutLegend onClose={() => setShowShortcuts(false)} />}
+      <DifficultyHelpModal open={analysisHelpOpen} onClose={() => setAnalysisHelpOpen(false)} />
     </div>
   )
 }
@@ -713,13 +719,6 @@ interface ToolsTabProps {
   onDeselect: () => void
   onUpdateSelected: (patch: { noteType?: NoteType }) => void
 }
-
-const VIEW_MODES = [
-  { value: 'composer',  label: 'Composer' },
-  { value: 'developer', label: 'Dev' },
-  { value: 'qa',        label: 'QA' },
-  { value: 'preview',   label: 'Preview' },
-]
 
 const ZOOM_MODES = [
   { value: '1', label: '1x' },
@@ -781,7 +780,7 @@ function ToolsTab({
   onSavePattern, onDelete, onDeselect, onUpdateSelected,
 }: ToolsTabProps) {
   const {
-    viewMode, setViewMode,
+    validationRingsEnabled, setValidationRingsEnabled,
     zoom, setZoom,
     snapMode, setSnapMode,
     heatmapEnabled, setHeatmapEnabled,
@@ -795,15 +794,6 @@ function ToolsTab({
     <div className="flex-1 overflow-y-auto p-3 space-y-4">
       <section className="space-y-3">
         <PanelHeading title="Editor" meta={`${notes.length} notes`} />
-
-        <ToolRow label="View" data-tour="view-mode">
-          <ToggleGroup
-            items={VIEW_MODES}
-            value={viewMode}
-            onValueChange={(v) => setViewMode(v as typeof viewMode)}
-            className="w-full"
-          />
-        </ToolRow>
 
         <ToolRow label="Zoom" data-tour="zoom">
           <ToggleGroup
@@ -860,6 +850,17 @@ function ToolsTab({
             className={heatmapEnabled ? 'text-warning' : 'text-shell-muted'}
           >
             {heatmapEnabled ? 'On' : 'Off'}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setValidationRingsEnabled(!validationRingsEnabled)}
+          className="w-full flex items-center justify-between rounded-md border border-shell-border bg-shell-bg px-3 py-2 text-xs text-shell-text hover:bg-shell-surface transition-colors"
+        >
+          <span>Validation rings</span>
+          <span className={validationRingsEnabled ? 'text-warning' : 'text-shell-muted'}>
+            {validationRingsEnabled ? 'On' : 'Off'}
           </span>
         </button>
       </section>
