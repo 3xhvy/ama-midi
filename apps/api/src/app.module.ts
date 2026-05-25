@@ -6,6 +6,7 @@ import { globalThrottlerOptions } from './config/throttler.config'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { PrismaModule } from './modules/prisma/prisma.module'
+import { FileModule } from './modules/file/file.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { SongsModule } from './modules/songs/songs.module'
 import { NotesModule } from './modules/notes/notes.module'
@@ -29,6 +30,7 @@ import { EditorCommandModule } from './modules/editor-commands/editor-command.mo
     EventEmitterModule.forRoot({ wildcard: false, delimiter: '.', global: true }),
     ThrottlerModule.forRoot([globalThrottlerOptions]),
     PrismaModule,
+    FileModule,
     ProjectAccessModule,
     AuthModule,
     UsersModule,
