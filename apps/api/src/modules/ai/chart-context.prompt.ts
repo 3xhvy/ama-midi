@@ -5,8 +5,8 @@ export type ChartPromptMode = 'generate_replace' | 'generate_merge' | 'scale' | 
 const OCCUPIED_LABEL = 'Occupied slots (never duplicate track+time):'
 
 export const CHART_NOTE_TYPE_INSTRUCTIONS = [
-  'Note types: TAP (instant hit), HOLD (sustained — MUST include duration in seconds), SWIPE (flick).',
-  'Always use uppercase noteType: "TAP", "HOLD", or "SWIPE".',
+  'Note types: TAP (instant hit) and HOLD (sustained — MUST include duration in seconds).',
+  'Always use uppercase noteType: "TAP" or "HOLD". Never use SWIPE or other types.',
   'Mix note types in every chart: use HOLD for vocals, pads, bass sustains, and long accents (aim for roughly 15–35% HOLD unless the brief is explicitly tap-only).',
   'Typical HOLD duration: 0.3–3.0 seconds, snapped to the grid like note times.',
 ].join(' ')

@@ -527,7 +527,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
           )}
           <div
             ref={containerRef}
-            className={`overflow-y-auto overflow-x-auto w-full h-full select-none [scrollbar-gutter:stable] ${effectiveCanEdit ? '' : 'cursor-not-allowed'}`}
+            className={`ama-scroll overflow-y-auto overflow-x-auto w-full h-full select-none [scrollbar-gutter:stable] ${effectiveCanEdit ? '' : 'cursor-not-allowed'}`}
             onScroll={handleScroll}
             onMouseDownCapture={(e) => {
               if (e.shiftKey) {

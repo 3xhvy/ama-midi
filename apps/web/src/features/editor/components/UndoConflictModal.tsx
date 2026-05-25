@@ -127,6 +127,7 @@ export function UndoConflictModal({ preview, resolutions, onResolve, onApply, on
   const applyDisabled = !allResolved
 
   const activeConflict = conflicts[activeIndex]
+  const activeResolved = !activeConflict || resolutions[activeConflict.conflictId] !== undefined
 
   function resolveAndAdvance(conflictId: string, action: UndoResolution['action']) {
     onResolve(conflictId, action)
@@ -134,11 +135,19 @@ export function UndoConflictModal({ preview, resolutions, onResolve, onApply, on
     if (next !== -1) setActiveIndex(next)
   }
 
+  function resolveAll(action: UndoResolution['action']) {
+    conflicts.forEach((c) => onResolve(c.conflictId, action))
+  }
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
     switch (e.key) {
       case 'ArrowLeft':  e.preventDefault(); setActiveIndex(i => Math.max(0, i - 1)); break
-      case 'ArrowRight': e.preventDefault(); setActiveIndex(i => Math.min(conflicts.length - 1, i + 1)); break
+      case 'ArrowRight':
+        if (!activeResolved) break
+        e.preventDefault()
+        setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))
+        break
       case 'k': case 'K': if (activeConflict) resolveAndAdvance(activeConflict.conflictId, 'KEEP_EXISTING'); break
       case 'r': case 'R': if (activeConflict) resolveAndAdvance(activeConflict.conflictId, 'REPLACE_WITH_UNDO'); break
       case 'Escape': onCancel(); break
@@ -211,10 +220,11 @@ export function UndoConflictModal({ preview, resolutions, onResolve, onApply, on
                 <span className="text-xs" style={{ color: 'var(--modal-muted)' }}>{activeIndex + 1} of {conflicts.length}</span>
                 <button
                   type="button"
-                  disabled={activeIndex === conflicts.length - 1}
+                  disabled={activeIndex === conflicts.length - 1 || !activeResolved}
                   onClick={() => setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))}
                   className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30"
                   style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
+                  title={!activeResolved ? 'Choose Keep or Restore before continuing' : undefined}
                 >Next →</button>
               </div>
             </div>
@@ -257,7 +267,35 @@ export function UndoConflictModal({ preview, resolutions, onResolve, onApply, on
             )}
             <span>K = Keep &nbsp;·&nbsp; R = Restore &nbsp;·&nbsp; ← → Navigate</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {conflicts.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => resolveAll('KEEP_EXISTING')}
+                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors hover:opacity-90"
+                  style={{
+                    borderColor: 'var(--conflict-keep-border)',
+                    color: 'var(--conflict-success)',
+                    backgroundColor: 'var(--conflict-keep-bg)',
+                  }}
+                >
+                  Keep all existing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resolveAll('REPLACE_WITH_UNDO')}
+                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors hover:opacity-90"
+                  style={{
+                    borderColor: 'var(--conflict-incoming-border)',
+                    color: 'var(--conflict-accent)',
+                    backgroundColor: 'var(--conflict-incoming-bg)',
+                  }}
+                >
+                  Restore all from undo
+                </button>
+              </>
+            )}
             <button type="button" onClick={onCancel} className="rounded-xl border px-4 py-2 text-sm" style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)' }}>
               Cancel
             </button>

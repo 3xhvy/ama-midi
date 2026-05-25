@@ -24,7 +24,7 @@ import type { NoteSlot } from '../notes/note-overlap'
 import { ChartContextService } from './chart-context.service'
 
 const MAX_GENERATED_NOTES = 150
-const NOTE_TYPES = new Set(['TAP', 'HOLD', 'SWIPE'])
+const NOTE_TYPES = new Set(['TAP', 'HOLD'])
 
 interface ExistingNoteRow extends NoteSlot {
   id: string

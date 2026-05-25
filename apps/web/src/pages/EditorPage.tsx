@@ -15,7 +15,7 @@ import { CopyToModal }        from '../features/editor/components/CopyToModal'
 import { RepeatModal }       from '../features/editor/components/RepeatModal'
 import { ConflictReviewModal } from '../features/editor/components/ConflictReviewModal'
 import { UndoConflictModal } from '../features/editor/components/UndoConflictModal'
-import { mergeResolutions, noteCopyPreviewToPlacement } from '../features/editor/components/placement-preview'
+import { mergeResolutions, noteCopyPreviewToPlacement, buildConflictResolutionPayload } from '../features/editor/components/placement-preview'
 import { useApplyNoteCopy }   from '../features/editor/hooks/useNoteCopy'
 import { PatternPanel }       from '../features/editor/components/PatternPanel'
 import { SectionJumpList }    from '../features/editor/components/SectionJumpList'
@@ -295,9 +295,13 @@ export function EditorPage() {
 
   function handleApplyUndoWithConflicts() {
     if (!undoPreviewData) return
+    if (!undoPreviewData.conflicts.every((c) => undoResolutions[c.conflictId] !== undefined)) {
+      toast.error('Resolve all conflicts before applying')
+      return
+    }
     const resolutions: UndoResolution[] = undoPreviewData.conflicts.map(c => ({
       conflictId: c.conflictId,
-      action: undoResolutions[c.conflictId] ?? 'KEEP_EXISTING',
+      action: undoResolutions[c.conflictId]!,
     }))
     applyUndoMutation.mutate(
       { commandId: undoPreviewData.commandId, resolutions },
@@ -402,18 +406,23 @@ export function EditorPage() {
   function handleApplyCopy() {
     if (!copyPreview || !copyRequest) return
 
+    let resolutionPayload
+    try {
+      resolutionPayload = buildConflictResolutionPayload(copyPreview.conflicts, copyResolutions)
+    } catch {
+      toast.error('Resolve all conflicts before applying')
+      return
+    }
+
     const skippedCount = copyPreview.conflicts.length
-      - Object.values(copyResolutions).filter((action) => action === 'REPLACE_WITH_PATTERN').length
+      - resolutionPayload.filter((r) => r.action === 'REPLACE_WITH_PATTERN').length
 
     setCopyStep('APPLYING')
     applyNoteCopy.mutate(
       {
         ...copyRequest,
         selectionVersion: copyPreview.selectionVersion,
-        resolutions: copyPreview.conflicts.map((conflict) => ({
-          conflictId: conflict.conflictId,
-          action: copyResolutions[conflict.conflictId] ?? 'KEEP_EXISTING',
-        })),
+        resolutions: resolutionPayload,
       },
       {
         onSuccess: (result) => {

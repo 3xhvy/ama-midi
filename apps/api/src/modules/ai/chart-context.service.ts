@@ -2,6 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { analyzeChart, type AiChartContext, type AiChartNote, type NoteType } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
 
+function normalizeAiNoteType(noteType: string): NoteType {
+  return noteType === 'HOLD' ? 'HOLD' : 'TAP'
+}
+
 function mapDbNoteToAi(note: {
   track: number
   time: number
@@ -12,7 +16,7 @@ function mapDbNoteToAi(note: {
   const out: AiChartNote = {
     track: note.track,
     time: note.time,
-    noteType: note.noteType as NoteType,
+    noteType: normalizeAiNoteType(note.noteType),
   }
   if (note.title != null && note.title !== '') {
     out.title = note.title
@@ -111,7 +115,7 @@ export class ChartContextService {
         notes: rawNotes.map((n) => ({
           track: n.track,
           time: n.time,
-          noteType: n.noteType as 'TAP' | 'HOLD' | 'SWIPE',
+          noteType: normalizeAiNoteType(n.noteType),
           duration: n.duration,
         })),
         bpm: song.bpm,

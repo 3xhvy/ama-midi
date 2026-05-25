@@ -46,7 +46,7 @@ import { buildGeneratePrompt, serializeChartContextForPrompt, CHART_NOTE_TYPE_IN
 import type { ApplyChartDto, GenerateChartDto, PreviewChartDto } from './dto/chart.dto'
 
 const MAX_GENERATED_NOTES = 150
-const NOTE_TYPES = new Set(['TAP', 'HOLD', 'SWIPE'])
+const NOTE_TYPES = new Set(['TAP', 'HOLD'])
 
 const TARGET_NOTE_COUNT: Record<string, number> = {
   EASY: 50,
@@ -533,7 +533,7 @@ export class AiChartService {
         time,
         title: draft.title?.trim() || 'AI Chart',
         description: '',
-        noteType: noteType as 'TAP' | 'HOLD' | 'SWIPE',
+        noteType: noteType as 'TAP' | 'HOLD',
         duration: noteType === 'HOLD' ? draft.duration! : null,
         createdBy: userId,
       },

@@ -33,8 +33,8 @@ class GeneratedChartNoteDto {
   time!: number
 
   @IsOptional()
-  @IsIn(['TAP', 'HOLD', 'SWIPE'])
-  noteType?: 'TAP' | 'HOLD' | 'SWIPE'
+  @IsIn(['TAP', 'HOLD'])
+  noteType?: 'TAP' | 'HOLD'
 
   @IsOptional()
   @IsNumber()

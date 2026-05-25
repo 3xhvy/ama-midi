@@ -69,7 +69,7 @@ export function ScaleDifficultyFlow({
       }
 
       setChartPreview({ notes, sections, replaceExisting: true, placement: null })
-      toast.success('Chart preview ready — review and apply in the bar above')
+      toast.success('Chart preview ready — apply from the bar above when ready')
       closeAiAssistant()
       setInstruction('')
     } catch (e) {

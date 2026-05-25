@@ -15,6 +15,6 @@ export function openSuggestionChartPreview(
     replaceExisting: false,
     placement,
   })
-  toast.success('Chart preview ready — review and apply in the bar above')
+  toast.success('Chart preview ready — apply from the bar above when ready')
   closeAiAssistant()
 }

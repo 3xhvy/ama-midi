@@ -72,74 +72,126 @@ Before writing a line of code, I mapped four distinct actors. The insight: **the
 
 Features are organized by delivery phase. Each tier answers the question: *who is blocked without this?*
 
+Full detail: [`docs/project/03-features.md`](docs/project/03-features.md)
+
 ```
+Cross-Cutting — Conflict Resolution
+│
+├─ Instant rejection (real-time create → 409 → ghost rollback + toast)
+├─ Batch resolve (ConflictReviewModal — shared by pattern paste, copy/move/repeat,
+│   undo restore, tap apply, AI chart merge)
+│   Preview → Apply → resolve conflicts (Keep all existing / Apply all incoming)
+└─ Live negotiation (deferred — toast-only for concurrent slot races today)
+
 P0 — Core Editor (Composer, solo)
 │
 ├─ Google OAuth + JWT auth
 ├─ Song CRUD
-├─ Piano roll grid (8 tracks × 300s vertical timeline)
-├─ Note CRUD
-├─ Fast Mode (click → instant note, no dialog)
-├─ DB-level duplicate prevention (UNIQUE partial index, not app check)
+├─ Piano roll grid (8 tracks × 0–300s vertical timeline)
+├─ Note CRUD (TAP / HOLD / SWIPE)
+├─ Fast Mode (default — click → instant note, no dialog)
+├─ Popup Mode (title, description, color, track, time, duration)
+├─ DB-level duplicate prevention (UNIQUE partial index — atomic, not app-only)
 ├─ Optimistic UI (ghost note on click, rollback on 409)
 ├─ Conflict toast ("This position was just taken — try a nearby spot")
-└─ Role-based access control (Admin / Composer / Viewer)
+├─ Role-based access control (Admin / Composer / Viewer)
+├─ Editor engine (coordinate math, viewport windows, zoom-safe)
+└─ 5-zone app shell (toolbar, left panel, timeline, right panel, footer)
 
 P1 — Collaboration & Integrity (All four actors together)
 │
 ├─ Real-time note sync (Socket.io + Redis Pub/Sub)
 ├─ User presence (session avatars in editor)
-├─ Change history / event ledger
-├─ Undo via compensating event
-├─ Snap-to-grid (0.1s resolution)
-├─ Viewport zoom (1× / 2× / 4×)
-├─ 10,000-note rendering (DOM virtualization, ~80 active nodes)
-├─ Chunked API fetch (load only the visible time window)
+├─ Change history / event ledger (immutable note_events)
+├─ Undo via compensating event (+ conflict modal when slots changed)
+├─ Snap-to-grid (0.1s, beat, half-beat)
+├─ Viewport zoom (1× / 2× / 4× / 8×)
+├─ 10,000-note rendering (Y-axis DOM virtualization, ~80 active nodes)
+├─ Chunked API fetch (visible time window + prefetch)
 ├─ Rate limiting (30 creates/min per user)
+├─ CSRF + security hardening (Helmet, throttling, validation pipe)
 ├─ Role-based view modes (Composer / Developer / QA)
-└─ Concurrent conflict test (Promise.all, not sequential)
+├─ VIEWER read-only editor (mutations hidden)
+├─ Validation rule engine (boundary, gap, density, empty-track)
+├─ Song version snapshots (named save + restore)
+└─ Concurrent conflict test (Promise.all race, not sequential)
 
 Phase 2 — Identity & Onboarding
+│
 ├─ Profile setup (title, department — presence becomes meaningful)
-├─ Live cursor presence on grid (Figma-style labeled dots, ~30fps)
-└─ Guided product tour
+├─ Google avatar sync
+├─ Live cursor presence on grid (Figma-style labeled dots, throttled)
+├─ Routed first-login onboarding (Welcome → Features → Notes → Profile)
+├─ Take a Tour (cross-route product walkthrough, re-launchable)
+└─ Login page redesign (product-first entry)
 
 Phase 3 — Rhythm Game Editor
-├─ BPM + time signature, beat grid rendering
-├─ Note types: TAP / HOLD / SWIPE
-├─ Multi-select + pattern library
-└─ Game Preview mode (visual-only playhead)
+│
+├─ BPM + time signature, beat grid rendering (bar / beat lines)
+├─ Note types: TAP / HOLD (drag duration) / SWIPE
+├─ Multi-select (Shift+click, bulk bar actions)
+├─ Pattern library (save selection, paste at playhead)
+├─ Pattern paste → preview → apply → conflict resolve
+├─ Tap to rhythm (loop range, home-row keys A S D F · J K L ;, TAP + HOLD)
+│   Draft overlay → apply to chart or save as pattern → conflict resolve
+├─ Section markers + jump list (Intro / Verse / Chorus…)
+├─ Game Preview mode (visual playhead — no scoring)
+├─ Difficulty heatmap overlay (NPS bands on grid)
+└─ Combo + difficulty stats in footer
 
 Phase 4 — Production Workspace
+│
 ├─ Projects as production workspaces
-├─ Song status workflow (Draft → In Review → Approved → Published)
-├─ Dashboard (assigned work, "Needs My Review" shortcuts)
-└─ Multi-chart songs (difficulty/speed variants)
+├─ Project membership + per-song scope
+├─ Song status workflow (Draft → In Review → Approved → Published / Needs Fix)
+├─ Dashboard (recent, assigned, "Needs My Review")
+├─ Project directory + workspace tabs (Songs / Members / Settings)
+├─ Create Song wizard (blank / template / import)
+└─ Multi-chart songs (difficulty/speed variants per SongChart)
 
 Phase 5 — Composition Productivity
-├─ Editor commands + multi-level undo
-├─ Copy to / Move to / Repeat / Stamp
-└─ Backing track audio playback
+│
+├─ Editor commands + multi-level undo (one user action = one undo unit)
+├─ Copy to / Move to / Repeat / Stamp (preview → conflict resolve)
+├─ HOLD default-create UX (drag-down duration in fast mode)
+├─ Backing track playback (reference audio, playhead-synced)
+├─ Chart note synth (playhead-crossing sounds, mute per track)
+└─ Editor focus polish (track identity, calmer grid, panel hierarchy)
 
 Phase 6 — AI & Difficulty Analysis
-├─ AI note suggester (ghost overlay, 3–5 suggestions)
-├─ AI Assistant modal (Generate chart, Scale difficulty, Fill track)
-└─ Difficulty analysis engine + Analysis Board
+│
+├─ AI Assistant modal (SSE progress tree)
+│   ├─ Generate chart (description → preview bar → apply / replace w/ confirm)
+│   ├─ Scale difficulty (tier target → full replacement preview)
+│   ├─ Fill track (lane + instruction → chart preview → merge + conflicts)
+│   └─ Improve pattern — Extend / Refine (selection deep-link → chart preview)
+├─ AI chart preview layer (TAP circles + HOLD bars, conflict highlighting)
+├─ Global chart context for AI (sections, density segments, chart totals)
+├─ Difficulty analysis engine (shared analyzeChart(), tier + segments)
+├─ Analysis Board (dedicated page, publish gate on ERROR)
+└─ Live editor validation panel (debounced client + server persistence)
 
 Phase 7 — Collaboration Polish
-├─ Collaborator activity batching
-└─ Live create conflict negotiation (not just toast-only rejection)
+│
+├─ Session presence center (toolbar menu with title / department)
+├─ Collaborator activity batching (readable notices vs event flood)
+├─ Realtime cursor overlay fix (scroll/zoom accurate)
+└─ Live create conflict negotiation (deferred — beyond toast-only)
 
 Deferred (P2)
 ├─ Timeline comments pinned to (time, track)
 ├─ Export to game engine JSON format
 ├─ MIDI file import/export
-└─ Mobile editing
+├─ Mobile editing
+└─ Waveform rendering
 
-Explicitly cut
-├─ Git-style branching (wrong model for live collaboration — everyone is always on main)
-├─ Audio synthesis (visual-only playback achieves 80% of the value)
-└─ Section locking (serializes creativity — the DB conflict model is better)
+Explicitly out of scope
+├─ Git-style branching (everyone is always on main)
+├─ Scoring / gameplay simulation in editor (preview is visual + audio only)
+├─ Keyboard playtesting as a game (tap-to-rhythm is authoring, not scoring)
+├─ LLM-driven repeat/stamp (deterministic interval math)
+├─ Multi-tenancy / cross-project song sharing
+└─ Section locking (DB conflict model instead)
 ```
 
 ---

@@ -7,6 +7,7 @@ import type {
 } from '@ama-midi/shared'
 import { apiClient } from '../../auth/api'
 import type { DraftTapNote } from '../../../store/editor.store'
+import { buildConflictResolutionPayload } from './placement-preview'
 
 export function suggestionsToChartNotes(suggestions: NoteSuggestion[]): GeneratedChartNote[] {
   return suggestions.map((s) => ({ track: s.track, time: s.time, title: '' }))
@@ -54,6 +55,7 @@ export async function applyMergeWithResolutions(
   placement: ChartApplyPreview,
   resolutions: Record<string, ConflictAction>,
 ): Promise<ApplyChartResponse> {
+  const resolutionPayload = buildConflictResolutionPayload(placement.conflicts, resolutions)
   return apiClient(token)<ApplyChartResponse>(
     `/songs/${songId}/apply-chart`,
     {
@@ -63,10 +65,7 @@ export async function applyMergeWithResolutions(
         notes,
         replaceExisting: false,
         previewVersion: placement.previewVersion,
-        resolutions: placement.conflicts.map((c) => ({
-          conflictId: c.conflictId,
-          action: resolutions[c.conflictId] ?? 'KEEP_EXISTING',
-        })),
+        resolutions: resolutionPayload,
       }),
     },
   )

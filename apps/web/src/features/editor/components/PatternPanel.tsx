@@ -17,7 +17,7 @@ import {
   stepPatternPasteTimeDraft,
 } from './pattern-placement'
 import { ConflictReviewModal } from './ConflictReviewModal'
-import { mergeResolutions, patternPreviewToPlacement } from './placement-preview'
+import { mergeResolutions, patternPreviewToPlacement, buildConflictResolutionPayload } from './placement-preview'
 import { PanelSectionHeader } from './PanelSectionHeader'
 import { patternsPanelHelp } from './panel-section-tooltips'
 
@@ -108,7 +108,15 @@ export function PatternPanel({ songId, chartId, isLoading = false }: Props) {
   function handleApply() {
     if (!preview || !pasteTarget || !chartId) return
 
-    const replacedCount = Object.values(resolutions).filter((action) => action === 'REPLACE_WITH_PATTERN').length
+    let resolutionPayload
+    try {
+      resolutionPayload = buildConflictResolutionPayload(preview.conflicts, resolutions)
+    } catch {
+      toast.error('Resolve all conflicts before applying')
+      return
+    }
+
+    const replacedCount = resolutionPayload.filter((r) => r.action === 'REPLACE_WITH_PATTERN').length
     const skippedCount = preview.conflicts.length - replacedCount
 
     setStep('APPLYING')
@@ -118,10 +126,7 @@ export function PatternPanel({ songId, chartId, isLoading = false }: Props) {
         chartId,
         startTime: preview.startTime,
         patternVersion: preview.patternVersion,
-        resolutions: preview.conflicts.map((conflict) => ({
-          conflictId: conflict.conflictId,
-          action: resolutions[conflict.conflictId] ?? 'KEEP_EXISTING',
-        })),
+        resolutions: resolutionPayload,
       },
       {
         onSuccess: (result) => {

@@ -11,6 +11,7 @@ import { useAuthStore } from '../../../../../store/auth.store'
 import { useEditorStore } from '../../../../../store/editor.store'
 import type { AiFlowBaseProps } from '../ai-assistant.types'
 import {
+  AiFlowCallout,
   AiFlowCheckbox,
   AiFlowFooter,
   AiFlowGhostButton,
@@ -21,6 +22,7 @@ import {
   AiFlowSelect,
   AiFlowTextarea,
 } from '../AiFlowChrome'
+import { confirmReplaceEntireChart } from '../../chart-replace-warning'
 
 export function GenerateChartFlow({
   songId,
@@ -37,6 +39,11 @@ export function GenerateChartFlow({
   const [targetTier, setTargetTier] = useState<SongDifficulty | ''>('')
   const [replaceExisting, setReplaceExisting] = useState(false)
   const { start, processing } = streamRun
+
+  function handleReplaceExistingChange(checked: boolean) {
+    if (checked && !confirmReplaceEntireChart(noteCount)) return
+    setReplaceExisting(checked)
+  }
 
   async function handleSubmit() {
     const brief = description.trim()
@@ -82,7 +89,7 @@ export function GenerateChartFlow({
         replaceExisting,
         placement: replaceExisting ? null : preview,
       })
-      toast.success('Chart preview ready — review and apply in the bar above')
+      toast.success('Chart preview ready — apply from the bar above when ready')
       closeAiAssistant()
       setDescription('')
     } catch (e) {
@@ -127,13 +134,21 @@ export function GenerateChartFlow({
         />
 
         {noteCount > 0 && (
-          <AiFlowCheckbox
-            checked={replaceExisting}
-            onChange={setReplaceExisting}
-            disabled={processing}
-            title={`Replace existing chart (${noteCount} notes)`}
-            description="Removes current notes and section markers before applying the preview."
-          />
+          <>
+            <AiFlowCheckbox
+              checked={replaceExisting}
+              onChange={handleReplaceExistingChange}
+              disabled={processing}
+              title={`Replace existing chart (${noteCount} notes)`}
+              description="Removes current notes and section markers before applying the preview."
+            />
+            {replaceExisting && (
+              <AiFlowCallout variant="amber">
+                Dangerous: applying this preview will delete all {noteCount} existing notes and
+                section markers. Review the preview on the grid before clicking Replace chart.
+              </AiFlowCallout>
+            )}
+          </>
         )}
       </div>
 

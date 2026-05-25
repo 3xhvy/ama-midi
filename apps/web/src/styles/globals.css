@@ -157,6 +157,12 @@
   --panel-stat-value: var(--color-text-primary);
   --panel-tab: var(--color-text-secondary);
   --panel-tab-active: var(--color-text-primary);
+
+  /* Custom scrollbars (light zones) */
+  --scrollbar-size: 8px;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(108, 99, 255, 0.22);
+  --scrollbar-thumb-hover: rgba(108, 99, 255, 0.38);
 }
 
 .dark {
@@ -250,6 +256,10 @@
   --ai-text-secondary: rgba(244, 242, 255, 0.78);
   --ai-text-muted: rgba(244, 242, 255, 0.52);
   --ai-glow: rgba(108, 99, 255, 0.35);
+
+  /* Custom scrollbars (dark editor) */
+  --scrollbar-thumb: rgba(180, 175, 255, 0.24);
+  --scrollbar-thumb-hover: rgba(180, 175, 255, 0.44);
 }
 
 body {
@@ -257,6 +267,41 @@ body {
   background-color: var(--shell-bg);
   color: var(--shell-text);
   transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+/* Custom scrollbars — replaces browser default on scrollable regions */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.ama-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 @keyframes note-appear {

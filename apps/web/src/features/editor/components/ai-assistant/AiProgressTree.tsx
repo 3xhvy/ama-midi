@@ -18,7 +18,7 @@ const GENERATE_PHRASES: Record<AiStreamAction, Array<{ afterSec: number; text: s
     { afterSec: 4,  text: 'AI is reading the song structure…' },
     { afterSec: 9,  text: 'Laying out notes across 8 lanes…' },
     { afterSec: 14, text: 'Shaping the rhythm and density…' },
-    { afterSec: 19, text: 'Placing holds and swipes…' },
+    { afterSec: 19, text: 'Placing holds…' },
     { afterSec: 24, text: 'Adding the final touches…' },
     { afterSec: 30, text: 'Still going — this one is detailed…' },
   ],

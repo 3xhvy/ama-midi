@@ -32,7 +32,7 @@ export function EditorShell({
         {/* Desktop left panel — always mounted, width slides */}
         {!isMobile && (
           <aside
-            className="editor-chrome-panel shrink-0 border-r overflow-y-auto overflow-x-hidden"
+            className="editor-chrome-panel ama-scroll shrink-0 border-r overflow-y-auto overflow-x-hidden"
             style={{
               width: leftCollapsed ? 0 : PANEL_WIDTHS.left,
               transition: 'width 250ms ease',

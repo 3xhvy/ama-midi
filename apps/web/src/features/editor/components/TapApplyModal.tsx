@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ChartApplyPreview, ConflictAction, ConflictResolutionMap } from '@ama-midi/shared'
@@ -10,7 +10,7 @@ import {
   tapDraftsToChartNotes,
 } from './chart-merge-apply'
 import { draftTapNotesToPatternNotes } from '../tap-session'
-import { chartApplyPreviewToPlacement, mergeResolutions } from './placement-preview'
+import { chartApplyPreviewToPlacement, mergeResolutions, buildConflictResolutionPayload } from './placement-preview'
 import { ConflictReviewModal } from './ConflictReviewModal'
 import { SavePatternModal } from './SavePatternModal'
 import { EditorModalOverlay, EditorModalPanel } from './EditorModal'
@@ -36,7 +36,6 @@ export function TapApplyModal({ tapMode, songId, chartId, onCancel }: Props) {
   const [conflictChanged, setConflictChanged] = useState(false)
   const [savePattern, setSavePattern] = useState(false)
   const [showConflicts, setShowConflicts] = useState(false)
-  const autoOpenedPreview = useRef(false)
 
   const offset = mode === 'exact'
     ? 0
@@ -50,21 +49,6 @@ export function TapApplyModal({ tapMode, songId, chartId, onCancel }: Props) {
     return fetchMergePreview(token, songId, chartId, notes)
   }
 
-  useEffect(() => {
-    if (autoOpenedPreview.current || tapMode.draftNotes.length === 0) return
-    autoOpenedPreview.current = true
-    void loadPreview(0).then((next) => {
-      if (!next) return
-      setPlacement(next)
-      setResolutions({})
-      setConflictChanged(false)
-      setShowConflicts(true)
-    }).catch(() => {
-      toast.error('Could not preview tap session')
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tapMode.draftNotes.length, songId, chartId])
-
   async function handleConfirm() {
     setApplying(true)
     try {
@@ -76,7 +60,11 @@ export function TapApplyModal({ tapMode, songId, chartId, onCancel }: Props) {
       setPlacement(next)
       setResolutions({})
       setConflictChanged(false)
-      setShowConflicts(true)
+      if (next.summary.conflictCount > 0) {
+        setShowConflicts(true)
+      } else {
+        await handleConflictApply(next, {})
+      }
     } catch {
       toast.error('Could not preview tap session')
     } finally {
@@ -84,8 +72,18 @@ export function TapApplyModal({ tapMode, songId, chartId, onCancel }: Props) {
     }
   }
 
-  async function handleConflictApply() {
-    if (!placement) return
+  async function handleConflictApply(
+    activePlacement = placement,
+    activeResolutions: ConflictResolutionMap = resolutions,
+  ) {
+    if (!activePlacement) return
+
+    try {
+      buildConflictResolutionPayload(activePlacement.conflicts, activeResolutions)
+    } catch {
+      toast.error('Resolve all conflicts before applying')
+      return
+    }
 
     setApplying(true)
     try {
@@ -94,8 +92,8 @@ export function TapApplyModal({ tapMode, songId, chartId, onCancel }: Props) {
         songId,
         chartId,
         chartNotes,
-        placement,
-        resolutions,
+        activePlacement,
+        activeResolutions,
       )
       await qc.invalidateQueries({ queryKey: ['notes', chartId] })
       toast.success(mergeApplyToast(result))
@@ -228,7 +226,7 @@ export function TapApplyModal({ tapMode, songId, chartId, onCancel }: Props) {
               disabled={applying || noteCount === 0}
               className="px-4 py-2 text-sm rounded bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50"
             >
-              {applying ? 'Loading…' : 'Review & apply'}
+              {applying ? 'Applying…' : 'Apply to chart'}
             </button>
           </div>
         </div>

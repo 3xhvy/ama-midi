@@ -47,11 +47,16 @@ export function ConflictReviewModal({
 
   const activeConflict = conflicts[activeIndex]
   const hasConflicts = conflicts.length > 0
+  const activeResolved = !activeConflict || resolutions[activeConflict.conflictId] !== undefined
 
   function resolveAndAdvance(conflictId: string, action: ConflictAction) {
     onResolve(conflictId, action)
     const next = conflicts.findIndex((c, i) => i > activeIndex && resolutions[c.conflictId] === undefined)
     if (next !== -1) setActiveIndex(next)
+  }
+
+  function resolveAll(action: ConflictAction) {
+    conflicts.forEach((c) => onResolve(c.conflictId, action))
   }
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -63,7 +68,7 @@ export function ConflictReviewModal({
         setActiveIndex(i => Math.max(0, i - 1))
         break
       case 'ArrowRight':
-        if (!hasConflicts) break
+        if (!hasConflicts || !activeResolved) break
         e.preventDefault()
         setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))
         break
@@ -216,12 +221,13 @@ export function ConflictReviewModal({
                 </span>
                 <button
                   type="button"
-                  disabled={activeIndex === conflicts.length - 1}
+                  disabled={activeIndex === conflicts.length - 1 || !activeResolved}
                   onClick={() => setActiveIndex(i => Math.min(conflicts.length - 1, i + 1))}
                   className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-30 transition-colors"
                   style={{ borderColor: 'var(--modal-border)', color: 'var(--modal-text)', backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => { if (activeIndex !== conflicts.length - 1) e.currentTarget.style.backgroundColor = 'var(--conflict-list-hover)' }}
+                  onMouseEnter={(e) => { if (activeIndex !== conflicts.length - 1 && activeResolved) e.currentTarget.style.backgroundColor = 'var(--conflict-list-hover)' }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                  title={!activeResolved ? 'Choose Keep or Replace before continuing' : undefined}
                 >
                   Next →
                 </button>
@@ -293,7 +299,35 @@ export function ConflictReviewModal({
             )}
             Create <strong style={{ color: 'var(--modal-text)' }}>{createCount}</strong> · Replace <strong style={{ color: 'var(--modal-text)' }}>{replaceCount}</strong> · Skip <strong style={{ color: 'var(--modal-text)' }}>{skipCount}</strong>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {hasConflicts && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => resolveAll('KEEP_EXISTING')}
+                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors hover:opacity-90"
+                  style={{
+                    borderColor: 'var(--conflict-incoming-border)',
+                    color: 'var(--conflict-accent)',
+                    backgroundColor: 'var(--conflict-incoming-bg)',
+                  }}
+                >
+                  Keep all existing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resolveAll('REPLACE_WITH_PATTERN')}
+                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors hover:opacity-90"
+                  style={{
+                    borderColor: 'var(--conflict-keep-border)',
+                    color: 'var(--conflict-danger)',
+                    backgroundColor: 'var(--conflict-keep-bg)',
+                  }}
+                >
+                  Apply all {incomingLabel}
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={onCancel}

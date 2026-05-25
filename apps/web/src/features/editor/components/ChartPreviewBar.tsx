@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ApplyChartResponse, ChartApplyPreview, ConflictAction, GeneratedChartNote } from '@ama-midi/shared'
@@ -8,7 +8,8 @@ import { useEditorStore } from '../../../store/editor.store'
 import { apiClient } from '../../auth/api'
 import { ConflictReviewModal } from './ConflictReviewModal'
 import { applyMergeWithResolutions, mergeApplyToast } from './chart-merge-apply'
-import { chartApplyPreviewToPlacement, mergeResolutions } from './placement-preview'
+import { confirmReplaceEntireChart } from './chart-replace-warning'
+import { chartApplyPreviewToPlacement, buildConflictResolutionPayload, mergeResolutions } from './placement-preview'
 
 interface Props {
   songId: string
@@ -25,24 +26,6 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
   const [showConflicts, setShowConflicts] = useState(false)
   const [resolutions, setResolutions] = useState<ConflictResolutionState>({})
   const [conflictChanged, setConflictChanged] = useState(false)
-  const autoOpenedRef = useRef(false)
-
-  useEffect(() => {
-    if (!chartPreview || !chartId) {
-      autoOpenedRef.current = false
-      return
-    }
-    if (chartPreview.replaceExisting || !chartPreview.placement) return
-    if (autoOpenedRef.current) return
-    autoOpenedRef.current = true
-    setResolutions(
-      Object.fromEntries(
-        chartPreview.placement.conflicts.map((c) => [c.conflictId, 'KEEP_EXISTING' as ConflictAction]),
-      ),
-    )
-    setConflictChanged(false)
-    setShowConflicts(true)
-  }, [chartPreview, chartId])
 
   if (!chartPreview || !chartId) return null
 
@@ -63,11 +46,7 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
 
   function openConflictReview() {
     if (!placement) return
-    setResolutions(
-      Object.fromEntries(
-        placement.conflicts.map((c) => [c.conflictId, 'KEEP_EXISTING' as ConflictAction]),
-      ),
-    )
+    setResolutions({})
     setConflictChanged(false)
     setShowConflicts(true)
   }
@@ -95,6 +74,8 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
   }
 
   async function acceptReplace() {
+    if (!confirmReplaceEntireChart()) return
+
     setApplying(true)
     const toastId = toast.loading('Applying chart…')
     try {
@@ -156,6 +137,13 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
   async function applyWithResolutions() {
     if (!placement) return
 
+    try {
+      buildConflictResolutionPayload(placement.conflicts, resolutions)
+    } catch {
+      toast.error('Resolve all conflicts before applying')
+      return
+    }
+
     setApplying(true)
     const toastId = toast.loading('Applying chart…')
     const currentResolutions = resolutions
@@ -193,16 +181,12 @@ export function ChartPreviewBar({ songId, chartId }: Props) {
     ? 'Applying…'
     : replaceExisting
       ? 'Replace chart →'
-      : placement
-        ? conflictCount > 0
-          ? `Review conflicts (${conflictCount}) →`
-          : 'Review & apply →'
-        : `Apply ${createCount} notes →`
+      : `Apply ${createCount} notes →`
 
   function handlePrimaryClick() {
     if (replaceExisting) {
       void acceptReplace()
-    } else if (placement) {
+    } else if (placement && conflictCount > 0) {
       openConflictReview()
     } else {
       void acceptMerge()

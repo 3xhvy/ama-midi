@@ -79,3 +79,23 @@ export function mergeResolutions(
   }
   return result
 }
+
+export function allConflictsResolved(
+  conflicts: Array<{ conflictId: string }>,
+  resolutions: Record<string, ConflictAction | undefined>,
+): boolean {
+  return conflicts.every((c) => resolutions[c.conflictId] !== undefined)
+}
+
+export function buildConflictResolutionPayload(
+  conflicts: Array<{ conflictId: string }>,
+  resolutions: Record<string, ConflictAction | undefined>,
+): Array<{ conflictId: string; action: ConflictAction }> {
+  if (!allConflictsResolved(conflicts, resolutions)) {
+    throw new Error('Resolve all conflicts before applying')
+  }
+  return conflicts.map((c) => ({
+    conflictId: c.conflictId,
+    action: resolutions[c.conflictId]!,
+  }))
+}
