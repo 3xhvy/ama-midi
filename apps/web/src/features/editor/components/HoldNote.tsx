@@ -6,7 +6,7 @@ import type { NoteVariantProps } from './TapNote'
 
 export function HoldNote({
   note, gridWidth, pxPerSecond,
-  isSelected = false, viewMode = 'composer', onClick,
+  isSelected = false, validationRing = null, onClick,
 }: NoteVariantProps) {
   const [hovered, setHovered] = useState(false)
 
@@ -16,6 +16,11 @@ export function HoldNote({
   const cx = x + tw / 2
   const duration = note.duration ?? 0.5
   const bodyHeight = Math.max(24, duration * pxPerSecond)
+
+  const outlineColor =
+    validationRing === 'error'   ? 'rgb(248 113 113)' :
+    validationRing === 'warning' ? 'rgb(251 191 36)'  :
+    isSelected                   ? 'rgba(255,255,255,0.90)' : undefined
 
   return (
     <>
@@ -30,16 +35,15 @@ export function HoldNote({
           backgroundColor: trackColor(note.track),
           opacity:         0.85,
           borderRadius:    4,
-          outline:         isSelected ? '2px solid rgba(255,255,255,0.90)' : undefined,
-          outlineOffset:   isSelected ? '2px' : undefined,
+          outline:         outlineColor ? `2px solid ${outlineColor}` : undefined,
+          outlineOffset:   outlineColor ? '2px' : undefined,
         }}
         title={`${note.title} | Track ${note.track} | ${note.time}s | HOLD ${duration}s`}
         onClick={(e) => onClick(note, e)}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       />
-      {hovered && (viewMode === 'composer' || viewMode === 'developer') &&
-        <NoteTooltip note={note} position={{ x: cx, y: y - 24 }} />}
+      {hovered && <NoteTooltip note={note} position={{ x: cx, y: y - 24 }} />}
     </>
   )
 }
