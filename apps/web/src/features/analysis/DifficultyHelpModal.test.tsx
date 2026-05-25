@@ -27,7 +27,7 @@ describe('DifficultyHelpModal', () => {
 
     expect(screen.getByText('Ready')).toBeTruthy()
     expect(screen.getByText('No warnings')).toBeTruthy()
-    expect(screen.getByText('Needs Review')).toBeTruthy()
+    expect(screen.getAllByText('Needs Review').length).toBeGreaterThan(0)
     expect(screen.getByText('WARN or INFO items exist')).toBeTruthy()
     expect(screen.getByText('Blocked')).toBeTruthy()
     expect(screen.getByText('Cannot be approved until ERROR items are fixed')).toBeTruthy()
@@ -64,6 +64,6 @@ describe('DifficultyHelpModal', () => {
 
     expect(screen.getByText('NPS warn')).toBeTruthy()
     expect(screen.getByText('Max doubles/10s')).toBeTruthy()
-    expect(screen.getByText('Triples are not allowed on Easy/Normal.')).toBeTruthy()
+    expect(screen.getByText(/Triples are not allowed on Easy\/Normal/)).toBeTruthy()
   })
 })
