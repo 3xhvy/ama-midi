@@ -84,4 +84,16 @@ describe('R2StorageAdapter', () => {
     mockSend.mockRejectedValue(err)
     expect(await adapter.exists('backing-tracks/song-1')).toBe(false)
   })
+
+  it('delete is a no-op when object does not exist (NoSuchKey)', async () => {
+    const err = Object.assign(new Error('no such key'), { name: 'NoSuchKey' })
+    mockSend.mockRejectedValue(err)
+    await expect(adapter.delete('backing-tracks/song-1')).resolves.toBeUndefined()
+  })
+
+  it('delete rethrows unexpected errors', async () => {
+    const err = Object.assign(new Error('access denied'), { name: 'AccessDenied' })
+    mockSend.mockRejectedValue(err)
+    await expect(adapter.delete('backing-tracks/song-1')).rejects.toThrow('access denied')
+  })
 })

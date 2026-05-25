@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { FileService } from './file.service'
+import { LocalFilesController } from './local-files.controller'
 import { R2StorageAdapter } from './adapters/r2.adapter'
 import { LocalStorageAdapter } from './adapters/local.adapter'
 import { join } from 'path'
@@ -7,6 +8,7 @@ import { join } from 'path'
 const FILE_ADAPTER_TOKEN = 'FILE_ADAPTER'
 
 @Module({
+  controllers: [LocalFilesController],
   providers: [
     {
       provide: FILE_ADAPTER_TOKEN,

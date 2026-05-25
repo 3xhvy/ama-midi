@@ -51,9 +51,18 @@ export class R2StorageAdapter implements IStorageAdapter {
   }
 
   async delete(key: string): Promise<void> {
-    await this.client.send(
-      new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
-    )
+    try {
+      await this.client.send(
+        new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+      )
+    } catch (err: any) {
+      // R2/S3 DeleteObject is supposed to be idempotent (204 on missing key),
+      // but guard against implementations that return NoSuchKey anyway.
+      if (err?.name === 'NoSuchKey' || err?.$metadata?.httpStatusCode === 404) {
+        return
+      }
+      throw err
+    }
   }
 
   async exists(key: string): Promise<boolean> {
