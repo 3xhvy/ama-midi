@@ -46,7 +46,7 @@ export function TransportBar({
   onBackingVolumeChange,
   hasBackingTrack,
 }: TransportBarProps) {
-  const { isPlaying, setPlaying, playheadTime, setPlayheadTime } = useEditorStore()
+  const { isPlaying, setPlaying, playheadTime, setPlayheadTime, tapMode, setTapMode } = useEditorStore()
   const token = useAuthStore((s) => s.token)
   const queryClient = useQueryClient()
 
@@ -102,6 +102,18 @@ export function TransportBar({
       <span className="editor-toolbar-time mx-1">
         {formatTime(playheadTime)}
       </span>
+
+      {tapMode && (
+        <button
+          type="button"
+          onClick={() => setTapMode(null)}
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse hover:bg-red-500/30"
+          title="Tap mode active — click to end session"
+        >
+          <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
+          TAP
+        </button>
+      )}
 
       {editingBpm && canEdit ? (
         <input
