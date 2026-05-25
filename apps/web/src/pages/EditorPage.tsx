@@ -37,7 +37,7 @@ import {
   setBackingTrackVolume,
   setChartSoundVolume,
 } from '../features/editor/audio/playback-volumes'
-import { Button, Tabs, ToggleGroup } from '../components/ui'
+import { Button, Skeleton, Tabs, ToggleGroup } from '../components/ui'
 import { PianoRoll } from '../features/editor/components/PianoRoll'
 import { HistoryPanel } from '../features/editor/components/HistoryPanel'
 import { ValidationPanel } from '../features/editor/components/ValidationPanel'
@@ -126,7 +126,7 @@ export function EditorPage() {
   const applyUndoMutation   = useApplyUndo(chartId)
   const deleteNote = useDeleteNote(chartId)
   const updateNote = useUpdateNote(chartId)
-  const { data: allNotes = [] } = useNotes(chartId)
+  const { data: allNotes = [], isLoading: notesLoading } = useNotes(chartId)
   const { data: sections = [] } = useSections(songId!)
   const currentUser = useAuthStore(s => s.user)
   const activity = useActivityNotices(currentUser?.id)
@@ -407,48 +407,54 @@ export function EditorPage() {
       <div className="px-3 py-2 border-b border-shell-border">
         <PanelSectionHeader title="Tracks" help={tracksPanelHelp} />
       </div>
-      <div className="py-1" data-tour="track-list">
-        {Array.from({ length: 8 }, (_, i) => i + 1).map((track) => (
-          <TrackHeader
-            key={track}
-            track={track}
-            isMuted={mutedTracks.has(track)}
-            noteCount={allNotes.filter(n => n.track === track).length}
-            density={trackDensities[track] ?? 0}
-            isActive={activeTrack === track}
-            onToggleMute={() => toggleMute(track, false)}
-          />
-        ))}
-      </div>
-      <SectionJumpList songId={songId!} sections={sections} />
-      <PatternPanel songId={songId!} chartId={chartId} />
-      <div className="border-t border-shell-border">
-        <div className="px-3 py-2 border-b border-shell-border">
-          <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Song Stats</span>
-        </div>
-        <BottomBarStats
-          notes={allNotes}
-          bpm={song?.bpm ?? 120}
-          speedMultiplier={activeChart?.speedMultiplier ?? 1}
-        />
-      </div>
-      {chartId && projectId && (
-        <div className="border-t border-shell-border">
-          <div className="px-3 py-2 border-b border-shell-border">
-            <PanelSectionHeader title="Analysis" help={analysisPanelHelp} />
+      {notesLoading ? (
+        <LeftPanelSkeleton />
+      ) : (
+        <>
+          <div className="py-1" data-tour="track-list">
+            {Array.from({ length: 8 }, (_, i) => i + 1).map((track) => (
+              <TrackHeader
+                key={track}
+                track={track}
+                isMuted={mutedTracks.has(track)}
+                noteCount={allNotes.filter(n => n.track === track).length}
+                density={trackDensities[track] ?? 0}
+                isActive={activeTrack === track}
+                onToggleMute={() => toggleMute(track, false)}
+              />
+            ))}
           </div>
-          <AnalysisSummaryPanel
-            notes={allNotes}
-            bpm={song?.bpm ?? 120}
-            timeSignature={song?.timeSignature ?? '4/4'}
-            speedMultiplier={activeChart?.speedMultiplier ?? 1}
-            chartId={chartId}
-            projectId={projectId}
-            songId={songId!}
-            onSeek={(timeMs) => setPlayheadTime(timeMs / 1000)}
-            embedded
-          />
-        </div>
+          <SectionJumpList songId={songId!} sections={sections} />
+          <PatternPanel songId={songId!} chartId={chartId} />
+          <div className="border-t border-shell-border">
+            <div className="px-3 py-2 border-b border-shell-border">
+              <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Song Stats</span>
+            </div>
+            <BottomBarStats
+              notes={allNotes}
+              bpm={song?.bpm ?? 120}
+              speedMultiplier={activeChart?.speedMultiplier ?? 1}
+            />
+          </div>
+          {chartId && projectId && (
+            <div className="border-t border-shell-border">
+              <div className="px-3 py-2 border-b border-shell-border">
+                <PanelSectionHeader title="Analysis" help={analysisPanelHelp} />
+              </div>
+              <AnalysisSummaryPanel
+                notes={allNotes}
+                bpm={song?.bpm ?? 120}
+                timeSignature={song?.timeSignature ?? '4/4'}
+                speedMultiplier={activeChart?.speedMultiplier ?? 1}
+                chartId={chartId}
+                projectId={projectId}
+                songId={songId!}
+                onSeek={(timeMs) => setPlayheadTime(timeMs / 1000)}
+                embedded
+              />
+            </div>
+          )}
+        </>
       )}
     </>
   )
@@ -907,5 +913,31 @@ function ToolRow({
       <span className="text-xs text-shell-muted">{label}</span>
       {children}
     </div>
+  )
+}
+
+function LeftPanelSkeleton() {
+  return (
+    <>
+      <div className="py-1">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-2 px-3 py-1.5">
+            <Skeleton width={8} height={8} rounded="full" />
+            <Skeleton width={16} height={10} />
+            <Skeleton className="flex-1" height={4} />
+          </div>
+        ))}
+      </div>
+      <div className="px-3 py-2 space-y-1.5 border-t border-shell-border">
+        <Skeleton height={10} width={60} />
+        <Skeleton height={24} className="w-full" />
+        <Skeleton height={24} className="w-full" />
+      </div>
+      <div className="px-3 py-3 border-t border-shell-border space-y-2">
+        <Skeleton height={10} width={80} />
+        <Skeleton height={10} className="w-full" />
+        <Skeleton height={10} className="w-3/4" />
+      </div>
+    </>
   )
 }
