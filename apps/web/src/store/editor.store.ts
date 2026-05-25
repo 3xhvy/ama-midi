@@ -1,6 +1,22 @@
 import { create } from 'zustand'
 import type { ChartApplyPreview, NoteSuggestion, SnapMode } from '@ama-midi/shared'
 
+export interface LoopRange {
+  start: number
+  end: number
+}
+
+export interface DraftTapNote {
+  track: number
+  time: number       // snapped start time (seconds)
+  duration?: number  // HOLD notes only
+}
+
+export interface TapModeState {
+  loopRange: LoopRange  // locked at session start
+  draftNotes: DraftTapNote[]
+}
+
 export type AiAssistantFeature =
   | 'generate-chart'
   | 'scale-chart'
@@ -56,6 +72,8 @@ interface EditorStore {
   activeTrack:        number | null
   activeChartId:      string | null
   chartPreview:       ChartPreviewState | null
+  loopRange:          LoopRange | null
+  tapMode:            TapModeState | null
   setCreateMode:        (mode: 'fast' | 'popup') => void
   setEditorMode:        (mode: 'fast' | 'popup') => void
   selectNote:           (id: string | null) => void
@@ -80,6 +98,9 @@ interface EditorStore {
   setActiveChartId:    (id: string | null) => void
   setChartPreview:     (preview: ChartPreviewState | null) => void
   clearChartPreview:   () => void
+  setLoopRange:        (range: LoopRange | null) => void
+  setTapMode:          (state: TapModeState | null) => void
+  addTapDraftNote:     (note: DraftTapNote) => void
 }
 
 function calcPxPerSecond(zoom: Zoom) {
@@ -108,6 +129,8 @@ export const useEditorStore = create<EditorStore>((set) => ({
   activeTrack:      null,
   activeChartId:    null,
   chartPreview:     null,
+  loopRange:        null,
+  tapMode:          null,
   setCreateMode:        (createMode) => set({ createMode }),
   setEditorMode:        (editorMode) => set({ editorMode }),
   selectNote:           (id) => set({ selectedNoteId: id, selectedNoteIds: id ? new Set([id]) : new Set() }),
@@ -148,4 +171,10 @@ export const useEditorStore = create<EditorStore>((set) => ({
   setActiveChartId:    (activeChartId) => set({ activeChartId }),
   setChartPreview:     (chartPreview) => set({ chartPreview }),
   clearChartPreview:   () => set({ chartPreview: null }),
+  setLoopRange:        (loopRange) => set({ loopRange }),
+  setTapMode:          (tapMode) => set({ tapMode }),
+  addTapDraftNote:     (note) => set((s) => s.tapMode
+    ? { tapMode: { ...s.tapMode, draftNotes: [...s.tapMode.draftNotes, note] } }
+    : s
+  ),
 }))
