@@ -36,12 +36,24 @@ export function usePlayback() {
       const delta = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1)
       lastTimeRef.current = timestamp
 
-      const next = useEditorStore.getState().playheadTime + delta
+      const state     = useEditorStore.getState()
+      const loopRange = state.loopRange
+      const current   = state.playheadTime
+      const next      = current + delta
+
+      if (loopRange && next >= loopRange.end) {
+        // Force-close any in-flight tap keys at loop boundary (useTapInput listens to this)
+        setPlayheadTime(loopRange.start)
+        rafRef.current = requestAnimationFrame(tick)
+        return
+      }
+
       if (next >= TIME_MAX) {
         setPlayheadTime(TIME_MAX)
         setPlaying(false)
         return
       }
+
       setPlayheadTime(Math.round(next * 100) / 100)
       rafRef.current = requestAnimationFrame(tick)
     }
