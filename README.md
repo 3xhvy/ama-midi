@@ -477,7 +477,15 @@ Sequential `await + await` would always produce 409 on the second call because t
 |---|---|---|---|
 | Smoke (1 VU, 2s pause) | 29 | 143ms | ✅ |
 | 100 VU (before fix) | 1,443 | **3.03s** | ❌ latency |
-| 100 VU (after fix) | ~26,400 | **37ms** | ✅ |
+
+**Attempt 2: Latency Drop** (100 VU, after moving chart analysis off the hot path):
+
+| Metric | Before | After |
+|---|---|---|
+| p95 latency (100 VU) | 3.03s | **37ms** |
+| Average latency (100 VU) | 2.05s | 13ms |
+| Throughput | ~45 req/s | ~880 req/s |
+| 500 errors | 0% | 0% |
 
 Root cause: every note create was awaiting a full chart re-analysis (loading all 10,000 notes, running scoring, rewriting segments). Moved to debounced background job → 80× latency drop. Full narrative in [k6 Test Report](docs/project/12-k6-test-report.md).
 
