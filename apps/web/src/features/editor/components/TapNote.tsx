@@ -5,18 +5,18 @@ import { NoteTooltip } from './NoteTooltip'
 import { trackColor, type Note } from '@ama-midi/shared'
 
 export interface NoteVariantProps {
-  note:        Note
-  gridWidth:   number
-  pxPerSecond: number
-  isSelected?: boolean
-  viewMode?:   'composer' | 'developer' | 'qa' | 'preview'
-  allNotes?:   Note[]
-  onClick:     (note: Note, e: React.MouseEvent) => void
+  note:            Note
+  gridWidth:       number
+  pxPerSecond:     number
+  isSelected?:     boolean
+  validationRing?: 'error' | 'warning' | null
+  allNotes?:       Note[]
+  onClick:         (note: Note, e: React.MouseEvent) => void
 }
 
 export function TapNote({
   note, gridWidth, pxPerSecond,
-  isSelected = false, viewMode = 'composer', allNotes = [], onClick,
+  isSelected = false, validationRing = null, onClick,
 }: NoteVariantProps) {
   const [hovered, setHovered] = useState(false)
 
@@ -26,47 +26,30 @@ export function TapNote({
   const cx = x + tw / 2
   const cy = y
 
-  const isNearBoundary   = note.time < 0.5 || note.time > 299.5
-  const hasCloseNeighbor = allNotes.some(
-    (n) => n.id !== note.id && n.track === note.track && Math.abs(n.time - note.time) < 0.3,
-  )
+  const ringClass =
+    validationRing === 'error'   ? 'ring-2 ring-red-400' :
+    validationRing === 'warning' ? 'ring-2 ring-yellow-400' : ''
 
-  const qaRingClass =
-    viewMode === 'qa'
-      ? isNearBoundary
-        ? 'ring-2 ring-orange-400'
-        : hasCloseNeighbor
-          ? 'ring-2 ring-yellow-400'
-          : ''
-      : ''
-
-  const hasQaRing = viewMode === 'qa' && (isNearBoundary || hasCloseNeighbor)
-  const selectionShadow = isSelected && !hasQaRing
+  const selectionShadow = isSelected && !validationRing
     ? { boxShadow: '0 0 0 2px rgba(255,255,255,0.90)' }
     : undefined
 
-  const displayTime = viewMode === 'developer' ? note.time : Math.round(note.time * 10) / 10
+  const displayTime = Math.round(note.time * 10) / 10
 
   return (
     <>
       <div
         data-note={note.id}
         className={cn(
-          'absolute w-4 h-4 rounded-full cursor-pointer hover:scale-125 transition-transform animate-note-appear group',
-          qaRingClass,
+          'absolute w-4 h-4 rounded-full cursor-pointer hover:scale-125 transition-transform animate-note-appear',
+          ringClass,
         )}
         style={{ left: cx - 8, top: cy - 8, backgroundColor: trackColor(note.track), ...selectionShadow }}
         title={`${note.title} | Track ${note.track} | ${displayTime}s`}
         onClick={(e) => onClick(note, e)}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-      >
-        {viewMode === 'developer' && (
-          <div className="absolute top-0 left-0 text-[8px] font-mono text-white/90 whitespace-nowrap bg-black/50 px-0.5 rounded leading-none pointer-events-none select-none opacity-0 group-hover:opacity-100">
-            {note.id.slice(0, 8)}
-          </div>
-        )}
-      </div>
+      />
       {hovered && <NoteTooltip note={note} position={{ x: cx, y: cy - 24 }} />}
     </>
   )
