@@ -46,7 +46,7 @@ Before writing a line of code, I mapped four distinct actors. The insight: **the
 │  │  Sound       │    │              │    │  Owner       │    │  Tester     │ │
 │  │  Designer    │    │              │    │              │    │             │ │
 │  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘    └──────┬──────┘ │
-│         │                  │                   │                   │         │
+│         │                   │                   │                   │        │
 │  • Place notes fast   • Inspect coords    • Browse songs      • Audit        │
 │  • Stay in flow       • Verify alignment  • Read-only review  • Flag issues  │
 │  • Accept AI ghosts   • View ledger       • Visual summary    • View history │
