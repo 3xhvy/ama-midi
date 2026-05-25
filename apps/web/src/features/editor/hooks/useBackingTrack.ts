@@ -22,7 +22,6 @@ export function useBackingTrack(
   const playheadTime = useEditorStore((s) => s.playheadTime)
   const token = useAuthStore((s) => s.token)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const blobUrlRef = useRef<string | null>(null)
   const prevPlayheadRef = useRef(playheadTime)
   const [muted, setMuted] = useState(false)
   const [ready, setReady] = useState(false)
@@ -32,10 +31,6 @@ export function useBackingTrack(
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current = null
-    }
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = null
     }
 
     if (!songId || !hasBackingTrack(song)) return
@@ -49,17 +44,16 @@ export function useBackingTrack(
     async function loadSource() {
       try {
         if (song!.backingTrackFileName) {
+          // Fetch presigned URL from API (JWT-authenticated), then set audio.src directly.
+          // No crossOrigin attribute — browser plays cross-origin audio without CORS restriction.
           const res = await fetch(`${API_BASE}/songs/${songId}/backing-track`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           })
           if (!res.ok) throw new Error('Failed to load backing track')
-          const blob = await res.blob()
+          const { redirectUrl } = await res.json() as { redirectUrl: string }
           if (cancelled) return
-          const url = URL.createObjectURL(blob)
-          blobUrlRef.current = url
-          audio.src = url
+          audio.src = redirectUrl
         } else if (song!.backingTrackUrl) {
-          audio.crossOrigin = 'anonymous'
           audio.src = song!.backingTrackUrl
         }
         await audio.load()
@@ -78,10 +72,6 @@ export function useBackingTrack(
     return () => {
       cancelled = true
       audio.pause()
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current)
-        blobUrlRef.current = null
-      }
       audioRef.current = null
     }
   }, [songId, song?.backingTrackUrl, song?.backingTrackFileName, token])

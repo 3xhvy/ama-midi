@@ -1,12 +1,12 @@
 import {
   Controller, Get, Post, Patch, Delete,
   Param, Body, UseGuards, Req,
-  UploadedFile, UseInterceptors, Res,
+  UploadedFile, UseInterceptors,
   HttpException, HttpStatus,
 } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { FileInterceptor } from '@nestjs/platform-express'
-import type { Response, Request } from 'express'
+import type { Request } from 'express'
 import { SongsService } from './songs.service'
 import { BackingTrackService } from './backing-track.service'
 import { UpdateSongDto } from './dto/update-song.dto'
@@ -75,11 +75,8 @@ export class SongsController {
   async streamBackingTrack(
     @Param('id') id: string,
     @Req() req: Request,
-    @Res() res: Response,
   ) {
-    const { redirectUrl } = await this.backingTrack.stream(id, req.user as AuthUser)
-    res.setHeader('Cache-Control', 'private, max-age=3600')
-    res.redirect(302, redirectUrl)
+    return this.backingTrack.stream(id, req.user as AuthUser)
   }
 
   @Delete(':id/backing-track')
