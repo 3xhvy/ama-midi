@@ -5,13 +5,15 @@ import { getTimeAxisLabels, timeToY, yToTime } from '../engine'
 import type { SnapMode } from '../engine/beat-calculator'
 
 export interface TimeAxisProps {
-  pxPerSecond:    number
-  scrollTop:      number
-  playheadTime:   number
-  snapMode:       SnapMode
-  bpm:            number
-  onSeek:         (time: number) => void
-  onAddSection?:  (time: number, e: React.MouseEvent | MouseEvent) => void
+  pxPerSecond:        number
+  scrollTop:          number
+  playheadTime:       number
+  snapMode:           SnapMode
+  bpm:                number
+  onSeek:             (time: number) => void
+  onAddSection?:      (time: number, e: React.MouseEvent | MouseEvent) => void
+  loopRange?:         { start: number; end: number } | null
+  onLoopRangeChange?: (range: { start: number; end: number } | null) => void
 }
 
 const DRAG_THRESHOLD_PX = 4
@@ -24,10 +26,13 @@ export function TimeAxis({
   bpm,
   onSeek,
   onAddSection,
+  loopRange,
+  onLoopRangeChange,
 }: TimeAxisProps) {
   const labels = getTimeAxisLabels(pxPerSecond, scrollTop, TIME_MAX)
   const rootRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ active: boolean; moved: boolean; startY: number; altIntent: boolean } | null>(null)
+  const loopHandleDragRef = useRef<{ handle: 'start' | 'end'; active: boolean } | null>(null)
 
   const timeAtClientY = useCallback((clientY: number) => {
     const root = rootRef.current
@@ -71,7 +76,34 @@ export function TimeAxis({
     if (!drag.moved) onSeek(timeAtClientY(e.clientY))
   }, [onAddSection, onSeek, timeAtClientY])
 
-  const playheadY = timeToY(playheadTime, pxPerSecond) - scrollTop
+  function handleLoopPointerDown(handle: 'start' | 'end', e: React.PointerEvent<HTMLDivElement>) {
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    loopHandleDragRef.current = { handle, active: true }
+  }
+
+  function handleLoopPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!loopHandleDragRef.current?.active || !loopRange || !onLoopRangeChange) return
+    e.stopPropagation()
+    const time = timeAtClientY(e.clientY)
+    if (loopHandleDragRef.current.handle === 'start') {
+      const clampedStart = Math.max(0, Math.min(time, loopRange.end - 0.1))
+      onLoopRangeChange({ ...loopRange, start: clampedStart })
+    } else {
+      const clampedEnd = Math.max(loopRange.start + 0.1, time)
+      onLoopRangeChange({ ...loopRange, end: clampedEnd })
+    }
+  }
+
+  function handleLoopPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    e.stopPropagation()
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    loopHandleDragRef.current = null
+  }
+
+  const playheadY   = timeToY(playheadTime, pxPerSecond) - scrollTop
+  const loopStartY  = loopRange ? timeToY(loopRange.start, pxPerSecond) - scrollTop : null
+  const loopEndY    = loopRange ? timeToY(loopRange.end,   pxPerSecond) - scrollTop : null
 
   return (
     <div
@@ -109,6 +141,36 @@ export function TimeAxis({
           }}
         />
       </div>
+
+      {/* Loop range highlight band */}
+      {loopRange && loopStartY !== null && loopEndY !== null && (
+        <div
+          className="absolute left-0 right-0 bg-blue-500/10 border-l-2 border-blue-500/30 pointer-events-none"
+          style={{ top: loopStartY, height: Math.max(0, loopEndY - loopStartY) }}
+        />
+      )}
+
+      {/* Loop start handle */}
+      {loopRange && loopStartY !== null && (
+        <div
+          className="absolute left-0 right-0 h-1 bg-blue-500 cursor-ns-resize z-10 hover:bg-blue-400"
+          style={{ top: loopStartY - 2 }}
+          onPointerDown={(e) => handleLoopPointerDown('start', e)}
+          onPointerMove={handleLoopPointerMove}
+          onPointerUp={handleLoopPointerUp}
+        />
+      )}
+
+      {/* Loop end handle */}
+      {loopRange && loopEndY !== null && (
+        <div
+          className="absolute left-0 right-0 h-1 bg-blue-500 cursor-ns-resize z-10 hover:bg-blue-400"
+          style={{ top: loopEndY - 2 }}
+          onPointerDown={(e) => handleLoopPointerDown('end', e)}
+          onPointerMove={handleLoopPointerMove}
+          onPointerUp={handleLoopPointerUp}
+        />
+      )}
     </div>
   )
 }
