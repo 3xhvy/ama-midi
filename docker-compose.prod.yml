@@ -22,7 +22,7 @@ services:
         max-file: '3'
 
   api:
-    image: ghcr.io/${GITHUB_OWNER:-3xhvy}/ama-midi-api:${IMAGE_TAG:-latest}
+    image: ghcr.io/${GITHUB_OWNER:-3xhvy}/ama-midi-api:latest
     pull_policy: always
     restart: always
     container_name: ama-midi-api
@@ -51,7 +51,7 @@ services:
         max-file: '10'
 
   web:
-    image: ghcr.io/${GITHUB_OWNER:-3xhvy}/ama-midi-web:${IMAGE_TAG:-latest}
+    image: ghcr.io/${GITHUB_OWNER:-3xhvy}/ama-midi-web:latest
     pull_policy: always
     restart: always
     container_name: ama-midi-web

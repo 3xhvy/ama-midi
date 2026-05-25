@@ -161,20 +161,16 @@ jobs:
             "${VM_USERNAME}@${VM_HOST}:/opt/amanotes/docker-compose.prod.yml"
 
       - name: Deploy to VM
-        env:
-          DEPLOY_SHA: ${{ github.sha }}
         run: |
           printf '%s\n' \
             'set -e' \
             'cd /opt/amanotes' \
-            "export IMAGE_TAG=${DEPLOY_SHA}" \
-            'echo "Deploying IMAGE_TAG=${IMAGE_TAG}"' \
-            'echo "Pulling images for this commit..."' \
+            'echo "Pulling latest images..."' \
             'docker compose -f docker-compose.prod.yml pull' \
             'echo "Running database migrations..."' \
             'docker compose -f docker-compose.prod.yml run --rm --entrypoint prisma api migrate deploy' \
-            'echo "Starting containers (force recreate)..."' \
-            'docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans' \
+            'echo "Starting containers..."' \
+            'docker compose -f docker-compose.prod.yml up -d --remove-orphans' \
             'echo "Running containers:"' \
             'docker inspect --format="  api: {{.Config.Image}}" ama-midi-api' \
             'docker inspect --format="  web: {{.Config.Image}}" ama-midi-web' \
