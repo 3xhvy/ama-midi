@@ -33,7 +33,6 @@ export interface AiAssistantState {
   improveSubMode?: 'extend' | 'refine'
 }
 
-type ViewMode = 'composer' | 'developer' | 'qa' | 'preview'
 type Zoom = 1 | 2 | 4 | 8
 type RightPanelTab = 'tools' | 'validation' | 'history'
 
@@ -51,10 +50,10 @@ export interface ChartPreviewState {
 }
 
 interface EditorStore {
-  viewMode: ViewMode
+  validationRingsEnabled: boolean
+  setValidationRingsEnabled: (v: boolean) => void
   zoom: Zoom
   pxPerSecond: number
-  setViewMode: (mode: ViewMode) => void
   setZoom: (zoom: Zoom) => void
   createMode:      'fast' | 'popup'
   editorMode:      'fast' | 'popup'
@@ -108,10 +107,10 @@ function calcPxPerSecond(zoom: Zoom) {
 }
 
 export const useEditorStore = create<EditorStore>((set) => ({
-  viewMode: 'composer',
+  validationRingsEnabled: false,
+  setValidationRingsEnabled: (v) => set({ validationRingsEnabled: v }),
   zoom: 1,
   pxPerSecond: calcPxPerSecond(1),
-  setViewMode: (viewMode) => set({ viewMode }),
   setZoom: (zoom) => set({ zoom, pxPerSecond: calcPxPerSecond(zoom) }),
   createMode:       'fast',
   editorMode:       'fast',
