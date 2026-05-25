@@ -170,7 +170,7 @@ jobs:
             'echo "Running database migrations..."' \
             'docker compose -f docker-compose.prod.yml run --rm --entrypoint prisma api migrate deploy' \
             'echo "Starting containers..."' \
-            'docker compose -f docker-compose.prod.yml up -d --remove-orphans' \
+            'docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans' \
             'echo "Running containers:"' \
             'docker inspect --format="  api: {{.Config.Image}}" ama-midi-api' \
             'docker inspect --format="  web: {{.Config.Image}}" ama-midi-web' \
