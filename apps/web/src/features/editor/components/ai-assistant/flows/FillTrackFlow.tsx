@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { trackColor } from '@ama-midi/shared'
+import { useAuthStore } from '../../../../../store/auth.store'
 import { useEditorStore } from '../../../../../store/editor.store'
 import type { AiFlowBaseProps } from '../ai-assistant.types'
+import {
+  fetchSuggestionChartPreview,
+  openSuggestionChartPreview,
+} from '../suggestion-chart-preview'
 import {
   AiFlowFooter,
   AiFlowGhostButton,
@@ -12,14 +17,15 @@ import {
 } from '../AiFlowChrome'
 
 export function FillTrackFlow({
+  songId,
   chartId,
   noteCount,
   onPhaseChange,
-  onResultMessage,
   onCancel,
   streamRun,
 }: AiFlowBaseProps) {
-  const { snapMode, playheadTime, setAiSuggestions } = useEditorStore()
+  const token = useAuthStore((s) => s.token)
+  const { snapMode, playheadTime } = useEditorStore()
   const [targetTrack, setTargetTrack] = useState<number | null>(null)
   const [instruction, setInstruction] = useState('')
   const { start, processing } = streamRun
@@ -57,14 +63,14 @@ export function FillTrackFlow({
 
       const { suggestions } = result.payload
       if (suggestions.length === 0) {
-        onResultMessage('No suggestions — try a different instruction or track')
-        onPhaseChange('result')
+        toast.error('No suggestions — try a different instruction or track')
+        onPhaseChange('configure')
         return
       }
 
-      setAiSuggestions(suggestions)
-      onResultMessage(`${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} ready on chart`)
-      onPhaseChange('result')
+      const placement = await fetchSuggestionChartPreview(token, songId, chartId, suggestions)
+      openSuggestionChartPreview(suggestions, placement)
+      setInstruction('')
     } catch (e) {
       if ((e as Error).name === 'AbortError') return
       toast.error(e instanceof Error ? e.message : 'Failed to get suggestions')
@@ -127,7 +133,7 @@ export function FillTrackFlow({
           onClick={() => void handleSubmit()}
           disabled={processing || targetTrack == null || !chartId}
         >
-          Get suggestions
+          Generate preview
         </AiFlowPrimaryButton>
       </AiFlowFooter>
     </>

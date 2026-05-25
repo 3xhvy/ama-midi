@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { CounterClockwiseClockIcon, PlusIcon } from '@radix-ui/react-icons'
+import { useAuthStore } from '../../../../../store/auth.store'
 import { useEditorStore } from '../../../../../store/editor.store'
 import type { AiFlowBaseProps } from '../ai-assistant.types'
+import {
+  fetchSuggestionChartPreview,
+  openSuggestionChartPreview,
+} from '../suggestion-chart-preview'
 import {
   AiFlowFooter,
   AiFlowGhostButton,
@@ -38,16 +43,17 @@ const SUB_MODES: {
 ]
 
 export function ImprovePatternFlow({
+  songId,
   chartId,
   selectedNotes,
   sections,
   onPhaseChange,
-  onResultMessage,
   onCancel,
   streamRun,
 }: AiFlowBaseProps) {
+  const token = useAuthStore((s) => s.token)
   const aiAssistant = useEditorStore((s) => s.aiAssistant)
-  const { snapMode, setAiSuggestions } = useEditorStore()
+  const { snapMode } = useEditorStore()
   const [subMode, setSubMode] = useState<ImproveSubMode | null>(
     aiAssistant?.improveSubMode ?? null,
   )
@@ -95,14 +101,14 @@ export function ImprovePatternFlow({
 
       const { suggestions } = result.payload
       if (suggestions.length === 0) {
-        onResultMessage('No suggestions — try a different instruction')
-        onPhaseChange('result')
+        toast.error('No suggestions — try a different instruction')
+        onPhaseChange('configure')
         return
       }
 
-      setAiSuggestions(suggestions)
-      onResultMessage(`${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} ready on chart`)
-      onPhaseChange('result')
+      const placement = await fetchSuggestionChartPreview(token, songId, chartId, suggestions)
+      openSuggestionChartPreview(suggestions, placement)
+      setInstruction('')
     } catch (e) {
       if ((e as Error).name === 'AbortError') return
       toast.error(e instanceof Error ? e.message : 'Failed to get suggestions')
@@ -184,7 +190,7 @@ export function ImprovePatternFlow({
           onClick={() => void handleSubmit()}
           disabled={processing || !chartId || selectedNotes.length < 2}
         >
-          Get suggestions
+          Generate preview
         </AiFlowPrimaryButton>
       </AiFlowFooter>
     </>
