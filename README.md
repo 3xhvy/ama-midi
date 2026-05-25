@@ -38,9 +38,9 @@ This framing drove three hard requirements:
 Before writing a line of code, I mapped four distinct actors. The insight: **they all need the same data through a different lens.** One product, four presentations.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         AMA-MIDI System                              │
-│                                                                      │
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                               AMA-MIDI System                                │
+│                                                                              │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌─────────────┐ │
 │  │  Composer /  │    │  Game Dev    │    │  Product     │    │  QA /       │ │
 │  │  Sound       │    │              │    │  Owner       │    │  Tester     │ │
@@ -51,9 +51,9 @@ Before writing a line of code, I mapped four distinct actors. The insight: **the
 │  • Stay in flow       • Verify alignment  • Read-only review  • Flag issues  │
 │  • Accept AI ghosts   • View ledger       • Visual summary    • View history │
 │  • Undo last action   • Dev View mode     • Song card density • QA View mode │
-│                                                                      │
-│                     Shared: same note data, same DB                  │
-└─────────────────────────────────────────────────────────────────────┘
+│                                                                              │
+│                     Shared: same note data, same DB                          │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Why Each Role Got Specific UX
@@ -135,11 +135,6 @@ Deferred (P2)
 ├─ Export to game engine JSON format
 ├─ MIDI file import/export
 └─ Mobile editing
-
-Explicitly cut
-├─ Git-style branching (wrong model for live collaboration — everyone is always on main)
-├─ Audio synthesis (visual-only playback achieves 80% of the value)
-└─ Section locking (serializes creativity — the DB conflict model is better)
 ```
 
 ---
