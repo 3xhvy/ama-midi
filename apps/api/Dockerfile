@@ -10,6 +10,9 @@ COPY packages/shared/package.json ./packages/shared/
 
 RUN pnpm install --frozen-lockfile
 
+ARG CACHEBUST=1
+RUN echo "cache bust: $CACHEBUST"
+
 COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api
 

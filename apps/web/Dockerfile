@@ -15,8 +15,11 @@ COPY apps/web ./apps/web
 
 ARG VITE_API_URL=
 ARG VITE_WS_URL=
+ARG CACHEBUST=1
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_WS_URL=$VITE_WS_URL
+
+RUN echo "cache bust: $CACHEBUST"
 
 RUN pnpm --filter @ama-midi/shared build
 RUN pnpm --filter @ama-midi/web build

@@ -63,6 +63,8 @@ The MVP should prove four things:
 - Conflict-safe writes
 - Optimistic UI with rollback on failure
 
+→ Full design: [Realtime Architecture (Redis & WebSocket)](../docs/project/Realtime.md)
+
 #### History / Ledger
 - Track every note change as an event
 - Store before/after values where useful
@@ -100,7 +102,7 @@ The MVP should prove four things:
 | Piano Roll Grid | 8 tracks horizontally, 0–300s vertically | P0 |
 | Note CRUD | Users can create, edit, delete notes | P0 |
 | Duplicate Prevention | No two notes can exist at same song + track + time | P0 |
-| Real-time Sync | Multiple users see note changes instantly | P0 |
+| Real-time Sync | Multiple users see note changes instantly | P0 — see [Realtime.md](../docs/project/Realtime.md) |
 | Change History | Note operations are recorded as ledger events | P1 |
 | Optimistic UI | UI updates quickly, then confirms with server | P1 |
 | Conflict Handling | Failed duplicate or stale updates show clear error | P1 |
@@ -242,6 +244,8 @@ sequenceDiagram
 ```
 
 ### 5.5 Real-Time Collaboration Sync
+
+→ Implementation details: [Realtime Architecture (Redis & WebSocket)](../docs/project/Realtime.md)
 
 ```mermaid
 sequenceDiagram
@@ -572,6 +576,8 @@ CREATE TABLE comments (
 
 ## 10. WebSocket Events
 
+→ Room model, Redis adapter, and cursor storage: [Realtime Architecture (Redis & WebSocket)](../docs/project/Realtime.md)
+
 ### Client to Server
 
 | Event | Payload | Purpose |
@@ -666,6 +672,8 @@ Use PostgreSQL for song/note data.
 Use Redis Pub/Sub with WebSockets for real-time collaboration.
 
 **Reason:** Multiple users need to see note changes instantly. Redis also supports scaling WebSocket events later.
+
+→ Full design: [Realtime Architecture (Redis & WebSocket)](../docs/project/Realtime.md)
 
 ### Decision 4: Use Ledger/Event History
 Store note changes in `note_events`.
