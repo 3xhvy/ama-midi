@@ -75,11 +75,23 @@ export function EditorPage() {
     activeChartId,
     setActiveChartId,
     setPlayheadTime,
+    loopRange,
+    setTapMode,
+    setPlaying,
   } = useEditorStore()
 
   const [searchParams] = useSearchParams()
 
   const isMobile = useIsMobile()
+
+  function startTapMode() {
+    if (!loopRange) {
+      toast.error('Set a loop range first — drag the handles on the time axis')
+      return
+    }
+    setTapMode({ loopRange, draftNotes: [] })
+    setPlaying(true)
+  }
 
   function handleToggleLeft() {
     if (isMobile && leftCollapsed && !rightCollapsed) setRightCollapsed(true)
@@ -321,6 +333,7 @@ export function EditorPage() {
         rightCollapsed={rightCollapsed}
         onToggleLeft={handleToggleLeft}
         onToggleRight={handleToggleRight}
+        onStartTapMode={canEdit ? startTapMode : undefined}
       />
       {!canEdit && readOnlyMessage && <ReadOnlyBanner message={readOnlyMessage} />}
       {canEdit && <ChartPreviewBar songId={songId!} chartId={chartId} />}

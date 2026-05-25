@@ -22,6 +22,9 @@ import { SectionMarkers } from './SectionMarkers'
 import { SectionCreatePopover } from './SectionCreatePopover'
 import { DifficultyOverlay } from './DifficultyOverlay'
 import { HitZone } from './HitZone'
+import { TapModeOverlay } from './TapModeOverlay'
+import { TapApplyModal }  from './TapApplyModal'
+import { useTapInput }    from '../hooks/useTapInput'
 import { useSections } from '../../sections/useSections'
 import { useThrottle } from '../../../hooks/useThrottle'
 import { TIME_AXIS_WIDTH } from '../../../lib/constants'
@@ -81,7 +84,8 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const justPlacedRef = useRef(false)
 
   const { pxPerSecond, viewMode, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
-          selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack, setPlayheadTime } = useEditorStore()
+          selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack, setPlayheadTime,
+          tapMode, setTapMode, loopRange, setLoopRange } = useEditorStore()
   pxPerSecondRef.current = pxPerSecond
 
   // Ctrl/Cmd + scroll wheel to zoom
@@ -116,6 +120,17 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   })
   const bpm           = song?.bpm ?? 120
   const timeSignature = song?.timeSignature ?? '4/4'
+
+  const { inFlightTracks } = useTapInput({ bpm })
+
+  // Cancel tap session when the active chart changes mid-session
+  useEffect(() => {
+    if (tapMode) {
+      setTapMode(null)
+      toast.info('Tap session cancelled — chart changed')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartId])
 
   const throttledCursorEmit = useThrottle(
     useCallback((track: number, time: number) => { onCursorMove?.(track, time) }, [onCursorMove]),
@@ -448,6 +463,8 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
           bpm={bpm}
           onSeek={setPlayheadTime}
           onAddSection={(time, e) => setSectionPopover({ time, pos: { x: e.clientX, y: e.clientY } })}
+          loopRange={loopRange}
+          onLoopRangeChange={setLoopRange}
         />
 
         <div ref={trackAreaRef} className="relative flex-1 min-h-0 overflow-hidden">
@@ -589,6 +606,13 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
             {effectiveCanEdit && (
               <ChartPreviewLayer gridWidth={layoutGridWidth} pxPerSecond={pxPerSecond} />
             )}
+            <TapModeOverlay
+              pxPerSecond={pxPerSecond}
+              gridWidth={layoutGridWidth}
+              scrollTop={scrollTop}
+              playheadTime={playheadTime}
+              inFlightTracks={inFlightTracks}
+            />
             </div>
           </div>
 
@@ -620,6 +644,28 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
           time={sectionPopover.time}
           pos={sectionPopover.pos}
           onClose={() => setSectionPopover(null)}
+        />
+      )}
+
+      {!isPlaying && tapMode && tapMode.draftNotes.length > 0 && chartId && (
+        <TapApplyModal
+          tapMode={tapMode}
+          existingNotes={notes}
+          songId={songId}
+          onApply={async (notesToCreate) => {
+            await Promise.all(
+              notesToCreate.map((n) =>
+                createNote.mutateAsync({
+                  track:    n.track,
+                  time:     n.time,
+                  title:    '',
+                  noteType: n.duration != null ? 'HOLD' : 'TAP',
+                  duration: n.duration,
+                })
+              )
+            )
+          }}
+          onCancel={() => setTapMode(null)}
         />
       )}
     </div>
