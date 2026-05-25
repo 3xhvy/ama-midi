@@ -89,4 +89,20 @@ describe('buildTapPlacementPreview', () => {
     })
     expect(preview.creatable[0].noteType).toBe('TAP')
   })
+
+  it('dedupes two draft notes that land on the same track+time slot', () => {
+    const draft = [
+      { track: 1, time: 1.0 },
+      { track: 1, time: 1.0 },
+    ]
+    const preview = buildTapPlacementPreview({
+      songId: 'song1',
+      draftNotes: draft,
+      existingNotes: [],
+      offset: 0,
+    })
+    expect(preview.creatable).toHaveLength(1)
+    expect(preview.summary.totalNotes).toBe(2)
+    expect(preview.summary.creatableNotes).toBe(1)
+  })
 })

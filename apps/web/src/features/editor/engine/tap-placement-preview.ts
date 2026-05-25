@@ -27,9 +27,11 @@ export function buildTapPlacementPreview({
 }: BuildPreviewOptions): PlacementPreview {
   const creatable: PlacementCreatableSlot[] = []
   const conflicts: PlacementConflict[]      = []
+  const claimedSlots = new Set<string>()
 
   draftNotes.forEach((draft, index) => {
     const time     = Math.round((draft.time + offset) * 100) / 100
+    const slotKey  = `${draft.track}:${time}`
     const noteType = noteTypeFor(draft)
     const existing = existingNotes.find(
       (n) => n.track === draft.track && n.time === time,
@@ -67,7 +69,10 @@ export function buildTapPlacementPreview({
         incomingNote: incoming,
         existingNote,
       })
+    } else if (claimedSlots.has(slotKey)) {
+      // Duplicate slot within the same tap session (e.g. before store dedup existed)
     } else {
+      claimedSlots.add(slotKey)
       creatable.push({
         sourceIndex:  index,
         sourceNoteId: `tap-draft-${index}`,

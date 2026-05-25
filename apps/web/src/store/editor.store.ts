@@ -172,8 +172,12 @@ export const useEditorStore = create<EditorStore>((set) => ({
   clearChartPreview:   () => set({ chartPreview: null }),
   setLoopRange:        (loopRange) => set({ loopRange }),
   setTapMode:          (tapMode) => set({ tapMode }),
-  addTapDraftNote:     (note) => set((s) => s.tapMode
-    ? { tapMode: { ...s.tapMode, draftNotes: [...s.tapMode.draftNotes, note] } }
-    : s
-  ),
+  addTapDraftNote:     (note) => set((s) => {
+    if (!s.tapMode) return s
+    // Same track + snapped time → replace (loop re-taps must not stack)
+    const draftNotes = s.tapMode.draftNotes.filter(
+      (d) => !(d.track === note.track && d.time === note.time),
+    )
+    return { tapMode: { ...s.tapMode, draftNotes: [...draftNotes, note] } }
+  }),
 }))

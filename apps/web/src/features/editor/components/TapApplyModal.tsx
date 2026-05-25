@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { Note } from '@ama-midi/shared'
 import type { ConflictResolutionMap, PlacementPreview } from '@ama-midi/shared'
@@ -26,6 +26,20 @@ export function TapApplyModal({ tapMode, existingNotes, songId, onApply, onCance
   const [preview,     setPreview]     = useState<PlacementPreview | null>(null)
   const [resolutions, setResolutions] = useState<ConflictResolutionMap>({})
   const [savePattern, setSavePattern] = useState(false)
+  const autoOpenedPreview = useRef(false)
+
+  useEffect(() => {
+    if (autoOpenedPreview.current || tapMode.draftNotes.length === 0) return
+    autoOpenedPreview.current = true
+    setPreview(
+      buildTapPlacementPreview({
+        songId,
+        draftNotes:    tapMode.draftNotes,
+        existingNotes,
+        offset:        0,
+      }),
+    )
+  }, [songId, tapMode.draftNotes, existingNotes])
 
   const offset = mode === 'exact'
     ? 0
