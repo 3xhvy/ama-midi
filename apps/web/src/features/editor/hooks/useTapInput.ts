@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '../../../store/editor.store'
 import { snapTime } from '../engine/beat-calculator'
+import { getTrackFromTapKey, isTapKey } from '../tap-keymap'
 
 const TAP_THRESHOLD_S = 0.15
-const VALID_TRACKS    = new Set(['1', '2', '3', '4', '5', '6', '7', '8'])
 
 interface InFlight {
   startTime: number
@@ -16,8 +16,12 @@ interface Props {
 export function useTapInput({ bpm }: Props) {
   const { tapMode, isPlaying, snapMode, addTapDraftNote } = useEditorStore()
   const inFlightRef = useRef<Map<number, InFlight>>(new Map())
+  const [inFlightVersion, setInFlightVersion] = useState(0)
 
-  // Force-close all in-flight keys at a given time
+  function bumpInFlight() {
+    setInFlightVersion((v) => v + 1)
+  }
+
   function flushInFlight(atTime: number) {
     const map = inFlightRef.current
     if (map.size === 0) return
@@ -35,16 +39,15 @@ export function useTapInput({ bpm }: Props) {
       }
     })
     map.clear()
+    bumpInFlight()
   }
 
-  // Watch for playhead jumping backward (loop reset) — flush in-flight keys
   const prevPlayheadRef = useRef<number>(0)
   useEffect(() => {
     return useEditorStore.subscribe((state) => {
       const current = state.playheadTime
       const prev    = prevPlayheadRef.current
       prevPlayheadRef.current = current
-      // Playhead jumped backward by more than 0.3s → loop reset
       if (current < prev - 0.3) {
         flushInFlight(prev)
       }
@@ -52,24 +55,28 @@ export function useTapInput({ bpm }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Attach keydown/keyup listeners when tap mode is active and playing
   useEffect(() => {
     if (!tapMode || !isPlaying) return
 
     function onKeyDown(e: KeyboardEvent) {
-      if (!VALID_TRACKS.has(e.key)) return
+      if (!isTapKey(e.key)) return
       if (e.repeat) return
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      const track = parseInt(e.key)
+      const track = getTrackFromTapKey(e.key)
+      if (track == null) return
+      e.preventDefault()
       if (inFlightRef.current.has(track)) return
       const { playheadTime, snapMode: sm } = useEditorStore.getState()
       const startTime = snapTime(playheadTime, sm, bpm)
       inFlightRef.current.set(track, { startTime })
+      bumpInFlight()
     }
 
     function onKeyUp(e: KeyboardEvent) {
-      if (!VALID_TRACKS.has(e.key)) return
-      const track = parseInt(e.key)
+      if (!isTapKey(e.key)) return
+      const track = getTrackFromTapKey(e.key)
+      if (track == null) return
+      e.preventDefault()
       const entry = inFlightRef.current.get(track)
       if (!entry) return
       inFlightRef.current.delete(track)
@@ -85,6 +92,7 @@ export function useTapInput({ bpm }: Props) {
       } else {
         addTapDraftNote({ track, time: entry.startTime })
       }
+      bumpInFlight()
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -95,7 +103,6 @@ export function useTapInput({ bpm }: Props) {
     }
   }, [tapMode, isPlaying, bpm, snapMode, addTapDraftNote])
 
-  // Flush all in-flight keys when playback stops
   useEffect(() => {
     if (!isPlaying && inFlightRef.current.size > 0) {
       const { playheadTime } = useEditorStore.getState()
@@ -104,5 +111,5 @@ export function useTapInput({ bpm }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying])
 
-  return { inFlightTracks: inFlightRef.current }
+  return { inFlightTracks: inFlightRef.current, inFlightVersion }
 }

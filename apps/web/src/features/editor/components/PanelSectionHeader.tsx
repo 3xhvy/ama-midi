@@ -5,10 +5,11 @@ import { cn } from '../../../lib/utils'
 interface Props {
   title: string
   help?: string
+  onHelpClick?: () => void
   className?: string
 }
 
-export function PanelSectionHeader({ title, help, className }: Props) {
+export function PanelSectionHeader({ title, help, onHelpClick, className }: Props) {
   return (
     <div className={cn('flex items-center gap-1.5', className)}>
       <span className="text-xs font-medium text-shell-text uppercase tracking-wide">
@@ -18,7 +19,8 @@ export function PanelSectionHeader({ title, help, className }: Props) {
         <Tooltip content={help} side="right" className="max-w-[13rem] leading-snug text-[11px]">
           <button
             type="button"
-            aria-label={`About ${title}`}
+            aria-label={onHelpClick ? `How ${title.toLowerCase()} works` : `About ${title}`}
+            onClick={onHelpClick}
             className="inline-flex rounded-sm text-shell-muted hover:text-shell-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             <QuestionMarkCircledIcon className="h-3.5 w-3.5 shrink-0" />

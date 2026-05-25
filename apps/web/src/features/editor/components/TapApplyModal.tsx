@@ -3,7 +3,9 @@ import { toast } from 'sonner'
 import type { Note } from '@ama-midi/shared'
 import type { ConflictResolutionMap, PlacementPreview } from '@ama-midi/shared'
 import { buildTapPlacementPreview } from '../engine/tap-placement-preview'
+import { draftTapNotesToPatternNotes } from '../tap-session'
 import { ConflictReviewModal } from './ConflictReviewModal'
+import { SavePatternModal } from './SavePatternModal'
 import { EditorModalOverlay, EditorModalPanel } from './EditorModal'
 import type { TapModeState } from '../../../store/editor.store'
 
@@ -11,7 +13,7 @@ interface Props {
   tapMode:       TapModeState
   existingNotes: Note[]
   songId:        string
-  onApply:       (notes: Array<{ track: number; time: number; duration?: number }>) => Promise<void>
+  onApply:       (notes: Array<{ track: number; time: number; duration?: number }>) => Promise<{ applied: number; skipped: number }>
   onCancel:      () => void
 }
 
@@ -23,6 +25,7 @@ export function TapApplyModal({ tapMode, existingNotes, songId, onApply, onCance
   const [applying,    setApplying]    = useState(false)
   const [preview,     setPreview]     = useState<PlacementPreview | null>(null)
   const [resolutions, setResolutions] = useState<ConflictResolutionMap>({})
+  const [savePattern, setSavePattern] = useState(false)
 
   const offset = mode === 'exact'
     ? 0
@@ -66,11 +69,19 @@ export function TapApplyModal({ tapMode, existingNotes, songId, onApply, onCance
         onCancel()
         return
       }
-      await onApply(toCreate)
-      toast.success(`${toCreate.length} note${toCreate.length === 1 ? '' : 's'} applied`)
+      const { applied, skipped } = await onApply(toCreate)
+      if (skipped > 0) {
+        toast.success(`${applied} note${applied === 1 ? '' : 's'} applied, ${skipped} skipped (conflict)`)
+      } else {
+        toast.success(`${applied} note${applied === 1 ? '' : 's'} applied`)
+      }
       onCancel()
-    } catch {
-      toast.error('Failed to apply notes')
+    } catch (err) {
+      if (err instanceof Error && err.message === 'All notes skipped due to conflicts') {
+        toast.error('All notes skipped — positions already taken')
+      } else {
+        toast.error('Failed to apply notes')
+      }
     } finally {
       setApplying(false)
     }
@@ -92,6 +103,21 @@ export function TapApplyModal({ tapMode, existingNotes, songId, onApply, onCance
   }
 
   const noteCount = tapMode.draftNotes.length
+  const patternNotes = draftTapNotesToPatternNotes(tapMode.draftNotes)
+  const defaultPatternName = `Tap ${tapMode.loopRange.start}s–${tapMode.loopRange.end}s`
+
+  if (savePattern) {
+    return (
+      <SavePatternModal
+        songId={songId}
+        patternNotes={patternNotes}
+        title="Save tap session as pattern"
+        defaultName={defaultPatternName}
+        onClose={() => setSavePattern(false)}
+        onSaved={onCancel}
+      />
+    )
+  }
 
   return (
     <EditorModalOverlay onClick={onCancel}>
@@ -144,17 +170,26 @@ export function TapApplyModal({ tapMode, existingNotes, songId, onApply, onCance
 
           <div className="flex gap-2 justify-end">
             <button
+              type="button"
               onClick={onCancel}
               className="px-4 py-2 text-sm rounded border border-canvas-border hover:bg-canvas-hover"
             >
               Discard
             </button>
             <button
+              type="button"
+              onClick={() => setSavePattern(true)}
+              disabled={noteCount === 0}
+              className="px-4 py-2 text-sm rounded border border-violet-500/50 text-violet-300 hover:bg-violet-500/10 disabled:opacity-50"
+            >
+              Save as pattern
+            </button>
+            <button
               onClick={handleConfirm}
               disabled={applying || noteCount === 0}
               className="px-4 py-2 text-sm rounded bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50"
             >
-              {applying ? 'Applying…' : 'Apply'}
+              {applying ? 'Applying…' : 'Apply to chart'}
             </button>
           </div>
         </div>

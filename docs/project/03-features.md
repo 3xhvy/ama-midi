@@ -6,7 +6,7 @@
 
 Features are organized by priority tier and delivery phase. Each tier reflects a deliberate scope decision — what ships first, what completes the collaboration story, and what transforms AMA-MIDI from a generic note editor into a production workspace for rhythm-game teams.
 
-Source plans: [`2026-05-22-master-implementation-plan.md`](../superpowers/plans/2026-05-22-master-implementation-plan.md), Phase 2–3 specs in [`docs/superpowers/specs/`](../superpowers/specs/), and post-MVP design specs dated 2026-05-23/24.
+Source plans: [`2026-05-22-master-implementation-plan.md`](../superpowers/plans/2026-05-22-master-implementation-plan.md), Phase 2–3 specs in [`docs/superpowers/specs/`](../superpowers/specs/), post-MVP design specs dated 2026-05-23/24, and [`2026-05-25-tap-to-rhythm-design.md`](../superpowers/specs/2026-05-25-tap-to-rhythm-design.md).
 
 ---
 
@@ -17,7 +17,7 @@ AMA-MIDI never merges two notes into one slot — the DB constraint rejects dupl
 | Layer | Trigger | UX |
 |---|---|---|
 | **Instant rejection** | Real-time note create hits an occupied slot (409) | Ghost removed + toast: *"This position was just taken — try a nearby spot"* |
-| **Resolve conflicts (batch)** | Pattern paste, Copy/Move to, Repeat/Stamp, undo restore, or AI chart merge hits occupied slots | Full-screen `ConflictReviewModal` — git-style, one conflict at a time. Per slot: **Keep Existing** or **Replace With Incoming**. Apply blocked until all resolved. |
+| **Resolve conflicts (batch)** | Pattern paste, Copy/Move to, Repeat/Stamp, undo restore, tap session apply, or AI chart merge hits occupied slots | Full-screen `ConflictReviewModal` — git-style, one conflict at a time. Per slot: **Keep Existing** or **Replace With Incoming**. Apply blocked until all resolved. |
 | **Live negotiation (future)** | Two composers competing for the same slot during active editing | Side-by-side comparison + suggested nearby positions. Beyond toast-only rejection. |
 
 The batch resolver is shared infrastructure: preview API classifies slots as `creatable` vs `conflicts`, the modal collects per-slot resolutions, apply re-validates (409 if a collaborator moved a note mid-review). Same component, same keyboard shortcuts (K / R), same diff cards — regardless of whether incoming notes came from a saved pattern, a selection copy, a repeat stamp, an undo, or an AI-generated chart.
@@ -107,9 +107,13 @@ Transform AMA-MIDI from a generic sequencer into a purpose-built rhythm-game lev
 |---|---|
 | **Multi-select** | Shift+click, Cmd+A. Bulk operations on note groups. |
 | **Pattern library** | Save selection as reusable pattern. Paste at playhead. Per-user + per-song scope. |
+| **Tap to rhythm** | Real-time loop recording via home-row keys (`A S D F · J K L ;`). Setup modal for loop range; draft → apply to chart or save as pattern. Uses shared conflict resolver. |
 | **Section markers** | Intro / Verse / Chorus labels on timeline. Real-time sync via `section.*` WebSocket events. |
 | **Section jump list** | Navigate structure without scrolling. Live context strip shows current section. |
 | **Resolve conflicts (pattern paste)** | First consumer of `ConflictReviewModal`. Preview → step through conflicts → apply only when all slots resolved. |
+| **Resolve conflicts (tap apply)** | Tap session end → `buildTapPlacementPreview` → same modal when draft notes collide with chart. |
+
+*Detail:* [F07 — Tap to Rhythm](./features/F07-tap-to-rhythm.md)
 
 ### Wave 3 — Game-feel
 
@@ -119,7 +123,7 @@ Transform AMA-MIDI from a generic sequencer into a purpose-built rhythm-game lev
 | **Difficulty heatmap overlay** | NPS bands color-coded green / yellow / red. Toggle on toolbar. |
 | **Combo + difficulty stats** | Max combo streak and Easy/Normal/Hard/Expert rating in footer. Client-computed. |
 
-*Spec:* [`2026-05-22-phase3-music-game-features-design.md`](../superpowers/specs/2026-05-22-phase3-music-game-features-design.md), [`2026-05-23-paste-conflict-ui-design.md`](../superpowers/specs/2026-05-23-paste-conflict-ui-design.md)
+*Spec:* [`2026-05-22-phase3-music-game-features-design.md`](../superpowers/specs/2026-05-22-phase3-music-game-features-design.md), [`2026-05-23-paste-conflict-ui-design.md`](../superpowers/specs/2026-05-23-paste-conflict-ui-design.md), [`2026-05-25-tap-to-rhythm-design.md`](../superpowers/specs/2026-05-25-tap-to-rhythm-design.md)
 
 ---
 
@@ -153,6 +157,7 @@ Power tools for composers who repeat motifs, relocate sections, and undo batch o
 | **Copy to / Move to** | Duplicate or relocate multi-selection by time shift, track shift, or anchor. |
 | **Resolve conflicts (copy / move / repeat)** | Copy to, Move to, and Repeat/Stamp all preview placements first; occupied slots route through the same `ConflictReviewModal`. |
 | **Repeat / Stamp notes** | N copies at fixed interval (1 beat, 1 measure, selection length). Deterministic, not AI. |
+| **Tap session → pattern** | End tap recording with **Save as pattern**; paste later from Patterns panel at any playhead. |
 | **HOLD default-create UX** | Drag-down to set duration in fast mode. Reduces TAP/HOLD mode switching. |
 | **Editor focus improvements** | Track identity, selection clarity, calmer grid, sidebar hierarchy. Less visual noise during composition. |
 | **Backing track + chart audio playback** | Reference audio URL per song. Playhead-synced note synth for hearing the chart against music. |
@@ -219,7 +224,7 @@ Documented as deliberate non-decisions, not forgotten features:
 - **Multi-tenancy** — single Amanotes organization implied. No tenant isolation layer.
 - **Cross-project song sharing** — reuse via import/copy into a new project-owned song, not shared ownership.
 - **Scoring / gameplay simulation in preview** — Game Preview is visual-only. No hit detection, no score calculation.
-- **Keyboard-input playtesting** — players don't play charts inside the editor. That belongs in the game engine.
+- **Keyboard-input playtesting** — players don't play charts inside the editor. Tap to rhythm records composer input for chart authoring; it is not gameplay simulation or scoring.
 - **LLM-driven repeat/stamp** — repeat is deterministic interval math, not generative AI.
 
 ---

@@ -6,6 +6,11 @@
 
 **Live demo:** [ama-midi.hvy-dev.uk](https://ama-midi.hvy-dev.uk) · **API health:** [/api/health](https://ama-midi.hvy-dev.uk/api/health)
 
+> **Grader quick-nav:**
+> [Use Case Coverage](docs/project/00-usecase-coverage.md) — required vs delivered, all 8 use cases, all 9 grading categories.
+> [k6 Test Report](docs/project/12-k6-test-report.md) — 100 VU results, root cause, fix (3.03s → 37ms p95).
+> [Feature Implementations](docs/project/features/) — 7 deep-dive files (Realtime.md format) with sequence diagrams, trade-offs, and scaling proposals per feature.
+
 ---
 
 ## The Problem I Started With
@@ -430,8 +435,11 @@ Root cause: every note create was awaiting a full chart re-analysis (loading all
 
 Written in order — problem first, then decisions, then implementation. Each file is readable standalone.
 
+> **For graders:** Start with [00 · Use Case Coverage](docs/project/00-usecase-coverage.md) — it maps every requirement from the brief against what was built, with status symbols (✅ delivered, 🔼 extended, 🔁 delivered differently, ⏳ phased, ❌ cut with rationale) and the full grading category coverage table.
+
 | Doc | What It Covers |
 |---|---|
+| [**00 · Use Case Coverage**](docs/project/00-usecase-coverage.md) | **Required vs delivered — every use case, every actor, every grading category. Start here.** |
 | [01 · Problem & Vision](docs/project/01-problem-and-vision.md) | Why the workflow problem exists and what makes it technically hard. |
 | [02 · Actors & Use Cases](docs/project/02-actors-and-use-cases.md) | The four roles and the UX decisions made for each. |
 | [03 · Feature Hierarchy](docs/project/03-features.md) | P0/P1/Phase 2–7 priorities and what was cut and why. |
@@ -453,6 +461,7 @@ Written in order — problem first, then decisions, then implementation. Each fi
 | [10,000-Note Performance](docs/project/features/F04-performance-10k-notes.md) | DOM virtualization, chunked API fetch, zoom as single source of truth. |
 | [AI Note Suggester](docs/project/features/F05-ai-note-suggester.md) | Multi-provider pattern, ghost overlay UX, conflict handling on accept. |
 | [Role-Based Access Control](docs/project/features/F06-role-based-access.md) | Guard layer, UI enforcement, permission matrix. |
+| [Tap to Rhythm](docs/project/features/F07-tap-to-rhythm.md) | Loop recording, home-row keymap, draft apply, save as pattern, conflict preview. |
 
 ---
 

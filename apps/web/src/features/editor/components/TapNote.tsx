@@ -10,13 +10,14 @@ export interface NoteVariantProps {
   pxPerSecond:     number
   isSelected?:     boolean
   validationRing?: 'error' | 'warning' | null
+  validationHighlighted?: boolean
   allNotes?:       Note[]
   onClick:         (note: Note, e: React.MouseEvent) => void
 }
 
 export function TapNote({
   note, gridWidth, pxPerSecond,
-  isSelected = false, validationRing = null, onClick,
+  isSelected = false, validationRing = null, validationHighlighted = false, onClick,
 }: NoteVariantProps) {
   const [hovered, setHovered] = useState(false)
 
@@ -27,6 +28,8 @@ export function TapNote({
   const cy = y
 
   const ringClass =
+    validationHighlighted && validationRing === 'error'   ? 'ring-[3px] ring-red-400 scale-150 z-20' :
+    validationHighlighted && validationRing === 'warning' ? 'ring-[3px] ring-yellow-400 scale-150 z-20' :
     validationRing === 'error'   ? 'ring-2 ring-red-400' :
     validationRing === 'warning' ? 'ring-2 ring-yellow-400' : ''
 

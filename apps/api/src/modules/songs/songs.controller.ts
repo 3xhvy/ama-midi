@@ -1,7 +1,7 @@
 import {
   Controller, Get, Post, Patch, Delete,
   Param, Body, UseGuards, Req,
-  UploadedFile, UseInterceptors,
+  UploadedFile, UseInterceptors, Header,
   HttpException, HttpStatus,
 } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
@@ -72,6 +72,7 @@ export class SongsController {
   }
 
   @Get(':id/backing-track')
+  @Header('Cache-Control', 'no-store')
   async streamBackingTrack(
     @Param('id') id: string,
     @Req() req: Request,

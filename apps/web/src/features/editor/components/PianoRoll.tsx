@@ -30,7 +30,8 @@ import { TIME_AXIS_WIDTH } from '../../../lib/constants'
 import { getSelectionRect, selectNotesInBox, type SelectionPoint } from '../engine/selection-box'
 import type { Note, Song } from '@ama-midi/shared'
 import type { CursorData } from '../../collaboration/useSocket'
-import type { ValidationIssue } from '../../validation/validation-summary'
+import type { ValidationIssue, ValidationHoverIssue } from '../../validation/validation-summary'
+import { validationIssueMatchesNote } from '../../validation/validation-summary'
 
 const HOLD_ARM_MS = 100
 
@@ -53,14 +54,18 @@ interface Props {
   readOnlyMessage?: string | null
   mutedTracks?:     Set<number>
   validationIssues?: ValidationIssue[]
+  highlightedValidationIssue?: ValidationHoverIssue | null
+  jumpTo?: { time: number; track?: number; key: number } | null
   onNoteSelected?:  (note: Note | null) => void
   cursors?:         Map<string, CursorData>
   onCursorMove?:    (track: number, time: number) => void
   onCursorHide?:    () => void
   currentUserId?:   string
+  onLoopRangeChange?: (range: { start: number; end: number } | null) => void
+  loopRangePickActive?: boolean
 }
 
-export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), validationIssues = [], onNoteSelected, cursors, onCursorMove, onCursorHide, currentUserId }: Props) {
+export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), validationIssues = [], highlightedValidationIssue = null, jumpTo = null, onNoteSelected, cursors, onCursorMove, onCursorHide, currentUserId, onLoopRangeChange, loopRangePickActive = false }: Props) {
   const containerRef          = useRef<HTMLDivElement>(null)
   const trackAreaRef          = useRef<HTMLDivElement>(null)
   const headerTracksScrollRef = useRef<HTMLDivElement>(null)
@@ -110,14 +115,25 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
 
   function noteRing(note: Note): 'error' | 'warning' | null {
     if (!validationRingsEnabled || validationIssues.length === 0) return null
-    const match = validationIssues.find(
-      (i) =>
-        Math.abs(i.time! - note.time) < 0.15 &&
-        (i.track == null || i.track === note.track),
-    )
+    const match = validationIssues.find((i) => validationIssueMatchesNote(i, note))
     if (!match) return null
     return match.severity === 'error' ? 'error' : 'warning'
   }
+
+  function getNoteValidationVisual(note: Note): { ring: 'error' | 'warning' | null; highlighted: boolean } {
+    if (highlightedValidationIssue && validationIssueMatchesNote(highlightedValidationIssue, note)) {
+      return { ring: highlightedValidationIssue.severity, highlighted: true }
+    }
+    return { ring: noteRing(note), highlighted: false }
+  }
+
+  useEffect(() => {
+    if (!jumpTo || !containerRef.current) return
+    setPlayheadTime(jumpTo.time)
+    if (jumpTo.track != null) setActiveTrack(jumpTo.track)
+    const y = timeToY(jumpTo.time, pxPerSecond)
+    containerRef.current.scrollTop = Math.max(0, y - containerRef.current.clientHeight * 0.3)
+  }, [jumpTo?.key, pxPerSecond, setPlayheadTime, setActiveTrack])
 
   function notifyReadOnly() {
     toast.info(readOnlyMessage ?? 'This chart is read-only — you cannot add or change notes.', { id: 'read-only-chart' })
@@ -132,7 +148,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const bpm           = song?.bpm ?? 120
   const timeSignature = song?.timeSignature ?? '4/4'
 
-  const { inFlightTracks } = useTapInput({ bpm })
+  const { inFlightTracks, inFlightVersion } = useTapInput({ bpm })
 
   // After playback stops with no draft notes, exit tap mode
   useEffect(() => {
@@ -153,6 +169,10 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartId])
+
+  const handleLoopRangeChange = useCallback((range: { start: number; end: number } | null) => {
+    if (range) (onLoopRangeChange ?? setLoopRange)(range)
+  }, [onLoopRangeChange, setLoopRange])
 
   const throttledCursorEmit = useThrottle(
     useCallback((track: number, time: number) => { onCursorMove?.(track, time) }, [onCursorMove]),
@@ -421,6 +441,11 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const visibleRange = getVisibleTimeRange(scrollTop, viewportHeight, pxPerSecond)
   const visibleNotes = notes.filter((n) => {
     if (mutedTracks.has(n.track)) return false
+    if (tapMode) {
+      const { start, end } = tapMode.loopRange
+      const noteEnd = n.time + (n.duration ?? 0)
+      if (n.time < end && noteEnd >= start) return false
+    }
     const noteEnd = n.time + (n.duration ?? 0) // TAP: end == start; HOLD: end == start + duration
     const pad = NOTE_RADIUS_PX / pxPerSecond
     return noteEnd >= visibleRange.timeFrom - pad && n.time <= visibleRange.timeTo + pad
@@ -491,10 +516,16 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
           onSeek={setPlayheadTime}
           onAddSection={(time, e) => setSectionPopover({ time, pos: { x: e.clientX, y: e.clientY } })}
           loopRange={loopRange}
-          onLoopRangeChange={setLoopRange}
+          onLoopRangeChange={handleLoopRangeChange}
+          loopRangePickActive={loopRangePickActive}
         />
 
         <div ref={trackAreaRef} className="relative flex-1 min-h-0 overflow-hidden">
+          {loopRangePickActive && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 px-3 py-1.5 rounded-full text-xs font-medium bg-violet-600 text-white shadow-lg pointer-events-none">
+              Shift+drag the time axis to set loop range
+            </div>
+          )}
           <div
             ref={containerRef}
             className={`overflow-y-auto overflow-x-auto w-full h-full select-none [scrollbar-gutter:stable] ${effectiveCanEdit ? '' : 'cursor-not-allowed'}`}
@@ -553,17 +584,21 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
               />
             )}
 
-            {visibleNotes.map((note) => (
+            {visibleNotes.map((note) => {
+              const visual = getNoteValidationVisual(note)
+              return (
               <NoteCircle
                 key={note.id}
                 note={note}
                 gridWidth={layoutGridWidth}
                 pxPerSecond={pxPerSecond}
-                validationRing={noteRing(note)}
+                validationRing={visual.ring}
+                validationHighlighted={visual.highlighted}
                 isSelected={selectedNoteIds.has(note.id)}
                 onClick={handleNoteClick}
               />
-            ))}
+              )
+            })}
 
             {selectionDrag && (() => {
               const rect = getSelectionRect(selectionDrag.start, selectionDrag.current)
@@ -633,9 +668,9 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
               <ChartPreviewLayer gridWidth={layoutGridWidth} pxPerSecond={pxPerSecond} />
             )}
             <TapModeOverlay
+              key={inFlightVersion}
               pxPerSecond={pxPerSecond}
               gridWidth={layoutGridWidth}
-              scrollTop={scrollTop}
               playheadTime={playheadTime}
               inFlightTracks={inFlightTracks}
             />

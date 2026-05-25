@@ -49,6 +49,8 @@ export function useKeyboardShortcuts({
         e.preventDefault(); onUndo()
       }
       if ((e.key === 'j' || e.key === 'J') && onJumpToStart) {
+        const { tapMode, isPlaying } = useEditorStore.getState()
+        if (tapMode && isPlaying) return
         e.preventDefault(); onJumpToStart()
       }
       if (e.key === '?' || (e.key === '/' && e.shiftKey)) {

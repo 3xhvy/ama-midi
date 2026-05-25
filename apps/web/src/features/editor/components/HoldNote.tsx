@@ -6,7 +6,7 @@ import type { NoteVariantProps } from './TapNote'
 
 export function HoldNote({
   note, gridWidth, pxPerSecond,
-  isSelected = false, validationRing = null, onClick,
+  isSelected = false, validationRing = null, validationHighlighted = false, onClick,
 }: NoteVariantProps) {
   const [hovered, setHovered] = useState(false)
 
@@ -21,6 +21,7 @@ export function HoldNote({
     validationRing === 'error'   ? 'rgb(248 113 113)' :
     validationRing === 'warning' ? 'rgb(251 191 36)'  :
     isSelected                   ? 'rgba(255,255,255,0.90)' : undefined
+  const outlineWidth = validationHighlighted && validationRing ? 3 : 2
 
   return (
     <>
@@ -33,10 +34,11 @@ export function HoldNote({
           width:           tw / 3,
           height:          bodyHeight,
           backgroundColor: trackColor(note.track),
-          opacity:         0.85,
+          opacity:         validationHighlighted ? 1 : 0.85,
           borderRadius:    4,
-          outline:         outlineColor ? `2px solid ${outlineColor}` : undefined,
+          outline:         outlineColor ? `${outlineWidth}px solid ${outlineColor}` : undefined,
           outlineOffset:   outlineColor ? '2px' : undefined,
+          zIndex:          validationHighlighted ? 20 : undefined,
         }}
         title={`${note.title} | Track ${note.track} | ${note.time}s | HOLD ${duration}s`}
         onClick={(e) => onClick(note, e)}

@@ -6,7 +6,7 @@ import type { NoteVariantProps } from './TapNote'
 
 export function SwipeNote({
   note, gridWidth, pxPerSecond,
-  isSelected = false, onClick,
+  isSelected = false, validationRing = null, validationHighlighted = false, onClick,
 }: NoteVariantProps) {
   const [hovered, setHovered] = useState(false)
 
@@ -15,16 +15,26 @@ export function SwipeNote({
   const tw = trackWidth(gridWidth)
   const cx = x + tw / 2
 
+  const ringClass =
+    validationHighlighted && validationRing === 'error'   ? 'ring-[3px] ring-red-400 scale-150 z-20' :
+    validationHighlighted && validationRing === 'warning' ? 'ring-[3px] ring-yellow-400 scale-150 z-20' :
+    validationRing === 'error'   ? 'ring-2 ring-red-400' :
+    validationRing === 'warning' ? 'ring-2 ring-yellow-400' : ''
+
+  const selectionShadow = isSelected && !validationRing
+    ? { boxShadow: '0 0 0 2px rgba(255,255,255,0.90)' }
+    : undefined
+
   return (
     <>
       <div
         data-note={note.id}
-        className="absolute w-4 h-4 rounded-full cursor-pointer hover:scale-125 transition-transform animate-note-appear"
+        className={`absolute w-4 h-4 rounded-full cursor-pointer hover:scale-125 transition-transform animate-note-appear ${ringClass}`}
         style={{
           left: cx - 8,
           top: y - 8,
           backgroundColor: trackColor(note.track),
-          boxShadow: isSelected ? '0 0 0 2px rgba(255,255,255,0.90)' : undefined,
+          ...selectionShadow,
         }}
         title={`${note.title} | Track ${note.track} | ${note.time}s | SWIPE →`}
         onClick={(e) => onClick(note, e)}

@@ -49,7 +49,6 @@ interface ToolbarProps {
   rightCollapsed:  boolean
   onToggleLeft:    () => void
   onToggleRight:   () => void
-  onStartTapMode?: () => void
 }
 
 export function Toolbar({
@@ -59,7 +58,6 @@ export function Toolbar({
   presenceList, isConnected = false,
   onShowShortcuts,
   leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
-  onStartTapMode,
 }: ToolbarProps) {
   const { resolved: theme, setMode: setTheme } = useThemeStore()
   const user = useAuthStore((s) => s.user)
@@ -95,19 +93,6 @@ export function Toolbar({
             <>
               <div className="editor-toolbar-primary">
                 {canEdit && activeChartId && <AiAssistantTrigger />}
-                {canEdit && onStartTapMode && (
-                  <button
-                    type="button"
-                    onClick={onStartTapMode}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border border-canvas-border hover:bg-canvas-hover"
-                    title="Tap to rhythm (keys 1–8)"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                      <circle cx="6" cy="6" r="4" />
-                    </svg>
-                    Tap
-                  </button>
-                )}
                 {user && (
                   <SessionPresenceMenu
                     users={presenceList}

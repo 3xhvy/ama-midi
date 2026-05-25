@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { analyzeChart, SongDifficultyEnum } from '@ama-midi/shared'
 import type { Note } from '@ama-midi/shared'
@@ -10,8 +10,6 @@ import {
   formatChartSpeedLabel,
   mainReviewReason,
 } from './analysis-summary-copy'
-import { DifficultyHelpModal } from '../../analysis/DifficultyHelpModal'
-
 interface Props {
   notes: Note[]
   bpm: number
@@ -48,7 +46,6 @@ export function AnalysisSummaryPanel({
     [debouncedNotes, bpm, timeSignature, speedMultiplier],
   )
 
-  const [helpOpen, setHelpOpen] = useState(false)
   const tier = analysis.computedDifficulty
   const reviewStatus = analysisReviewStatus(analysis.warnings)
   const reviewReason = mainReviewReason(analysis.warnings, tier)
@@ -106,25 +103,13 @@ export function AnalysisSummaryPanel({
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <Link
-          data-tour="open-analysis-board"
-          to={`/projects/${projectId}/songs/${songId}/charts/${chartId}/analysis`}
-          className="text-[11px] text-primary hover:underline"
-        >
-          Open Analysis Board →
-        </Link>
-        <button
-          type="button"
-          onClick={() => setHelpOpen(true)}
-          className="text-[11px] text-shell-muted hover:text-primary"
-          title="How difficulty works"
-        >
-          How does this work?
-        </button>
-      </div>
-
-      <DifficultyHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <Link
+        data-tour="open-analysis-board"
+        to={`/projects/${projectId}/songs/${songId}/charts/${chartId}/analysis`}
+        className="inline-block text-[11px] text-primary hover:underline"
+      >
+        Open Analysis Board →
+      </Link>
     </div>
   )
 }

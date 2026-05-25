@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { EditorShell } from '../components/layout'
@@ -42,6 +42,7 @@ import { Button, Skeleton, Tabs, ToggleGroup } from '../components/ui'
 import { PianoRoll } from '../features/editor/components/PianoRoll'
 import { HistoryPanel } from '../features/editor/components/HistoryPanel'
 import { ValidationPanel } from '../features/editor/components/ValidationPanel'
+import type { ValidationHoverIssue } from '../features/validation/validation-summary'
 import { ShortcutLegend } from '../features/editor/components/ShortcutLegend'
 import { TourDemoModals } from '../features/editor/components/TourDemoModals'
 import { useSocket } from '../features/collaboration/useSocket'
@@ -60,6 +61,9 @@ import { recordRecentProject, recordRecentSong } from '../features/navigation/re
 import { useValidation } from '../features/validation/useValidation'
 import { computeTrackDensity } from '../features/editor/utils/track-density'
 import { createDefaultLoopRange } from '../features/editor/tap-session'
+import { TapSetupModal, type TapSetupResult } from '../features/editor/components/TapSetupModal'
+import { TapModeHelpModal } from '../features/editor/components/TapModeHelpModal'
+import type { LoopRange } from '../store/editor.store'
 import type { SnapMode } from '../features/editor/engine/beat-calculator'
 
 export function EditorPage() {
@@ -147,16 +151,39 @@ export function EditorPage() {
 
   const { canEdit, readOnlyMessage } = useSongChartAccess(songId, song)
 
-  const startTapMode = useCallback(() => {
-    const bpm = song?.bpm ?? 120
-    const range = loopRange ?? createDefaultLoopRange(playheadTime, snapMode, bpm)
-    if (!loopRange) {
-      setLoopRange(range)
-      toast.info(`Loop range set to ${range.start}s–${range.end}s — Shift+drag the time axis to adjust`)
-    }
-    setTapMode({ loopRange: range, draftNotes: [] })
+  const [tapSetupOpen, setTapSetupOpen]       = useState(false)
+  const [tapHelpOpen, setTapHelpOpen]         = useState(false)
+  const [tapRangePick, setTapRangePick]       = useState(false)
+  const [tapSetupRange, setTapSetupRange]     = useState<LoopRange>({ start: 0, end: 8 })
+
+  const defaultTapRange = useMemo(
+    () => createDefaultLoopRange(playheadTime, snapMode, song?.bpm ?? 120),
+    [playheadTime, snapMode, song?.bpm],
+  )
+
+  function openTapSetup() {
+    setTapSetupRange(loopRange ?? defaultTapRange)
+    setTapSetupOpen(true)
+  }
+
+  function handleTapSetupStart({ loopRange: range, draftNotes }: TapSetupResult) {
+    setLoopRange(range)
+    setTapMode({ loopRange: range, draftNotes })
+    setTapSetupOpen(false)
+    setTapRangePick(false)
     setPlaying(true)
-  }, [loopRange, playheadTime, snapMode, song?.bpm, setLoopRange, setTapMode, setPlaying])
+  }
+
+  function handlePianoRollLoopChange(range: LoopRange | null) {
+    if (!range) return
+    setLoopRange(range)
+    if (tapRangePick) {
+      setTapSetupRange(range)
+      setTapRangePick(false)
+      setTapSetupOpen(true)
+      toast.info(`Loop range: ${range.start}s – ${range.end}s`)
+    }
+  }
 
   const { data: project } = useProject(projectId)
 
@@ -219,7 +246,8 @@ export function EditorPage() {
 
   const applyNoteCopy = useApplyNoteCopy(chartId)
 
-  const jumpToRef = useRef<((time: number, track?: number) => void) | null>(null)
+  const [validationJumpTo, setValidationJumpTo] = useState<{ time: number; track?: number; key: number } | null>(null)
+  const [hoveredValidationIssue, setHoveredValidationIssue] = useState<ValidationHoverIssue | null>(null)
 
   const { summary: validationSummary, data: validationData, issues: validationIssues } = useValidation(songId)
 
@@ -297,7 +325,7 @@ export function EditorPage() {
     onUndo: handleUndo,
     onDeleteNote: () => {},
     onEditNote: () => {},
-    onJumpToStart: () => jumpToRef.current?.(0),
+    onJumpToStart: () => setValidationJumpTo({ time: 0, key: Date.now() }),
     onToggleShortcuts: () => setShowShortcuts((v) => !v),
     onToggleLeftPanel:  handleToggleLeft,
     onToggleRightPanel: handleToggleRight,
@@ -339,7 +367,6 @@ export function EditorPage() {
         rightCollapsed={rightCollapsed}
         onToggleLeft={handleToggleLeft}
         onToggleRight={handleToggleRight}
-        onStartTapMode={canEdit ? startTapMode : undefined}
       />
       {!canEdit && readOnlyMessage && <ReadOnlyBanner message={readOnlyMessage} />}
       {canEdit && <ChartPreviewBar songId={songId!} chartId={chartId} />}
@@ -515,6 +542,8 @@ export function EditorPage() {
             notes={allNotes}
             selectedNotes={selectedNoteObjects}
             canEdit={canEdit}
+            onOpenTapSetup={canEdit ? openTapSetup : undefined}
+            onOpenTapHelp={() => setTapHelpOpen(true)}
             onSavePattern={() => setShowSavePattern(true)}
             onDelete={() => {
               selectedNoteObjects.forEach(n => deleteNote.mutate(n.id))
@@ -529,10 +558,8 @@ export function EditorPage() {
         <Tabs.Content value="validation">
           <ValidationPanel
             songId={songId}
-            onJumpTo={(time, track) => {
-              jumpToRef.current = (t) => console.log('jump to', t, track)
-              jumpToRef.current(time)
-            }}
+            onJumpTo={(time, track) => setValidationJumpTo({ time, track, key: Date.now() })}
+            onHoverIssue={setHoveredValidationIssue}
           />
         </Tabs.Content>
         <Tabs.Content value="history">
@@ -695,17 +722,34 @@ export function EditorPage() {
             readOnlyMessage={readOnlyMessage}
             mutedTracks={mutedTracks}
             validationIssues={validationIssues}
+            highlightedValidationIssue={hoveredValidationIssue}
+            jumpTo={validationJumpTo}
             onNoteSelected={handleNoteSelected}
             cursors={cursors}
             onCursorMove={emitCursorMove}
             onCursorHide={emitCursorHide}
             currentUserId={currentUser?.id}
+            onLoopRangeChange={handlePianoRollLoopChange}
+            loopRangePickActive={tapRangePick}
           />
         </div>
       </EditorShell>
 
       {showShortcuts && <ShortcutLegend onClose={() => setShowShortcuts(false)} />}
       <DifficultyHelpModal open={analysisHelpOpen} onClose={() => setAnalysisHelpOpen(false)} />
+      <TapSetupModal
+        open={tapSetupOpen}
+        initialRange={tapSetupRange}
+        existingNotes={allNotes}
+        onPickOnTimeline={() => {
+          setTapSetupOpen(false)
+          setTapRangePick(true)
+          toast.info('Shift+drag on the time axis to set the loop range')
+        }}
+        onStart={handleTapSetupStart}
+        onCancel={() => { setTapSetupOpen(false); setTapRangePick(false) }}
+      />
+      <TapModeHelpModal open={tapHelpOpen} onClose={() => setTapHelpOpen(false)} />
     </div>
   )
 }
@@ -714,6 +758,8 @@ interface ToolsTabProps {
   notes: Note[]
   selectedNotes: Note[]
   canEdit: boolean
+  onOpenTapSetup?: () => void
+  onOpenTapHelp?:  () => void
   onSavePattern: () => void
   onDelete: () => void
   onDeselect: () => void
@@ -777,6 +823,7 @@ function MultiNoteDetail({ notes }: { notes: Note[] }) {
 
 function ToolsTab({
   notes, selectedNotes, canEdit,
+  onOpenTapSetup, onOpenTapHelp,
   onSavePattern, onDelete, onDeselect, onUpdateSelected,
 }: ToolsTabProps) {
   const {
@@ -864,6 +911,37 @@ function ToolsTab({
           </span>
         </button>
       </section>
+
+      {canEdit && onOpenTapSetup && (
+        <section className="space-y-3 border-t border-shell-border pt-4" data-tour="tap-mode">
+          <PanelHeading title="Tap to Rhythm" />
+          <p className="text-xs leading-relaxed text-shell-muted">
+            Record notes in real time while the chart loops. Keys: A S D F · J K L ;
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onOpenTapSetup}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20 transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+                <circle cx="6" cy="6" r="4" />
+              </svg>
+              Tap to Rhythm
+            </button>
+            {onOpenTapHelp && (
+              <button
+                type="button"
+                onClick={onOpenTapHelp}
+                title="How tap mode works"
+                className="shrink-0 w-9 flex items-center justify-center rounded-md border border-shell-border bg-shell-bg text-sm font-medium text-shell-muted hover:bg-shell-surface transition-colors"
+              >
+                ?
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3 border-t border-shell-border pt-4" data-tour="selection-actions">
         <PanelHeading title="Selection" meta={selectedCount ? `${selectedCount} selected` : 'none'} />

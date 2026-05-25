@@ -14,6 +14,7 @@ export interface TimeAxisProps {
   onAddSection?:      (time: number, e: React.MouseEvent | MouseEvent) => void
   loopRange?:         { start: number; end: number } | null
   onLoopRangeChange?: (range: { start: number; end: number } | null) => void
+  loopRangePickActive?: boolean
 }
 
 const DRAG_THRESHOLD_PX = 4
@@ -28,10 +29,12 @@ export function TimeAxis({
   onAddSection,
   loopRange,
   onLoopRangeChange,
+  loopRangePickActive = false,
 }: TimeAxisProps) {
   const labels = getTimeAxisLabels(pxPerSecond, scrollTop, TIME_MAX)
   const rootRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ active: boolean; moved: boolean; startY: number; altIntent: boolean } | null>(null)
+  const loopCreateRef = useRef<{ active: boolean; anchorTime: number } | null>(null)
   const loopHandleDragRef = useRef<{ handle: 'start' | 'end'; active: boolean } | null>(null)
 
   const timeAtClientY = useCallback((clientY: number) => {
@@ -44,6 +47,16 @@ export function TimeAxis({
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return
+    if (e.shiftKey && onLoopRangeChange) {
+      e.currentTarget.setPointerCapture(e.pointerId)
+      const anchorTime = timeAtClientY(e.clientY)
+      loopCreateRef.current = { active: true, anchorTime }
+      onLoopRangeChange({
+        start: Math.max(0, anchorTime),
+        end: Math.min(TIME_MAX, Math.round((anchorTime + 0.1) * 100) / 100),
+      })
+      return
+    }
     e.currentTarget.setPointerCapture(e.pointerId)
     dragRef.current = {
       active: true,
@@ -52,16 +65,32 @@ export function TimeAxis({
       altIntent: e.altKey,
     }
     if (!e.altKey) onSeek(timeAtClientY(e.clientY))
-  }, [onSeek, timeAtClientY])
+  }, [onLoopRangeChange, onSeek, timeAtClientY])
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const loopCreate = loopCreateRef.current
+    if (loopCreate?.active && onLoopRangeChange) {
+      const time = timeAtClientY(e.clientY)
+      const start = Math.min(loopCreate.anchorTime, time)
+      const end = Math.max(loopCreate.anchorTime, time)
+      onLoopRangeChange({
+        start: Math.max(0, Math.round(start * 100) / 100),
+        end: Math.min(TIME_MAX, Math.max(Math.round(end * 100) / 100, Math.round((start + 0.1) * 100) / 100)),
+      })
+      return
+    }
     const drag = dragRef.current
     if (!drag?.active || drag.altIntent) return
     if (Math.abs(e.clientY - drag.startY) >= DRAG_THRESHOLD_PX) drag.moved = true
     onSeek(timeAtClientY(e.clientY))
-  }, [onSeek, timeAtClientY])
+  }, [onLoopRangeChange, onSeek, timeAtClientY])
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (loopCreateRef.current?.active) {
+      loopCreateRef.current = null
+      e.currentTarget.releasePointerCapture(e.pointerId)
+      return
+    }
     const drag = dragRef.current
     dragRef.current = null
     if (!drag?.active) return
@@ -113,7 +142,9 @@ export function TimeAxis({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      title="Click or drag to move playhead · Alt+click to add section"
+      title={loopRangePickActive
+        ? 'Shift+drag to set tap loop range'
+        : 'Click or drag to move playhead · Shift+drag to set loop range · Alt+click to add section'}
     >
       {labels.map(({ y, label, isWholeSecond }, i) => (
         y > -8 && (
