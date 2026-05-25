@@ -1,14 +1,8 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-  StreamableFile,
-} from '@nestjs/common'
-import { createReadStream, existsSync, mkdirSync, unlinkSync } from 'fs'
-import { join } from 'path'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import type { AuthUser } from '@ama-midi/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectAccessService } from '../project-access/project-access.service'
+import { FileService } from '../file/file.service'
 
 const ALLOWED_MIME = new Set([
   'audio/mpeg',
@@ -29,19 +23,11 @@ interface UploadedAudioFile {
 
 @Injectable()
 export class BackingTrackService {
-  private readonly uploadDir: string
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: ProjectAccessService,
-  ) {
-    this.uploadDir = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'backing-tracks')
-    mkdirSync(this.uploadDir, { recursive: true })
-  }
-
-  private filePath(songId: string): string {
-    return join(this.uploadDir, `${songId}.audio`)
-  }
+    private readonly fileService: FileService,
+  ) {}
 
   async upload(songId: string, file: UploadedAudioFile, user: AuthUser) {
     await this.access.assertCanEditSongChart(songId, user)
@@ -55,23 +41,15 @@ export class BackingTrackService {
     const song = await this.prisma.song.findUnique({ where: { id: songId } })
     if (!song) throw new NotFoundException('Song not found')
 
-    this.removeStoredFile(songId)
-
-    const { writeFileSync } = await import('fs')
-    writeFileSync(this.filePath(songId), file.buffer)
+    const key = this.fileService.backingTrackKey(songId)
+    await this.fileService.upload(key, file.buffer, file.mimetype)
 
     await this.prisma.song.update({
       where: { id: songId },
-      data: {
-        backingTrackFileName: file.originalname,
-        backingTrackUrl: null,
-      },
+      data: { backingTrackFileName: file.originalname, backingTrackUrl: null },
     })
 
-    return {
-      backingTrackFileName: file.originalname,
-      backingTrackUrl: null,
-    }
+    return { backingTrackFileName: file.originalname, backingTrackUrl: null }
   }
 
   async setExternalUrl(songId: string, url: string | null, user: AuthUser) {
@@ -89,56 +67,55 @@ export class BackingTrackService {
       }
     }
 
-    this.removeStoredFile(songId)
+    const key = this.fileService.backingTrackKey(songId)
+    await this.fileService.delete(key)
 
     await this.prisma.song.update({
       where: { id: songId },
-      data: {
-        backingTrackUrl: url?.trim() || null,
-        backingTrackFileName: null,
-      },
+      data: { backingTrackUrl: url?.trim() || null, backingTrackFileName: null },
     })
 
-    return {
-      backingTrackUrl: url?.trim() || null,
-      backingTrackFileName: null,
-    }
+    return { backingTrackUrl: url?.trim() || null, backingTrackFileName: null }
   }
 
-  async stream(songId: string, user: AuthUser): Promise<StreamableFile> {
+  /**
+   * Returns a URL for the backing track.
+   * For uploaded files: generates a presigned R2 URL (or local path in dev).
+   * For external URLs: returns the external URL directly.
+   * Controller redirects (302) to this URL.
+   */
+  async stream(songId: string, user: AuthUser): Promise<{ redirectUrl: string }> {
     await this.access.assertCanViewSong(songId, user)
-
-    const path = this.filePath(songId)
-    if (!existsSync(path)) throw new NotFoundException('No uploaded backing track')
 
     const song = await this.prisma.song.findUnique({
       where: { id: songId },
-      select: { backingTrackFileName: true },
+      select: { backingTrackFileName: true, backingTrackUrl: true },
     })
-    if (!song?.backingTrackFileName) throw new NotFoundException('No uploaded backing track')
 
-    const stream = createReadStream(path)
-    const ext = song.backingTrackFileName.split('.').pop()?.toLowerCase()
-    const type =
-      ext === 'wav' ? 'audio/wav'
-      : ext === 'ogg' ? 'audio/ogg'
-      : 'audio/mpeg'
+    if (!song?.backingTrackFileName && !song?.backingTrackUrl) {
+      throw new NotFoundException('No backing track')
+    }
 
-    return new StreamableFile(stream, { type })
+    if (song.backingTrackUrl) {
+      return { redirectUrl: song.backingTrackUrl }
+    }
+
+    const key = this.fileService.backingTrackKey(songId)
+    const redirectUrl = await this.fileService.getPresignedUrl(key, 3600)
+    return { redirectUrl }
   }
 
   async remove(songId: string, user: AuthUser) {
     await this.access.assertCanEditSongChart(songId, user)
-    this.removeStoredFile(songId)
+
+    const key = this.fileService.backingTrackKey(songId)
+    await this.fileService.delete(key)
+
     await this.prisma.song.update({
       where: { id: songId },
       data: { backingTrackUrl: null, backingTrackFileName: null },
     })
-    return { ok: true }
-  }
 
-  private removeStoredFile(songId: string) {
-    const path = this.filePath(songId)
-    if (existsSync(path)) unlinkSync(path)
+    return { ok: true }
   }
 }
