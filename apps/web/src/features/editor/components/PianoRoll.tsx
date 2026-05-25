@@ -21,7 +21,6 @@ import { CollaboratorCursors } from '../../collaboration/CollaboratorCursors'
 import { SectionMarkers } from './SectionMarkers'
 import { SectionCreatePopover } from './SectionCreatePopover'
 import { DifficultyOverlay } from './DifficultyOverlay'
-import { HitZone } from './HitZone'
 import { TapModeOverlay } from './TapModeOverlay'
 import { TapApplyModal }  from './TapApplyModal'
 import { useTapInput }    from '../hooks/useTapInput'
@@ -31,6 +30,7 @@ import { TIME_AXIS_WIDTH } from '../../../lib/constants'
 import { getSelectionRect, selectNotesInBox, type SelectionPoint } from '../engine/selection-box'
 import type { Note, Song } from '@ama-midi/shared'
 import type { CursorData } from '../../collaboration/useSocket'
+import type { ValidationIssue } from '../../validation/validation-summary'
 
 const HOLD_ARM_MS = 100
 
@@ -52,6 +52,7 @@ interface Props {
   canEdit?:         boolean
   readOnlyMessage?: string | null
   mutedTracks?:     Set<number>
+  validationIssues?: ValidationIssue[]
   onNoteSelected?:  (note: Note | null) => void
   cursors?:         Map<string, CursorData>
   onCursorMove?:    (track: number, time: number) => void
@@ -59,7 +60,7 @@ interface Props {
   currentUserId?:   string
 }
 
-export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), onNoteSelected, cursors, onCursorMove, onCursorHide, currentUserId }: Props) {
+export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true, readOnlyMessage = null, mutedTracks = new Set(), validationIssues = [], onNoteSelected, cursors, onCursorMove, onCursorHide, currentUserId }: Props) {
   const containerRef          = useRef<HTMLDivElement>(null)
   const trackAreaRef          = useRef<HTMLDivElement>(null)
   const headerTracksScrollRef = useRef<HTMLDivElement>(null)
@@ -83,8 +84,8 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   dragRef.current = drag
   const justPlacedRef = useRef(false)
 
-  const { pxPerSecond, viewMode, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
-          selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack, setPlayheadTime,
+  const { pxPerSecond, validationRingsEnabled, playheadTime, snapMode, heatmapEnabled, isPlaying, zoom, setZoom, createMode,
+          selectedNoteIds, selectNote, toggleNoteSelection, addNoteSelection, clearSelection, setActiveTrack, setPlayheadTime, setPlaying,
           tapMode, setTapMode, loopRange, setLoopRange } = useEditorStore()
   pxPerSecondRef.current = pxPerSecond
 
@@ -105,8 +106,18 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [zoom, setZoom])
-  const isPreview = viewMode === 'preview'
-  const effectiveCanEdit = canEdit && !isPreview
+  const effectiveCanEdit = canEdit
+
+  function noteRing(note: Note): 'error' | 'warning' | null {
+    if (!validationRingsEnabled || validationIssues.length === 0) return null
+    const match = validationIssues.find(
+      (i) =>
+        Math.abs(i.time! - note.time) < 0.15 &&
+        (i.track == null || i.track === note.track),
+    )
+    if (!match) return null
+    return match.severity === 'error' ? 'error' : 'warning'
+  }
 
   function notifyReadOnly() {
     toast.info(readOnlyMessage ?? 'This chart is read-only — you cannot add or change notes.', { id: 'read-only-chart' })
@@ -122,6 +133,17 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const timeSignature = song?.timeSignature ?? '4/4'
 
   const { inFlightTracks } = useTapInput({ bpm })
+
+  // After playback stops with no draft notes, exit tap mode
+  useEffect(() => {
+    if (isPlaying) return
+    queueMicrotask(() => {
+      const { tapMode: tm, isPlaying: playing } = useEditorStore.getState()
+      if (playing || !tm || tm.draftNotes.length > 0) return
+      setTapMode(null)
+      toast.info('No notes recorded')
+    })
+  }, [isPlaying, tapMode?.draftNotes.length, setTapMode])
 
   // Cancel tap session when the active chart changes mid-session
   useEffect(() => {
@@ -141,6 +163,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
   const viewportHeight = containerRef.current?.clientHeight ?? 600
   const { timeFrom, timeTo } = getPrefetchTimeRange(scrollTop, viewportHeight, pxPerSecond)
   const { data: notes = [], isLoading } = useNotes(chartId, timeFrom, timeTo)
+  const { data: allChartNotes = [] } = useNotes(chartId)
   const { data: sections = [] } = useSections(songId)
   const createNote = useCreateNote(chartId)
   const deleteNote = useDeleteNote(chartId)
@@ -382,13 +405,17 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
         onNoteSelected?.(null)
       }
       if (e.key === 'Escape' && !popup) {
+        if (tapMode && isPlaying) {
+          setPlaying(false)
+          return
+        }
         clearSelection()
         onNoteSelected?.(null)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedNoteIds, effectiveCanEdit, deleteNote, popup, onNoteSelected, notes, clearSelection])
+  }, [selectedNoteIds, effectiveCanEdit, deleteNote, popup, onNoteSelected, notes, clearSelection, tapMode, isPlaying, setPlaying])
 
   const NOTE_RADIUS_PX = 10 // half-height of a note circle, prevents edge-clipping
   const visibleRange = getVisibleTimeRange(scrollTop, viewportHeight, pxPerSecond)
@@ -532,9 +559,8 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
                 note={note}
                 gridWidth={layoutGridWidth}
                 pxPerSecond={pxPerSecond}
-                viewMode={viewMode}
+                validationRing={noteRing(note)}
                 isSelected={selectedNoteIds.has(note.id)}
-                allNotes={notes}
                 onClick={handleNoteClick}
               />
             ))}
@@ -594,7 +620,7 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
               )
             })()}
 
-            {visibleNotes.length === 0 && viewMode === 'composer' && effectiveCanEdit && (
+            {visibleNotes.length === 0 && effectiveCanEdit && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <p className="text-sm text-canvas-muted">Click for tap · hold 0.1s or drag for hold</p>
               </div>
@@ -615,15 +641,6 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
             />
             </div>
           </div>
-
-          {isPreview && (
-            <HitZone
-              pxPerSecond={pxPerSecond}
-              playheadTime={playheadTime}
-              width={layoutGridWidth}
-              containerRef={containerRef}
-            />
-          )}
 
           {/* Playhead outside scroll — position: absolute relative to this wrapper */}
           <Playhead pxPerSecond={pxPerSecond} containerRef={containerRef} />
@@ -650,10 +667,10 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
       {!isPlaying && tapMode && tapMode.draftNotes.length > 0 && chartId && (
         <TapApplyModal
           tapMode={tapMode}
-          existingNotes={notes}
+          existingNotes={allChartNotes}
           songId={songId}
           onApply={async (notesToCreate) => {
-            await Promise.all(
+            const results = await Promise.allSettled(
               notesToCreate.map((n) =>
                 createNote.mutateAsync({
                   track:    n.track,
@@ -661,9 +678,15 @@ export function PianoRoll({ songId, chartId, speedMultiplier = 1, canEdit = true
                   title:    '',
                   noteType: n.duration != null ? 'HOLD' : 'TAP',
                   duration: n.duration,
-                })
-              )
+                }),
+              ),
             )
+            const applied = results.filter((r) => r.status === 'fulfilled').length
+            const skipped = results.length - applied
+            if (applied === 0 && skipped > 0) {
+              throw new Error('All notes skipped due to conflicts')
+            }
+            return { applied, skipped }
           }}
           onCancel={() => setTapMode(null)}
         />
