@@ -407,54 +407,59 @@ export function EditorPage() {
       <div className="px-3 py-2 border-b border-shell-border">
         <PanelSectionHeader title="Tracks" help={tracksPanelHelp} />
       </div>
-      {notesLoading ? (
-        <LeftPanelSkeleton />
-      ) : (
-        <>
-          <div className="py-1" data-tour="track-list">
-            {Array.from({ length: 8 }, (_, i) => i + 1).map((track) => (
-              <TrackHeader
-                key={track}
-                track={track}
-                isMuted={mutedTracks.has(track)}
-                noteCount={allNotes.filter(n => n.track === track).length}
-                density={trackDensities[track] ?? 0}
-                isActive={activeTrack === track}
-                onToggleMute={() => toggleMute(track, false)}
-              />
-            ))}
+      <div className="py-1" data-tour="track-list">
+        {Array.from({ length: 8 }, (_, i) => i + 1).map((track) => (
+          <TrackHeader
+            key={track}
+            track={track}
+            isMuted={mutedTracks.has(track)}
+            noteCount={allNotes.filter(n => n.track === track).length}
+            density={trackDensities[track] ?? 0}
+            isActive={activeTrack === track}
+            isLoading={notesLoading}
+            onToggleMute={() => toggleMute(track, false)}
+          />
+        ))}
+      </div>
+      <SectionJumpList songId={songId!} sections={sections} isLoading={notesLoading} />
+      <PatternPanel songId={songId!} chartId={chartId} isLoading={notesLoading} />
+      <div className="border-t border-shell-border">
+        <div className="px-3 py-2 border-b border-shell-border">
+          <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Song Stats</span>
+        </div>
+        <BottomBarStats
+          notes={allNotes}
+          bpm={song?.bpm ?? 120}
+          speedMultiplier={activeChart?.speedMultiplier ?? 1}
+          isLoading={notesLoading}
+        />
+      </div>
+      {chartId && projectId && (
+        <div className="border-t border-shell-border">
+          <div className="px-3 py-2 border-b border-shell-border">
+            <PanelSectionHeader title="Analysis" help={analysisPanelHelp} />
           </div>
-          <SectionJumpList songId={songId!} sections={sections} />
-          <PatternPanel songId={songId!} chartId={chartId} />
-          <div className="border-t border-shell-border">
-            <div className="px-3 py-2 border-b border-shell-border">
-              <span className="text-xs font-medium text-shell-text uppercase tracking-wide">Song Stats</span>
+          {notesLoading ? (
+            <div className="px-3 py-3 space-y-2">
+              <Skeleton height={10} className="w-full" />
+              <Skeleton height={10} className="w-3/4" />
+              <Skeleton height={10} className="w-5/6" />
+              <Skeleton height={60} className="w-full mt-1" />
             </div>
-            <BottomBarStats
+          ) : (
+            <AnalysisSummaryPanel
               notes={allNotes}
               bpm={song?.bpm ?? 120}
+              timeSignature={song?.timeSignature ?? '4/4'}
               speedMultiplier={activeChart?.speedMultiplier ?? 1}
+              chartId={chartId}
+              projectId={projectId}
+              songId={songId!}
+              onSeek={(timeMs) => setPlayheadTime(timeMs / 1000)}
+              embedded
             />
-          </div>
-          {chartId && projectId && (
-            <div className="border-t border-shell-border">
-              <div className="px-3 py-2 border-b border-shell-border">
-                <PanelSectionHeader title="Analysis" help={analysisPanelHelp} />
-              </div>
-              <AnalysisSummaryPanel
-                notes={allNotes}
-                bpm={song?.bpm ?? 120}
-                timeSignature={song?.timeSignature ?? '4/4'}
-                speedMultiplier={activeChart?.speedMultiplier ?? 1}
-                chartId={chartId}
-                projectId={projectId}
-                songId={songId!}
-                onSeek={(timeMs) => setPlayheadTime(timeMs / 1000)}
-                embedded
-              />
-            </div>
           )}
-        </>
+        </div>
       )}
     </>
   )
@@ -913,31 +918,5 @@ function ToolRow({
       <span className="text-xs text-shell-muted">{label}</span>
       {children}
     </div>
-  )
-}
-
-function LeftPanelSkeleton() {
-  return (
-    <>
-      <div className="py-1">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-2 px-3 py-1.5">
-            <Skeleton width={8} height={8} rounded="full" />
-            <Skeleton width={16} height={10} />
-            <Skeleton className="flex-1" height={4} />
-          </div>
-        ))}
-      </div>
-      <div className="px-3 py-2 space-y-1.5 border-t border-shell-border">
-        <Skeleton height={10} width={60} />
-        <Skeleton height={24} className="w-full" />
-        <Skeleton height={24} className="w-full" />
-      </div>
-      <div className="px-3 py-3 border-t border-shell-border space-y-2">
-        <Skeleton height={10} width={80} />
-        <Skeleton height={10} className="w-full" />
-        <Skeleton height={10} className="w-3/4" />
-      </div>
-    </>
   )
 }

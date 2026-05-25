@@ -3,13 +3,15 @@ import { useEditorStore } from '../../../store/editor.store'
 import type { SectionMarker } from '@ama-midi/shared'
 import { PanelSectionHeader } from './PanelSectionHeader'
 import { sectionsPanelHelp } from './panel-section-tooltips'
+import { Skeleton } from '../../../components/ui'
 
 interface Props {
-  songId:   string
-  sections: SectionMarker[]
+  songId:    string
+  sections:  SectionMarker[]
+  isLoading?: boolean
 }
 
-export function SectionJumpList({ songId, sections }: Props) {
+export function SectionJumpList({ songId, sections, isLoading = false }: Props) {
   const playheadTime    = useEditorStore(s => s.playheadTime)
   const setPlayheadTime = useEditorStore(s => s.setPlayheadTime)
   const deleteSection   = useDeleteSection(songId)
@@ -21,7 +23,19 @@ export function SectionJumpList({ songId, sections }: Props) {
   return (
     <div className="px-3 py-2 border-t border-shell-border">
       <PanelSectionHeader title="Sections" help={sectionsPanelHelp} className="mb-2" />
-      {sections.length === 0 ? (
+      {isLoading ? (
+        <ul className="space-y-0.5">
+          {[48, 36, 56].map((w, i) => (
+            <li key={i} className="flex items-center justify-between px-1 py-0.5">
+              <span className="flex items-center gap-1">
+                <Skeleton width={8} height={8} rounded="sm" />
+                <Skeleton width={w} height={10} />
+              </span>
+              <Skeleton width={28} height={10} />
+            </li>
+          ))}
+        </ul>
+      ) : sections.length === 0 ? (
         <p className="text-[10px] text-shell-muted">No sections yet. Alt+click the timeline to add one.</p>
       ) : (
         <ul className="space-y-0.5">

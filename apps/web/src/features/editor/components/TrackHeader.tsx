@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { cn } from '../../../lib/utils'
 import { trackColor } from '@ama-midi/shared'
 import { trackBarWidth } from '../utils/track-density'
+import { Skeleton } from '../../../components/ui'
 
 export interface TrackHeaderProps {
   track:        number
@@ -9,11 +10,12 @@ export interface TrackHeaderProps {
   noteCount:    number
   density:      number
   isActive?:    boolean
+  isLoading?:   boolean
   onToggleMute: () => void
 }
 
 export function TrackHeader({
-  track, isMuted, noteCount, density, isActive = false, onToggleMute,
+  track, isMuted, noteCount, density, isActive = false, isLoading = false, onToggleMute,
 }: TrackHeaderProps) {
   const barWidth = trackBarWidth(density)
   const color = trackColor(track)
@@ -49,12 +51,16 @@ export function TrackHeader({
         T{track}
       </span>
 
-      <div className="track-activity-bar-bg flex-1">
-        <div
-          className="track-activity-bar-fill"
-          style={{ width: `${barWidth * 100}%`, backgroundColor: color }}
-        />
-      </div>
+      {isLoading ? (
+        <Skeleton className="flex-1" height={4} />
+      ) : (
+        <div className="track-activity-bar-bg flex-1">
+          <div
+            className="track-activity-bar-fill"
+            style={{ width: `${barWidth * 100}%`, backgroundColor: color }}
+          />
+        </div>
+      )}
 
       <span className="text-[9px] text-shell-muted w-3 text-right shrink-0">
         {isMuted ? 'M' : ''}

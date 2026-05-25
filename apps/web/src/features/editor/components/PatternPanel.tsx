@@ -6,7 +6,7 @@ import {
   useApplyPatternPaste,
 } from '../../patterns/usePatterns'
 import { useEditorStore } from '../../../store/editor.store'
-import { Button, Modal } from '../../../components/ui'
+import { Button, Modal, Skeleton } from '../../../components/ui'
 import { EditorModalContent } from './EditorModal'
 import { toast } from 'sonner'
 import type { ConflictAction, NotePattern, PatternPastePreview } from '@ama-midi/shared'
@@ -21,12 +21,12 @@ import { mergeResolutions, patternPreviewToPlacement } from './placement-preview
 import { PanelSectionHeader } from './PanelSectionHeader'
 import { patternsPanelHelp } from './panel-section-tooltips'
 
-interface Props { songId: string; chartId?: string }
+interface Props { songId: string; chartId?: string; isLoading?: boolean }
 
 type PasteStep = 'INPUT' | 'VALIDATING' | 'REVIEW' | 'APPLYING'
 type ConflictResolutionState = Record<string, ConflictAction>
 
-export function PatternPanel({ songId, chartId }: Props) {
+export function PatternPanel({ songId, chartId, isLoading = false }: Props) {
   const { data: patterns = [] } = usePatterns()
   const deletePattern = useDeletePattern()
   const playheadTime  = useEditorStore(s => s.playheadTime)
@@ -153,7 +153,19 @@ export function PatternPanel({ songId, chartId }: Props) {
   return (
     <div data-tour="pattern-panel" className="px-3 py-2 border-t border-shell-border">
       <PanelSectionHeader title="Patterns" help={patternsPanelHelp} className="mb-2" />
-      {patterns.length === 0 ? (
+      {isLoading ? (
+        <ul className="space-y-1">
+          {[80, 48, 64].map((w, i) => (
+            <li key={i} className="flex items-center justify-between gap-2">
+              <Skeleton height={10} width={w} />
+              <div className="flex shrink-0 gap-1">
+                <Skeleton height={18} width={36} rounded="sm" />
+                <Skeleton height={18} width={18} rounded="sm" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : patterns.length === 0 ? (
         <p className="text-[10px] text-shell-muted">
           No patterns yet. Select 2+ notes and{' '}
           <span data-tour="paste-pattern" className="text-shell-text">save as pattern</span>.
